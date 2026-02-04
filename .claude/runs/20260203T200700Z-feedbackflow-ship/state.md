@@ -1,12 +1,44 @@
 # FeedbackFlow Ship State
 
-## Current Phase: 1.5 - Audit Complete ✅
+## Current Phase: 2.0 - Scaffold Complete ✅
 
 ## Timeline
 - **Started:** 2026-02-03 20:07 CST
 - **Phase 1 Complete:** 2026-02-03 20:30 CST
 - **GPT-5.2 Audit:** 2026-02-03 21:15 CST
 - **Audit Fixes Applied:** 2026-02-03 21:25 CST
+- **Phase 2.0 Complete:** 2026-02-03 ~23:30 CST
+
+## Phase 2.0 Results (Scaffold)
+
+### Files Created - ✅ COMPLETE
+- `electron.vite.config.ts` - Build config for main/preload/renderer
+- `src/main/index.ts` - Main process with app.dock.hide(), tray, BrowserWindow
+- `src/main/tray.ts` - Menu bar tray with 16x16 placeholder icon
+- `src/preload/index.ts` - IPC bridge via contextBridge
+- `src/renderer/index.html` - HTML entry with CSP
+- `src/renderer/main.tsx` - React 18 entry
+- `src/renderer/App.tsx` - "FeedbackFlow Ready" component
+- `src/renderer/index.css` - Tailwind CSS setup
+- `tailwind.config.js` - Tailwind config with content paths
+- `tsconfig.json` - Base TypeScript config
+- `tsconfig.node.json` - Node/Electron config (main + preload)
+- `tsconfig.web.json` - Browser/React config (renderer)
+- `.gitignore` - Standard Electron ignores
+
+### Build Verified ✅
+- main: 5.83 kB (gzip: 2.38 kB)
+- preload: 2.97 kB (gzip: 1.38 kB)
+- renderer: 214.74 kB (gzip: 70.18 kB)
+
+### App Launches ✅
+- `npm run dev` works
+- Menu bar icon appears (placeholder)
+- BrowserWindow opens with "FeedbackFlow Ready"
+- Dock hidden correctly
+
+### Commit
+`37bcbbc` - Phase 2.0: Scaffold complete - Electron + React + TypeScript
 
 ## Phase 1 Results (Design Legion)
 
@@ -28,31 +60,19 @@ Created foundational documentation from master spec:
 
 ### Sections Added
 1. **Permissions UX Flow** (ARCHITECTURE_OVERVIEW §7)
-   - Permission request order
-   - Denial handling with deep-link to Settings
-   - Revocation graceful degradation
-   
 2. **IPC Contract Summary** (ARCHITECTURE_OVERVIEW §8)
-   - Key IPC channels table
-   - TypeScript payload schemas
-   - Error propagation pattern
-   
 3. **Screenshot Capture Policy** (REQUIREMENTS.md)
-   - 1.5s silence detection trigger
-   - Max 1 per 10s throttling
-   - Permission fallback behavior
 
-### Commit
-`064af0e` - docs: apply GPT-5.2 audit fixes
+## Ready for Phase 2.1
 
-## Ready for Phase 2
+Phase 2.1 (Core Infrastructure) can now proceed:
+- Whisper integration
+- Audio capture system
+- State management
+- IPC implementation
 
-Phase 2 (Build Legion) can now proceed with bulletproofed docs:
-- 9 Developer agents
-- 4 QA agents
-- All have audited, consistent specs
-
-## Notes
-- Tech stack: Electron + React + TypeScript (not Swift/SwiftUI)
+## Tech Stack Confirmed
+- Electron 35+ with electron-vite
+- React 18 + TypeScript
+- Tailwind CSS
 - Local Whisper via whisper-node bindings
-- Docs now have full IPC contracts for developer reference
