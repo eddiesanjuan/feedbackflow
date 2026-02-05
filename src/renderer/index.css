@@ -102,7 +102,7 @@ body {
   height: 0;
   border-left: 9px solid transparent;
   border-right: 9px solid transparent;
-  border-bottom: 9px solid rgba(30, 30, 30, 0.85);
+  border-bottom: 9px solid var(--bg-popover-arrow);
 }
 
 .popover-arrow::before {
@@ -114,7 +114,7 @@ body {
   height: 0;
   border-left: 8px solid transparent;
   border-right: 8px solid transparent;
-  border-bottom: 8px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 8px solid var(--bg-arrow-border);
 }
 
 /* macOS Native Spinner */
@@ -166,7 +166,7 @@ body {
   left: 50%;
   width: 3px;
   height: 12px;
-  background: #9ca3af;
+  background: var(--text-tertiary);
   border-radius: 2px;
   transform-origin: center -8px;
 }
@@ -224,18 +224,38 @@ body {
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
+/* Light mode secondary buttons */
 .btn-macos-secondary {
-  background: linear-gradient(180deg, #4b5563 0%, #374151 100%);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  background: linear-gradient(180deg, #e5e7eb 0%, #d1d5db 100%);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  color: #374151;
 }
 
 .btn-macos-secondary:hover {
-  background: linear-gradient(180deg, #6b7280 0%, #4b5563 100%);
+  background: linear-gradient(180deg, #f3f4f6 0%, #e5e7eb 100%);
 }
 
 .btn-macos-secondary:active {
-  background: linear-gradient(180deg, #374151 0%, #1f2937 100%);
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+  background: linear-gradient(180deg, #d1d5db 0%, #9ca3af 100%);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* Dark mode secondary buttons */
+@media (prefers-color-scheme: dark) {
+  .btn-macos-secondary {
+    background: linear-gradient(180deg, #4b5563 0%, #374151 100%);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    color: #ffffff;
+  }
+
+  .btn-macos-secondary:hover {
+    background: linear-gradient(180deg, #6b7280 0%, #4b5563 100%);
+  }
+
+  .btn-macos-secondary:active {
+    background: linear-gradient(180deg, #374151 0%, #1f2937 100%);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+  }
 }
 
 /* Reduced Motion Support - Accessibility */
@@ -276,4 +296,41 @@ select:focus-visible,
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border-width: 0;
+}
+
+/* Theme-aware utility classes */
+.bg-popover {
+  background-color: var(--bg-popover);
+}
+
+.bg-theme-secondary {
+  background-color: var(--bg-secondary);
+}
+
+.bg-theme-tertiary {
+  background-color: var(--bg-tertiary);
+}
+
+.text-theme-primary {
+  color: var(--text-primary);
+}
+
+.text-theme-secondary {
+  color: var(--text-secondary);
+}
+
+.text-theme-tertiary {
+  color: var(--text-tertiary);
+}
+
+.text-theme-muted {
+  color: var(--text-muted);
+}
+
+.border-theme {
+  border-color: var(--border-color);
+}
+
+.border-theme-subtle {
+  border-color: var(--border-subtle);
 }
