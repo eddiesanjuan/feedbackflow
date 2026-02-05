@@ -3,6 +3,7 @@ import { spawn, ChildProcess } from "child_process";
 import { app } from "electron";
 import { join } from "path";
 import { existsSync, mkdirSync } from "fs";
+import { logger } from "../utils/logger";
 
 export interface AudioConfig {
   sampleRate: number;
@@ -111,7 +112,7 @@ export class AudioService extends EventEmitter {
       this.recordingProcess.stderr?.on("data", (data) => {
         const str = data.toString();
         if (str.includes("error") || str.includes("Error")) {
-          console.error("Recording error:", str);
+          logger.error("Recording error:", str);
         }
       });
     });

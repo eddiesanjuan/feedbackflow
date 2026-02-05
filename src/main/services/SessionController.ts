@@ -8,6 +8,7 @@ import { AudioService } from "./AudioService";
 import { TranscriptionService } from "./TranscriptionService";
 import { StateStore } from "./StateStore";
 import { ScreenshotService } from "./ScreenshotService";
+import { logger } from "../utils/logger";
 
 export enum SessionState {
   IDLE = "idle",
@@ -125,7 +126,7 @@ export class SessionController extends EventEmitter {
 
     const stateAge = Date.now() - this.session.stateEnteredAt;
     if (stateAge > timeout.duration) {
-      console.warn(
+      logger.warn(
         `State ${this.session.state} timed out after ${stateAge}ms, transitioning to ${timeout.fallbackState}`,
       );
       this.forceTransition(
@@ -165,12 +166,12 @@ export class SessionController extends EventEmitter {
     try {
       await this.stateStore.save(this.session);
     } catch (err) {
-      console.error("Failed to persist state:", err);
+      logger.error("Failed to persist state:", err);
     }
   }
 
   private forceTransition(state: SessionState, reason: string): void {
-    console.log(`Force transition to ${state}: ${reason}`);
+    logger.log(`Force transition to ${state}: ${reason}`);
 
     if (state === SessionState.IDLE) {
       // Reset to fresh session and emit single state change
@@ -196,7 +197,7 @@ export class SessionController extends EventEmitter {
   ): Promise<T> {
     return new Promise((resolve) => {
       const timer = setTimeout(() => {
-        console.warn(`Operation timed out after ${timeoutMs}ms`);
+        logger.warn(`Operation timed out after ${timeoutMs}ms`);
         resolve(fallbackValue);
       }, timeoutMs);
 
@@ -207,7 +208,7 @@ export class SessionController extends EventEmitter {
         })
         .catch((err) => {
           clearTimeout(timer);
-          console.error("Operation failed:", err);
+          logger.error("Operation failed:", err);
           resolve(fallbackValue);
         });
     });
@@ -223,7 +224,7 @@ export class SessionController extends EventEmitter {
 
   async start(): Promise<boolean> {
     if (this.session.state !== SessionState.IDLE) {
-      console.warn(`Cannot start: current state is ${this.session.state}`);
+      logger.warn(`Cannot start: current state is ${this.session.state}`);
       return false;
     }
 
@@ -261,7 +262,7 @@ export class SessionController extends EventEmitter {
 
   async stop(): Promise<boolean> {
     if (this.session.state !== SessionState.RECORDING) {
-      console.warn(`Cannot stop: current state is ${this.session.state}`);
+      logger.warn(`Cannot stop: current state is ${this.session.state}`);
       return false;
     }
 
@@ -309,7 +310,7 @@ export class SessionController extends EventEmitter {
       this.saveMarkdownToFile();
       this.setState(SessionState.COMPLETE);
     } catch (err) {
-      console.error("Transcription failed:", err);
+      logger.error("Transcription failed:", err);
       this.session.transcript = "[Transcription failed]";
       this.session.markdownOutput = this.generateMarkdown();
       this.saveMarkdownToFile();
@@ -344,9 +345,9 @@ export class SessionController extends EventEmitter {
       // Auto-copy path to clipboard
       clipboard.writeText(filePath);
 
-      console.log(`Report saved to: ${filePath}`);
+      logger.log(`Report saved to: ${filePath}`);
     } catch (err) {
-      console.error("Failed to save markdown to file:", err);
+      logger.error("Failed to save markdown to file:", err);
     }
   }
 

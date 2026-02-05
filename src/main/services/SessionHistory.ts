@@ -1,6 +1,7 @@
 import { app } from "electron";
 import { join } from "path";
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
+import { logger } from "../utils/logger";
 
 export interface RecentSession {
   id: string;
@@ -33,7 +34,7 @@ export class SessionHistory {
         this.sessions = JSON.parse(data);
       }
     } catch (err) {
-      console.error("Failed to load session history:", err);
+      logger.error("Failed to load session history:", err);
       this.sessions = [];
     }
   }
@@ -46,7 +47,7 @@ export class SessionHistory {
         "utf-8"
       );
     } catch (err) {
-      console.error("Failed to save session history:", err);
+      logger.error("Failed to save session history:", err);
     }
   }
 

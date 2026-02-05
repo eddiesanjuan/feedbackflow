@@ -1,10 +1,28 @@
 import { useState, useEffect } from 'react'
 import type { SessionData } from '../types/api'
 
-// SF Symbol: checkmark.circle.fill
+// SF Symbol: checkmark.circle.fill (static version for button)
 const CheckmarkCircleIcon = ({ className }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
     <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+  </svg>
+)
+
+// Animated checkmark using stroke-dashoffset animation
+const AnimatedCheckmark = ({ className }: { className?: string }) => (
+  <svg
+    className={`checkmark-animated ${className || ''}`}
+    viewBox="0 0 24 24"
+    fill="none"
+    aria-hidden="true"
+  >
+    <path
+      d="M5 13l4 4L19 7"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
   </svg>
 )
 
@@ -55,16 +73,16 @@ export function CompleteView({ session, onReset, onCopy }: CompleteViewProps) {
   const displayPath = session.reportPath?.replace(/^\/Users\/[^/]+/, '~') || ''
 
   return (
-    <div className="flex flex-col h-full p-4">
+    <div className="view-transition flex flex-col h-full p-4">
       <div className="flex items-center gap-3 mb-3">
         <div className="w-10 h-10 rounded-full bg-green-600/90 flex items-center justify-center flex-shrink-0">
-          <CheckmarkCircleIcon className="w-6 h-6 text-white" />
+          <AnimatedCheckmark className="w-6 h-6 text-white" />
         </div>
         <div>
-          <h2 className="text-lg font-medium text-white">
+          <h2 className="text-lg font-medium text-theme-primary">
             {showAutoCopied && session.reportPath ? 'Report saved! Path copied' : 'Complete!'}
           </h2>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-theme-tertiary">
             {formatDuration(duration)} recorded
             {session.screenshots.length > 0 && (
               <span> &bull; {session.screenshots.length} screenshot{session.screenshots.length !== 1 ? 's' : ''}</span>
@@ -74,19 +92,19 @@ export function CompleteView({ session, onReset, onCopy }: CompleteViewProps) {
       </div>
 
       {session.reportPath && (
-        <div className="mb-3 px-2 py-1.5 bg-white/5 rounded text-xs text-gray-400 font-mono truncate" aria-label={`Report saved to ${session.reportPath}`}>
+        <div className="mb-3 px-2 py-1.5 bg-theme-tertiary rounded text-xs text-theme-tertiary font-mono truncate" aria-label={`Report saved to ${session.reportPath}`}>
           {displayPath}
         </div>
       )}
 
       <div className="flex-1 min-h-0 mb-3">
         <div
-          className="h-full bg-white/5 rounded p-3 overflow-y-auto"
+          className="h-full bg-theme-tertiary rounded p-3 overflow-y-auto"
           aria-label="Transcription result"
           tabIndex={0}
           role="region"
         >
-          <p className="text-sm text-gray-300 whitespace-pre-wrap font-mono">
+          <p className="text-sm text-theme-secondary whitespace-pre-wrap font-mono">
             {session.markdownOutput || session.transcript || 'No transcription available'}
           </p>
         </div>
@@ -96,7 +114,7 @@ export function CompleteView({ session, onReset, onCopy }: CompleteViewProps) {
         <button
           onClick={onReset}
           aria-label="Start a new recording"
-          className="flex-1 px-4 py-2.5 btn-macos btn-macos-secondary text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900"
+          className="flex-1 px-4 py-2.5 btn-macos btn-macos-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
         >
           New Recording
         </button>
@@ -106,7 +124,7 @@ export function CompleteView({ session, onReset, onCopy }: CompleteViewProps) {
           aria-label={copied ? 'Path copied to clipboard' : 'Copy report path to clipboard'}
           className={`flex-1 px-4 py-2.5 btn-macos ${
             copied ? 'bg-green-600' : 'btn-macos-primary disabled:opacity-50 disabled:cursor-not-allowed'
-          } text-white font-medium flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-gray-900`}
+          } text-white font-medium flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2`}
         >
           {copied ? (
             <>

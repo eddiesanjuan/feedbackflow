@@ -10,7 +10,7 @@ const MacSpinnerLarge = () => (
 export function ProcessingView() {
   return (
     <div
-      className="flex flex-col items-center justify-center h-full p-6"
+      className="view-transition flex flex-col items-center justify-center h-full p-6"
       role="status"
       aria-live="polite"
       aria-busy="true"
@@ -20,22 +20,22 @@ export function ProcessingView() {
         <MacSpinnerLarge />
       </div>
 
-      <h2 className="text-xl font-medium text-white mb-2">Processing</h2>
-      <p className="text-sm text-gray-400 text-center" aria-live="polite">
+      <h2 className="text-xl font-medium text-theme-primary mb-2">Processing</h2>
+      <p className="text-sm text-theme-tertiary text-center" aria-live="polite">
         Transcribing your feedback...
       </p>
-      <p className="text-xs text-gray-500 text-center mt-1">
+      <p className="text-xs text-theme-muted text-center mt-1">
         This may take a few seconds
       </p>
 
       <div className="mt-6 w-full">
         <div
-          className="h-1 bg-white/10 rounded-full overflow-hidden"
+          className="h-1 bg-theme-secondary rounded-full overflow-hidden"
           role="progressbar"
           aria-label="Processing progress"
           aria-valuetext="Processing in progress"
         >
-          <div className="h-full bg-blue-500 animate-pulse w-2/3" />
+          <div className="h-full w-1/3 progress-indeterminate" />
         </div>
       </div>
     </div>

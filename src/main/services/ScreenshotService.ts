@@ -3,6 +3,7 @@ import { desktopCapturer, screen } from 'electron'
 import { app } from 'electron'
 import { join } from 'path'
 import { existsSync, mkdirSync, writeFileSync } from 'fs'
+import { logger } from '../utils/logger'
 
 export interface Screenshot {
   path: string
@@ -40,7 +41,7 @@ export class ScreenshotService extends EventEmitter {
 
   async capture(): Promise<Screenshot | null> {
     if (!this.sessionDir) {
-      console.warn('No active session for screenshot')
+      logger.warn('No active session for screenshot')
       return null
     }
 
@@ -57,7 +58,7 @@ export class ScreenshotService extends EventEmitter {
       })
 
       if (sources.length === 0) {
-        console.error('No screen sources available')
+        logger.error('No screen sources available')
         return null
       }
 
@@ -66,7 +67,7 @@ export class ScreenshotService extends EventEmitter {
       const thumbnail = source.thumbnail
 
       if (thumbnail.isEmpty()) {
-        console.error('Screenshot thumbnail is empty')
+        logger.error('Screenshot thumbnail is empty')
         return null
       }
 
@@ -88,7 +89,7 @@ export class ScreenshotService extends EventEmitter {
       this.emit('captured', screenshot)
       return screenshot
     } catch (err) {
-      console.error('Failed to capture screenshot:', err)
+      logger.error('Failed to capture screenshot:', err)
       this.emit('error', err)
       return null
     }

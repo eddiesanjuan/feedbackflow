@@ -13,6 +13,7 @@ import {
 } from "fs";
 import { get } from "https";
 import type { IncomingMessage } from "http";
+import { logger } from "../utils/logger";
 
 export enum TranscriptionTier {
   WHISPER_LOCAL = "whisper_local",
@@ -218,7 +219,7 @@ export class TranscriptionService extends EventEmitter {
           return result;
         }
       } catch (err) {
-        console.warn("Whisper transcription failed, falling back:", err);
+        logger.warn("Whisper transcription failed, falling back:", err);
       }
     }
 
@@ -293,7 +294,7 @@ export class TranscriptionService extends EventEmitter {
                 return;
               }
             } catch (readErr) {
-              console.warn("Failed to read whisper output file:", readErr);
+              logger.warn("Failed to read whisper output file:", readErr);
             }
           }
 
@@ -356,7 +357,7 @@ export class TranscriptionService extends EventEmitter {
 
   private async transcribeWithFallback(audioPath: string): Promise<string> {
     // Return helpful message based on what's missing
-    console.log("Using fallback transcription for:", audioPath);
+    logger.log("Using fallback transcription for:", audioPath);
 
     if (!this.isModelDownloaded()) {
       return "[Transcription requires Whisper model. Click Settings to download.]";

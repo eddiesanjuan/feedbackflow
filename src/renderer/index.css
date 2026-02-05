@@ -258,6 +258,17 @@ body {
   }
 }
 
+/* Indeterminate Progress Bar Animation */
+@keyframes indeterminate-progress {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+.progress-indeterminate {
+  background: linear-gradient(90deg, transparent, #3b82f6, transparent);
+  animation: indeterminate-progress 1.5s ease-in-out infinite;
+}
+
 /* Reduced Motion Support - Accessibility */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -268,6 +279,52 @@ body {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+
+  .view-transition {
+    animation: none;
+  }
+
+  .checkmark-animated path {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+
+  /* Fallback for indeterminate progress bar - show static bar */
+  .progress-indeterminate {
+    animation: none;
+    transform: translateX(0);
+    background: #3b82f6;
+    width: 50% !important;
+  }
+}
+
+/* View Transition Animation */
+@keyframes view-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.view-transition {
+  animation: view-fade-in 0.15s ease-out;
+}
+
+/* Animated Checkmark for Completion */
+@keyframes checkmark-draw {
+  0% { stroke-dashoffset: 24; }
+  100% { stroke-dashoffset: 0; }
+}
+
+.checkmark-animated path {
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+  animation: checkmark-draw 0.4s ease-out forwards;
+  animation-delay: 0.1s;
 }
 
 /* Focus visible styles for keyboard navigation */

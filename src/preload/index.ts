@@ -30,8 +30,6 @@ const allowedOnChannels = new Set([
   "tray:openSettings",
 ]);
 
-const allowedSendChannels = new Set<string>();
-
 const ensureAllowed = (allowed: Set<string>, channel: string) => {
   if (!allowed.has(channel)) {
     throw new Error(`Blocked IPC channel: ${channel}`);
@@ -39,10 +37,6 @@ const ensureAllowed = (allowed: Set<string>, channel: string) => {
 };
 
 const api = {
-  send: (channel: string, ...args: unknown[]) => {
-    ensureAllowed(allowedSendChannels, channel);
-    ipcRenderer.send(channel, ...args);
-  },
   invoke: (channel: string, ...args: unknown[]) => {
     ensureAllowed(allowedInvokeChannels, channel);
     return ipcRenderer.invoke(channel, ...args);

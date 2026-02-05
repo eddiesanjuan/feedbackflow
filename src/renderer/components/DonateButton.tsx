@@ -53,7 +53,7 @@ export function DonateButton() {
   return (
     <button
       onClick={handleClick}
-      className="group flex items-center gap-2 px-3 py-1.5 text-xs text-gray-500 hover:text-pink-400 transition-colors"
+      className="group flex items-center gap-2 px-3 py-1.5 text-xs text-theme-muted hover:text-pink-400 transition-colors"
     >
       <svg
         className="w-4 h-4 text-pink-500 group-hover:scale-110 transition-transform"

@@ -12,6 +12,7 @@ import {
   SessionHistory,
 } from "./services";
 import { setupIPC } from "./ipc";
+import { logger } from "./utils/logger";
 
 let mainWindow: BrowserWindow | null = null;
 let sessionController: SessionController | null = null;
@@ -97,6 +98,27 @@ function initializeServices(): void {
 }
 
 function registerGlobalShortcuts(): void {
+  // Recording toggle hotkey: Cmd+Shift+F (F for Feedback)
+  globalShortcut.register("CommandOrControl+Shift+F", async () => {
+    if (!sessionController) return;
+
+    // Show the window when shortcut is pressed
+    if (mainWindow) {
+      mainWindow.show();
+    }
+
+    const currentState = sessionController.getState();
+
+    if (currentState === SessionState.IDLE) {
+      // Start recording
+      await sessionController.start();
+    } else if (currentState === SessionState.RECORDING) {
+      // Stop recording
+      await sessionController.stop();
+    }
+    // If in other states (PROCESSING, COMPLETE, ERROR), just show the window
+  });
+
   // Screenshot hotkey: Cmd+Shift+S (S for Screenshot, avoids macOS native conflict)
   globalShortcut.register("CommandOrControl+Shift+S", async () => {
     if (!sessionController || !screenshotService) return;
@@ -126,7 +148,7 @@ async function checkForRecovery(): Promise<void> {
 
   const savedSession = await sessionController.checkRecovery();
   if (savedSession) {
-    console.log("Found interrupted session, notifying renderer");
+    logger.log("Found interrupted session, notifying renderer");
     // The renderer will handle showing the recovery dialog
     mainWindow?.webContents.send("recovery:found", savedSession);
   }

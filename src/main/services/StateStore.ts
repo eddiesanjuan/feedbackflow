@@ -8,6 +8,7 @@ import {
   mkdirSync,
 } from "fs";
 import type { SessionData } from "./SessionController";
+import { logger } from "../utils/logger";
 
 const STATE_FILE = "session-state.json";
 const PERSIST_INTERVAL = 5000; // 5 seconds
@@ -54,7 +55,7 @@ export class StateStore {
       const data = JSON.stringify(this.pendingState, null, 2);
       writeFileSync(this.statePath, data, "utf-8");
     } catch (err) {
-      console.error("Failed to persist state:", err);
+      logger.error("Failed to persist state:", err);
       return;
     }
 
@@ -81,7 +82,7 @@ export class StateStore {
 
       return session;
     } catch (err) {
-      console.error("Failed to load state:", err);
+      logger.error("Failed to load state:", err);
       return null;
     }
   }
@@ -99,7 +100,7 @@ export class StateStore {
         unlinkSync(this.statePath);
       }
     } catch (err) {
-      console.error("Failed to clear state:", err);
+      logger.error("Failed to clear state:", err);
     }
   }
 
@@ -118,7 +119,7 @@ export class StateStore {
         const data = JSON.stringify(this.pendingState, null, 2);
         writeFileSync(this.statePath, data, "utf-8");
       } catch (err) {
-        console.error("Failed to persist final state:", err);
+        logger.error("Failed to persist final state:", err);
       }
     }
   }
