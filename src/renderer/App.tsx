@@ -93,8 +93,7 @@ function App() {
   if (view === 'settings') {
     return (
       <div
-        className="h-screen rounded-xl overflow-hidden relative"
-        style={{ backgroundColor: 'rgba(30, 30, 30, 0.85)' }}
+        className="h-screen bg-popover rounded-xl overflow-hidden relative"
         role="dialog"
         aria-label="Settings"
       >
@@ -153,8 +152,7 @@ function App() {
 
   return (
     <div
-      className="h-screen rounded-xl overflow-hidden flex flex-col relative"
-      style={{ backgroundColor: 'rgba(30, 30, 30, 0.85)' }}
+      className="h-screen bg-popover rounded-xl overflow-hidden flex flex-col relative"
       role="application"
       aria-label="FeedbackFlow"
     >
@@ -168,7 +166,7 @@ function App() {
 
       {/* Footer with donate button (only show in idle/complete states) */}
       {(state === 'idle' || state === 'complete') && (
-        <footer className="py-2 flex justify-center border-t border-white/10">
+        <footer className="py-2 flex justify-center border-t border-theme">
           <DonateButton />
         </footer>
       )}
