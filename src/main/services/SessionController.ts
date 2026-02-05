@@ -95,8 +95,7 @@ export class SessionController extends EventEmitter {
     this.stateStore = stateStore;
     this.screenshotService = screenshotService || null;
     this.session = this.createFreshSession();
-
-    this.startWatchdog();
+    // Don't start watchdog in constructor - only needed when not IDLE
   }
 
   private createFreshSession(): SessionData {
@@ -116,9 +115,17 @@ export class SessionController extends EventEmitter {
   }
 
   private startWatchdog(): void {
+    if (this.watchdogInterval) return; // Already running
     this.watchdogInterval = setInterval(() => {
       this.checkStateHealth();
     }, 1000);
+  }
+
+  private stopWatchdog(): void {
+    if (this.watchdogInterval) {
+      clearInterval(this.watchdogInterval);
+      this.watchdogInterval = null;
+    }
   }
 
   private checkStateHealth(): void {
@@ -145,6 +152,13 @@ export class SessionController extends EventEmitter {
 
     if (error) {
       this.session.error = error;
+    }
+
+    // Manage watchdog: stop when entering IDLE, start when leaving IDLE
+    if (newState === SessionState.IDLE) {
+      this.stopWatchdog();
+    } else if (oldState === SessionState.IDLE) {
+      this.startWatchdog();
     }
 
     this.clearStateTimeout();

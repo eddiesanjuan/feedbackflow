@@ -1,14 +1,24 @@
-import { useTranscription } from '../hooks/useTranscription'
 import { MicIcon, GearIcon, MacSpinner } from './icons'
+import type { TranscriptionConfig } from '../types/api'
+
+interface TranscriptionState {
+  isModelReady: boolean
+  isDownloading: boolean
+  downloadProgress: number
+  config: TranscriptionConfig | null
+  downloadModel: () => Promise<boolean>
+  updateConfig: (newConfig: Partial<TranscriptionConfig>) => Promise<void>
+}
 
 interface IdleViewProps {
   onStart: () => void
   onOpenSettings: () => void
   isLoading: boolean
+  transcription: TranscriptionState
 }
 
-export function IdleView({ onStart, onOpenSettings, isLoading }: IdleViewProps) {
-  const { isModelReady, isDownloading, downloadProgress, downloadModel } = useTranscription()
+export function IdleView({ onStart, onOpenSettings, isLoading, transcription }: IdleViewProps) {
+  const { isModelReady, isDownloading, downloadProgress, downloadModel } = transcription
 
   return (
     <div className="view-transition flex flex-col items-center justify-center h-full p-6">

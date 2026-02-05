@@ -1,5 +1,5 @@
-import { useTranscription } from '../hooks/useTranscription'
 import { DonateButton } from './DonateButton'
+import type { TranscriptionConfig } from '../types/api'
 
 // SF Symbol: chevron.backward
 const ChevronBackIcon = ({ className }: { className?: string }) => (
@@ -8,12 +8,22 @@ const ChevronBackIcon = ({ className }: { className?: string }) => (
   </svg>
 )
 
-interface SettingsViewProps {
-  onBack: () => void
+interface TranscriptionState {
+  isModelReady: boolean
+  isDownloading: boolean
+  downloadProgress: number
+  config: TranscriptionConfig | null
+  downloadModel: () => Promise<boolean>
+  updateConfig: (newConfig: Partial<TranscriptionConfig>) => Promise<void>
 }
 
-export function SettingsView({ onBack }: SettingsViewProps) {
-  const { isModelReady, isDownloading, downloadProgress, config, downloadModel, updateConfig } = useTranscription()
+interface SettingsViewProps {
+  onBack: () => void
+  transcription: TranscriptionState
+}
+
+export function SettingsView({ onBack, transcription }: SettingsViewProps) {
+  const { isModelReady, isDownloading, downloadProgress, config, downloadModel, updateConfig } = transcription
 
   return (
     <div className="view-transition flex flex-col h-full">
@@ -21,7 +31,7 @@ export function SettingsView({ onBack }: SettingsViewProps) {
         <button
           onClick={onBack}
           aria-label="Go back to main view"
-          className="p-1 hover:bg-theme-secondary rounded transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ring-offset-theme"
+          className="p-2 -ml-1 hover:bg-theme-secondary rounded transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ring-offset-theme"
         >
           <ChevronBackIcon className="w-5 h-5 text-theme-tertiary" />
         </button>

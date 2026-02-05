@@ -42,7 +42,7 @@ function createWindow(): BrowserWindow {
       preload: join(__dirname, "../preload/index.js"),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,
     },
   });
 
@@ -105,7 +105,7 @@ function initializeServices(): void {
 
 function registerGlobalShortcuts(): void {
   // Recording toggle hotkey: Cmd+Shift+F (F for Feedback)
-  globalShortcut.register("CommandOrControl+Shift+F", async () => {
+  const feedbackRegistered = globalShortcut.register("CommandOrControl+Shift+F", async () => {
     if (!sessionController) return;
 
     // Show the window when shortcut is pressed
@@ -126,7 +126,7 @@ function registerGlobalShortcuts(): void {
   });
 
   // Screenshot hotkey: Cmd+Shift+S (S for Screenshot, avoids macOS native conflict)
-  globalShortcut.register("CommandOrControl+Shift+S", async () => {
+  const screenshotRegistered = globalShortcut.register("CommandOrControl+Shift+S", async () => {
     if (!sessionController || !screenshotService) return;
 
     // Only capture if actively recording
@@ -143,6 +143,14 @@ function registerGlobalShortcuts(): void {
       }
     }
   });
+
+  // Log warnings if shortcuts failed to register (may conflict with other apps)
+  if (!feedbackRegistered) {
+    logger.warn("Failed to register global shortcut CommandOrControl+Shift+F - may conflict with another app");
+  }
+  if (!screenshotRegistered) {
+    logger.warn("Failed to register global shortcut CommandOrControl+Shift+S - may conflict with another app");
+  }
 }
 
 function unregisterGlobalShortcuts(): void {

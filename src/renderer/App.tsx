@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSession } from './hooks/useSession'
+import { useTranscription } from './hooks/useTranscription'
 import { IdleView } from './components/IdleView'
 import { RecordingView } from './components/RecordingView'
 import { ProcessingView } from './components/ProcessingView'
@@ -12,6 +13,7 @@ type View = 'main' | 'settings'
 
 function App() {
   const { state, session, isLoading, start, stop, cancel, reset, copyToClipboard, captureScreenshot } = useSession()
+  const transcription = useTranscription()
   const [view, setView] = useState<View>('main')
   const [screenshotCount, setScreenshotCount] = useState(0)
 
@@ -105,7 +107,7 @@ function App() {
         aria-label="Settings"
       >
         <div className="popover-arrow" aria-hidden="true" />
-        <SettingsView onBack={() => setView('main')} />
+        <SettingsView onBack={() => setView('main')} transcription={transcription} />
       </div>
     )
   }
@@ -118,6 +120,7 @@ function App() {
             onStart={start}
             onOpenSettings={() => setView('settings')}
             isLoading={isLoading}
+            transcription={transcription}
           />
         )
       case 'starting':
@@ -126,6 +129,7 @@ function App() {
             onStart={start}
             onOpenSettings={() => setView('settings')}
             isLoading={true}
+            transcription={transcription}
           />
         )
       case 'recording':
