@@ -117,7 +117,7 @@ export class AudioService extends EventEmitter {
         this.recordingProcess.on('error', (err) => {
           this.isRecording = false
           if (err.message.includes('ENOENT')) {
-            reject(new Error('No audio recording tool found. Please install sox or ffmpeg.'))
+            reject(new Error('Audio recording failed. Please ensure ffmpeg is installed (brew install ffmpeg) and microphone access is granted.'))
           } else {
             reject(err)
           }
