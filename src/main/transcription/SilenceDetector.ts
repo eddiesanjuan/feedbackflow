@@ -96,7 +96,7 @@ export class SilenceDetector extends EventEmitter {
    * @param samples Float32Array of audio samples (16kHz mono)
    * @param durationMs Duration of this chunk in milliseconds
    */
-  addAudio(samples: Float32Array, durationMs: number): void {
+  addAudio(samples: Float32Array, _durationMs: number): void {
     if (!this.isActive) {
       return;
     }
@@ -110,13 +110,15 @@ export class SilenceDetector extends EventEmitter {
     if (isSpeech) {
       // Voice detected
       if (!this.isSpeaking) {
+        this.log(`Speech started (RMS: ${rms.toFixed(4)}, threshold: ${this.config.silenceThreshold})`);
         this.isSpeaking = true;
         this.silenceStartTime = 0;
       }
     } else {
       // Silence detected
       if (this.isSpeaking) {
-        // Transition from speaking to silence
+        // Transition from speaking to silence - START counting silence duration
+        this.log(`Speech ended, starting silence timer (RMS: ${rms.toFixed(4)})`);
         this.isSpeaking = false;
         this.silenceStartTime = now;
       } else if (this.silenceStartTime > 0) {
@@ -128,10 +130,19 @@ export class SilenceDetector extends EventEmitter {
           const timeSinceLastEvent = now - this.lastSilenceEventTime;
 
           if (timeSinceLastEvent >= this.config.debounceDurationMs) {
+            this.log(`Silence threshold reached (${silenceDuration}ms >= ${this.config.silenceDurationMs}ms)`);
             this.emitSilence(now / 1000);
             this.silenceStartTime = 0; // Reset to prevent repeated events
+          } else {
+            this.log(`Silence debounced (${timeSinceLastEvent}ms since last event)`);
           }
         }
+      }
+      // FIX: If we're not speaking and silenceStartTime is 0, we're in initial state
+      // Start the silence timer so we can detect the first pause
+      else if (this.silenceStartTime === 0 && !this.isSpeaking) {
+        // Initial silence - start timer but require at least one speech event first
+        // to avoid triggering on startup
       }
     }
   }

@@ -116,6 +116,24 @@ export class TierManager extends EventEmitter {
   }
 
   /**
+   * Check if a tier actually provides transcription
+   * macos-dictation is a placeholder and timer-only never transcribes
+   */
+  tierProvidesTranscription(tier: TranscriptionTier): boolean {
+    return tier === 'deepgram' || tier === 'whisper';
+  }
+
+  /**
+   * Check if we have any tier that can actually transcribe
+   */
+  async hasTranscriptionCapability(): Promise<boolean> {
+    const statuses = await this.getTierStatuses();
+    return statuses.some(
+      (s) => s.available && this.tierProvidesTranscription(s.tier)
+    );
+  }
+
+  /**
    * Get all tier qualities
    */
   getAllTierQualities(): Record<TranscriptionTier, TierQuality> {
@@ -148,7 +166,26 @@ export class TierManager extends EventEmitter {
       throw new Error('TierManager already active. Call stop() first.');
     }
 
+    // Log all tier statuses for debugging
+    const statuses = await this.getTierStatuses();
+    this.log('=== TIER AVAILABILITY CHECK ===');
+    for (const status of statuses) {
+      this.log(`  ${status.tier}: ${status.available ? 'AVAILABLE' : `UNAVAILABLE - ${status.reason}`}`);
+    }
+
     const tier = await this.selectBestTier();
+
+    // Warn if falling back to a tier that doesn't provide transcription
+    if (tier === 'macos-dictation') {
+      this.log('WARNING: macOS Dictation tier is a PLACEHOLDER - it does NOT produce transcriptions!');
+      this.log('WARNING: Only pause events (for screenshots) will be emitted.');
+      this.log('WARNING: Consider downloading a Whisper model or configuring Deepgram API key.');
+    } else if (tier === 'timer-only') {
+      this.log('WARNING: Timer-only mode - NO transcription will be produced!');
+      this.log('WARNING: Only periodic screenshot triggers will be emitted.');
+    }
+
+    this.log(`Selected tier: ${tier}`);
     await this.startTier(tier);
 
     return tier;
@@ -207,6 +244,21 @@ export class TierManager extends EventEmitter {
   }
 
   /**
+   * Convert Buffer to Float32Array correctly
+   * Node.js Buffers can have different byteOffset than 0, so we need to account for that
+   */
+  private bufferToFloat32Array(buffer: Buffer): Float32Array {
+    // CRITICAL FIX: When converting from Node.js Buffer to Float32Array,
+    // we must account for the buffer's byteOffset and byteLength.
+    // Simply using new Float32Array(buffer.buffer) can read from wrong memory locations!
+    return new Float32Array(
+      buffer.buffer,
+      buffer.byteOffset,
+      buffer.byteLength / 4  // Float32 = 4 bytes per element
+    );
+  }
+
+  /**
    * Send audio to the active transcription service
    */
   sendAudio(samples: Float32Array | Buffer, timestamp: number, durationMs: number): void {
@@ -215,26 +267,29 @@ export class TierManager extends EventEmitter {
     }
 
     switch (this.currentTier) {
-      case 'deepgram':
+      case 'deepgram': {
         // Deepgram expects Buffer
         const buffer = Buffer.isBuffer(samples) ? samples : Buffer.from(samples.buffer);
         deepgramService.sendAudio({ data: buffer, timestamp });
         break;
+      }
 
-      case 'whisper':
-        // Whisper expects Float32Array
-        const float32 = samples instanceof Float32Array ? samples : new Float32Array(samples.buffer);
+      case 'whisper': {
+        // Whisper expects Float32Array - use correct conversion
+        const float32 = samples instanceof Float32Array ? samples : this.bufferToFloat32Array(samples);
         whisperService.addAudio(float32, durationMs);
         // Also feed silence detector for screenshot triggers
         silenceDetector.addAudio(float32, durationMs);
         break;
+      }
 
-      case 'macos-dictation':
+      case 'macos-dictation': {
         // macOS dictation handles its own audio capture
         // We only need silence detection for screenshots
-        const float32ForSilence = samples instanceof Float32Array ? samples : new Float32Array(samples.buffer);
+        const float32ForSilence = samples instanceof Float32Array ? samples : this.bufferToFloat32Array(samples);
         silenceDetector.addAudio(float32ForSilence, durationMs);
         break;
+      }
 
       case 'timer-only':
         // No transcription, just accumulate audio for recording
@@ -448,15 +503,20 @@ export class TierManager extends EventEmitter {
     // We just need silence detection for screenshot triggers
 
     const unsubSilence = silenceDetector.onSilenceDetected((timestamp) => {
+      this.log(`Pause detected at ${timestamp.toFixed(2)}s - triggering screenshot`);
       this.emitPause({ timestamp, tier: 'macos-dictation' });
     });
     this.cleanupFunctions.push(unsubSilence);
 
     silenceDetector.start();
 
-    // Note: Full macOS Dictation integration would require NSSpeechRecognizer
-    // This is a placeholder that uses timer-based pause detection
-    this.log('macOS Dictation started (placeholder - uses silence detection)');
+    // IMPORTANT: This is a PLACEHOLDER tier - it does NOT produce actual transcriptions!
+    // Full macOS Dictation integration would require NSSpeechRecognizer native bindings.
+    // Currently it ONLY emits pause events for screenshot capture.
+    this.log('=== macOS Dictation tier started ===');
+    this.log('NOTE: This tier is a PLACEHOLDER - NO TRANSCRIPTION will be produced!');
+    this.log('NOTE: Only silence detection for screenshot triggers is active.');
+    this.log('NOTE: To get actual transcription, download a Whisper model or configure Deepgram.');
   }
 
   private async startTimerOnly(): Promise<void> {

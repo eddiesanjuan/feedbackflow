@@ -17,7 +17,8 @@ import { BrowserWindow } from 'electron';
 import { randomUUID } from 'crypto';
 import { audioCapture, type AudioChunk } from './audio/AudioCapture';
 import { screenCapture } from './capture/ScreenCapture';
-import { transcriptionService, type TranscriptResult } from './transcription/TranscriptionService';
+import { tierManager } from './transcription';
+import type { TranscriptEvent, PauseEvent } from './transcription/types';
 import { IPC_CHANNELS } from '../shared/types';
 import { errorHandler } from './ErrorHandler';
 // Note: CrashRecovery module runs independently for crash logging.
@@ -93,7 +94,7 @@ export interface Session {
   state: SessionState;
   sourceId: string;
   feedbackItems: FeedbackItem[];
-  transcriptBuffer: TranscriptResult[];
+  transcriptBuffer: TranscriptEvent[];
   screenshotBuffer: Screenshot[];
   metadata: SessionMetadata;
 }
@@ -213,7 +214,6 @@ export class SessionController {
   // Service references (using actual implementations)
   private audioCaptureService: typeof audioCapture;
   private screenCaptureService: typeof screenCapture;
-  private transcriptionServiceRef: typeof transcriptionService;
 
   // Cleanup functions for event subscriptions
   private cleanupFunctions: Array<() => void> = [];
@@ -241,7 +241,6 @@ export class SessionController {
     // Use singleton instances
     this.audioCaptureService = audioCapture;
     this.screenCaptureService = screenCapture;
-    this.transcriptionServiceRef = transcriptionService;
   }
 
   // ===========================================================================
@@ -476,9 +475,12 @@ export class SessionController {
 
   /**
    * Configure transcription service with API key
+   * Note: TierManager handles API key configuration internally via settings
+   * This method is kept for backward compatibility but is now a no-op
    */
-  configureTranscription(apiKey: string): void {
-    this.transcriptionServiceRef.configure(apiKey);
+  configureTranscription(_apiKey: string): void {
+    // TierManager reads API key from settings automatically
+    // No action needed here
   }
 
   // ===========================================================================
@@ -546,6 +548,9 @@ export class SessionController {
     if (!this.transition('starting')) {
       throw new Error('Failed to transition to starting state');
     }
+
+    // Reset counters
+    this.audioChunkCount = 0;
 
     // Create new session
     this.session = {
@@ -627,30 +632,48 @@ export class SessionController {
 
     this.cleanupFunctions.push(unsubAudioChunk, unsubVoiceActivity, unsubAudioError);
 
-    // Subscribe to transcription events
-    const unsubTranscript = this.transcriptionServiceRef.onTranscript((result) =>
-      this.handleTranscriptResult(result)
+    // Subscribe to transcription events via TierManager
+    const unsubTranscript = tierManager.onTranscript((event) =>
+      this.handleTranscriptResult(event)
     );
-    const unsubUtteranceEnd = this.transcriptionServiceRef.onUtteranceEnd((timestamp) =>
-      this.handleUtteranceEnd(timestamp)
+    const unsubPause = tierManager.onPause((event) =>
+      this.handleUtteranceEnd(event.timestamp)
     );
-    const unsubTransError = this.transcriptionServiceRef.onError((error) =>
+    const unsubTransError = tierManager.onError((error) =>
       this.handleServiceError('transcription', error)
     );
 
-    this.cleanupFunctions.push(unsubTranscript, unsubUtteranceEnd, unsubTransError);
+    this.cleanupFunctions.push(unsubTranscript, unsubPause, unsubTransError);
 
     // Calculate remaining time
     const elapsed = Date.now() - startTime;
     const remaining = Math.max(totalTimeout - elapsed, 1000);
 
-    // Start transcription service with timeout
-    await this.withTimeout(
-      this.transcriptionServiceRef.start(),
+    // Start transcription service with timeout (TierManager auto-selects best tier)
+    const selectedTier = await this.withTimeout(
+      tierManager.start(),
       remaining / 2, // Half of remaining time
-      undefined,
-      'TranscriptionService.start()'
+      'timer-only' as const,
+      'TierManager.start()'
     );
+
+    // Warn the user if no real transcription is available
+    if (!tierManager.tierProvidesTranscription(selectedTier)) {
+      console.warn(`[SessionController] WARNING: Selected tier "${selectedTier}" does NOT provide transcription!`);
+      console.warn('[SessionController] Feedback items will only have screenshots, NO text transcription.');
+      console.warn('[SessionController] To enable transcription:');
+      console.warn('[SessionController]   - Download a Whisper model in Settings > Transcription');
+      console.warn('[SessionController]   - OR configure a Deepgram API key');
+
+      // Emit warning to renderer
+      this.emitToRenderer('session:warning', {
+        type: 'noTranscription',
+        message: 'No transcription available. Download a Whisper model in Settings for voice transcription.',
+        tier: selectedTier,
+      });
+    } else {
+      console.log(`[SessionController] Transcription tier active: ${selectedTier}`);
+    }
 
     // Check if we still have time
     const elapsed2 = Date.now() - startTime;
@@ -885,6 +908,9 @@ export class SessionController {
   // Service Event Handlers
   // ===========================================================================
 
+  // Audio chunk counter for debug logging
+  private audioChunkCount: number = 0;
+
   /**
    * Handle audio chunk from microphone
    */
@@ -893,11 +919,16 @@ export class SessionController {
       return;
     }
 
-    // Send audio to transcription service
-    this.transcriptionServiceRef.sendAudio({
-      data: chunk.buffer,
-      timestamp: chunk.timestamp,
-    });
+    // Send audio to TierManager (handles routing to active transcription tier)
+    // TierManager expects: samples (Float32Array|Buffer), timestamp, durationMs
+    const durationMs = (chunk.buffer.byteLength / 4) / 16000 * 1000; // Assuming 16kHz mono Float32
+    tierManager.sendAudio(chunk.buffer, chunk.timestamp, durationMs);
+
+    // Log every 100 chunks (roughly every 10 seconds at 100ms chunks)
+    this.audioChunkCount++;
+    if (this.audioChunkCount % 100 === 0) {
+      console.log(`[SessionController] Audio: ${this.audioChunkCount} chunks sent, ${Math.round(this.audioChunkCount * 0.1)}s of audio`);
+    }
   }
 
   /**
@@ -913,10 +944,11 @@ export class SessionController {
    */
   private async handleUtteranceEnd(_timestamp: number): Promise<void> {
     if (this.state !== 'recording' || !this.session) {
+      console.log(`[SessionController] handleUtteranceEnd skipped: state=${this.state}, hasSession=${!!this.session}`);
       return;
     }
 
-    console.log('[SessionController] Utterance ended, capturing screenshot');
+    console.log('[SessionController] Utterance ended, capturing screenshot...');
 
     try {
       // Capture using the session's source
@@ -934,6 +966,7 @@ export class SessionController {
       };
 
       this.session.screenshotBuffer.push(screenshot);
+      console.log(`[SessionController] Screenshot captured! Total: ${this.session.screenshotBuffer.length}`);
 
       // Add to pending for transcript matching
       this.pendingScreenshots.push(screenshot);
@@ -955,31 +988,33 @@ export class SessionController {
   }
 
   /**
-   * Handle transcript result from Deepgram
+   * Handle transcript result from TierManager (any tier: Deepgram, Whisper, etc.)
    */
-  private handleTranscriptResult(result: TranscriptResult): void {
+  private handleTranscriptResult(event: TranscriptEvent): void {
     if (!this.session) {
       return;
     }
 
     // Add to buffer
-    this.session.transcriptBuffer.push(result);
+    this.session.transcriptBuffer.push(event);
 
     // Emit to renderer
-    if (result.isFinal) {
-      console.log(`[SessionController] Final transcript: "${result.text}"`);
+    if (event.isFinal) {
+      console.log(`[SessionController] Final transcript (${event.tier}): "${event.text}"`);
       this.emitToRenderer(IPC_CHANNELS.TRANSCRIPTION_FINAL, {
-        text: result.text,
-        confidence: result.confidence,
-        timestamp: result.timestamp,
+        text: event.text,
+        confidence: event.confidence,
+        timestamp: event.timestamp,
+        tier: event.tier,
       });
 
       // Try to match with pending screenshots
-      this.tryMatchTranscriptToScreenshot(result);
+      this.tryMatchTranscriptToScreenshot(event);
     } else {
       this.emitToRenderer(IPC_CHANNELS.TRANSCRIPTION_UPDATE, {
-        text: result.text,
+        text: event.text,
         isFinal: false,
+        tier: event.tier,
       });
     }
   }
@@ -1089,13 +1124,13 @@ export class SessionController {
   /**
    * Try to match a transcript to pending screenshots
    */
-  private tryMatchTranscriptToScreenshot(result: TranscriptResult): void {
-    if (!this.session || this.pendingScreenshots.length === 0 || !result.isFinal) {
+  private tryMatchTranscriptToScreenshot(event: TranscriptEvent): void {
+    if (!this.session || this.pendingScreenshots.length === 0 || !event.isFinal) {
       return;
     }
 
     // Find screenshots within the match window
-    const resultTimeMs = result.timestamp * 1000;
+    const resultTimeMs = event.timestamp * 1000;
     const matchingScreenshots = this.pendingScreenshots.filter(
       (s) =>
         s.timestamp - resultTimeMs < this.TRANSCRIPT_MATCH_WINDOW_MS &&
@@ -1529,7 +1564,10 @@ export class SessionController {
       // Ignore
     }
     try {
-      this.transcriptionServiceRef.stop();
+      // TierManager.stop() is async but we don't wait in forced cleanup
+      tierManager.stop().catch(() => {
+        // Ignore errors in forced cleanup
+      });
     } catch {
       // Ignore
     }
@@ -1654,7 +1692,10 @@ export class SessionController {
 
     // Stop services
     this.audioCaptureService.stop();
-    this.transcriptionServiceRef.stop();
+    // TierManager.stop() is async, but we call it and don't wait
+    tierManager.stop().catch((error) => {
+      console.warn('[SessionController] TierManager stop error:', error);
+    });
   }
 
   /**
@@ -1687,10 +1728,11 @@ export class SessionController {
         serviceTimeout,
         'AudioCapture.stop()'
       ),
-      this.withTimeoutSync(
-        () => this.transcriptionServiceRef.stop(),
+      this.withTimeout(
+        tierManager.stop(),
         serviceTimeout,
-        'TranscriptionService.stop()'
+        undefined,
+        'TierManager.stop()'
       ),
     ]);
 
@@ -1699,7 +1741,7 @@ export class SessionController {
       console.warn('[SessionController] Audio cleanup failed:', audioResult.reason);
     }
     if (transcriptionResult.status === 'rejected') {
-      console.warn('[SessionController] Transcription cleanup failed:', transcriptionResult.reason);
+      console.warn('[SessionController] TierManager cleanup failed:', transcriptionResult.reason);
     }
 
     console.log('[SessionController] Service cleanup complete');
