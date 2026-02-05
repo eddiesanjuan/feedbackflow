@@ -45,6 +45,9 @@ export function IdleView({ onStart, onOpenSettings, isLoading }: IdleViewProps) 
           >
             Download Model (~140MB)
           </button>
+          <p className="text-xs text-gray-500 text-center mt-2">
+            Also requires: brew install whisper-cpp
+          </p>
         </div>
       )}
 

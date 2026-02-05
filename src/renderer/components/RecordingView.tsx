@@ -70,7 +70,7 @@ export function RecordingView({
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
         Screenshot
-        <span className="text-xs text-gray-500 ml-1">(Cmd+Shift+4)</span>
+        <span className="text-xs text-gray-500 ml-1">(Cmd+Shift+S)</span>
       </button>
 
       <div className="flex gap-3 w-full">

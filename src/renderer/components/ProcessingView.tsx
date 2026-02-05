@@ -29,6 +29,9 @@ export function ProcessingView() {
       <p className="text-sm text-gray-400 text-center">
         Transcribing your feedback...
       </p>
+      <p className="text-xs text-gray-500 text-center mt-1">
+        This may take a few seconds
+      </p>
 
       <div className="mt-6 w-full">
         <div className="h-1 bg-gray-700 rounded-full overflow-hidden">

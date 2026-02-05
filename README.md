@@ -41,8 +41,10 @@ npm run package
 ## System Requirements
 
 - macOS 12.0 (Monterey) or later
-- ffmpeg (`brew install ffmpeg`)
+- ffmpeg (`brew install ffmpeg`) for audio recording
+- whisper.cpp (`brew install whisper-cpp`) for transcription
 - Microphone access permission
+- Screen recording permission (for screenshots)
 
 ## Usage
 
@@ -56,6 +58,8 @@ npm run package
 ### First Time Setup
 
 On first launch, you'll be prompted to download the Whisper model (~140MB). This enables fully offline transcription.
+
+**Note:** You must have `whisper-cpp` installed for transcription to work. Install with: `brew install whisper-cpp`
 
 ## How It Works
 
