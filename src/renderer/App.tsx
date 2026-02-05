@@ -11,8 +11,9 @@ import { DonateButton } from './components/DonateButton'
 type View = 'main' | 'settings'
 
 function App() {
-  const { state, session, isLoading, start, stop, cancel, reset, copyToClipboard } = useSession()
+  const { state, session, isLoading, start, stop, cancel, reset, copyToClipboard, captureScreenshot } = useSession()
   const [view, setView] = useState<View>('main')
+  const [screenshotCount, setScreenshotCount] = useState(0)
 
   // Listen for tray menu events
   useEffect(() => {
@@ -31,6 +32,39 @@ function App() {
       unsubOpenSettings()
     }
   }, [state, start])
+
+  // Listen for screenshot events
+  useEffect(() => {
+    const unsubScreenshot = window.api.on('screenshot:captured', (data: unknown) => {
+      const { index } = data as { index: number }
+      setScreenshotCount(index)
+    })
+
+    return () => {
+      unsubScreenshot()
+    }
+  }, [])
+
+  // Reset screenshot count when starting a new recording
+  useEffect(() => {
+    if (state === 'idle') {
+      setScreenshotCount(0)
+    }
+  }, [state])
+
+  // Update screenshot count from session data
+  useEffect(() => {
+    if (session?.screenshots) {
+      setScreenshotCount(session.screenshots.length)
+    }
+  }, [session?.screenshots])
+
+  const handleScreenshot = async () => {
+    const result = await captureScreenshot()
+    if (!result.success) {
+      console.error('Screenshot failed:', result.error)
+    }
+  }
 
   if (view === 'settings') {
     return (
@@ -62,8 +96,10 @@ function App() {
         return (
           <RecordingView
             startedAt={session?.startedAt || null}
+            screenshotCount={screenshotCount}
             onStop={stop}
             onCancel={cancel}
+            onScreenshot={handleScreenshot}
             isLoading={isLoading}
           />
         )

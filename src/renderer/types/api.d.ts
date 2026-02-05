@@ -6,8 +6,21 @@ export interface SessionData {
   audioPath: string | null
   transcript: string | null
   screenshots: string[]
+  markdownOutput: string | null
   error: string | null
   stateEnteredAt: number
+}
+
+export interface Screenshot {
+  path: string
+  timestamp: number
+  index: number
+}
+
+export interface ScreenshotResult {
+  success: boolean
+  screenshot?: Screenshot
+  error?: string
 }
 
 export type SessionState =

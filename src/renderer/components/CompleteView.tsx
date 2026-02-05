@@ -11,8 +11,9 @@ export function CompleteView({ session, onReset, onCopy }: CompleteViewProps) {
   const [copied, setCopied] = useState(false)
 
   const handleCopy = () => {
-    if (session.transcript) {
-      onCopy(session.transcript)
+    const textToCopy = session.markdownOutput || session.transcript || ''
+    if (textToCopy) {
+      onCopy(textToCopy)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     }
@@ -21,6 +22,12 @@ export function CompleteView({ session, onReset, onCopy }: CompleteViewProps) {
   const duration = session.startedAt && session.stoppedAt
     ? Math.floor((session.stoppedAt - session.startedAt) / 1000)
     : 0
+
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins}:${String(secs).padStart(2, '0')}`
+  }
 
   return (
     <div className="flex flex-col h-full p-4">
@@ -33,15 +40,18 @@ export function CompleteView({ session, onReset, onCopy }: CompleteViewProps) {
         <div>
           <h2 className="text-lg font-medium text-white">Complete!</h2>
           <p className="text-xs text-gray-400">
-            {duration}s recorded
+            {formatDuration(duration)} recorded
+            {session.screenshots.length > 0 && (
+              <span> &bull; {session.screenshots.length} screenshot{session.screenshots.length !== 1 ? 's' : ''}</span>
+            )}
           </p>
         </div>
       </div>
 
       <div className="flex-1 min-h-0 mb-4">
         <div className="h-full bg-gray-800 rounded-lg p-3 overflow-y-auto">
-          <p className="text-sm text-gray-300 whitespace-pre-wrap">
-            {session.transcript || 'No transcription available'}
+          <p className="text-sm text-gray-300 whitespace-pre-wrap font-mono">
+            {session.markdownOutput || session.transcript || 'No transcription available'}
           </p>
         </div>
       </div>
@@ -76,7 +86,7 @@ export function CompleteView({ session, onReset, onCopy }: CompleteViewProps) {
                   d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
                 />
               </svg>
-              Copy
+              Copy Markdown
             </>
           )}
         </button>

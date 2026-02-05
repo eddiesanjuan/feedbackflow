@@ -2,3 +2,4 @@ export { SessionController, SessionState, type SessionData } from './SessionCont
 export { AudioService, type AudioConfig } from './AudioService'
 export { TranscriptionService, TranscriptionTier, type TranscriptionConfig } from './TranscriptionService'
 export { StateStore } from './StateStore'
+export { ScreenshotService, type Screenshot } from './ScreenshotService'

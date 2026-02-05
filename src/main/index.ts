@@ -1,8 +1,8 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, globalShortcut } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { createTray, updateTrayIcon } from './tray'
-import { SessionController, AudioService, TranscriptionService, StateStore, SessionState } from './services'
+import { SessionController, AudioService, TranscriptionService, StateStore, SessionState, ScreenshotService } from './services'
 import { setupIPC } from './ipc'
 
 let mainWindow: BrowserWindow | null = null
@@ -10,6 +10,7 @@ let sessionController: SessionController | null = null
 let audioService: AudioService | null = null
 let transcriptionService: TranscriptionService | null = null
 let stateStore: StateStore | null = null
+let screenshotService: ScreenshotService | null = null
 
 function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
@@ -50,12 +51,38 @@ function initializeServices(): void {
   stateStore = new StateStore()
   audioService = new AudioService()
   transcriptionService = new TranscriptionService()
-  sessionController = new SessionController(audioService, transcriptionService, stateStore)
+  screenshotService = new ScreenshotService()
+  sessionController = new SessionController(audioService, transcriptionService, stateStore, screenshotService)
 
   // Update tray icon based on session state
   sessionController.on('stateChange', ({ newState }) => {
     updateTrayIcon(newState as SessionState)
   })
+}
+
+function registerGlobalShortcuts(): void {
+  // Screenshot hotkey: Cmd+Shift+4 (similar to macOS native)
+  globalShortcut.register('CommandOrControl+Shift+4', async () => {
+    if (!sessionController || !screenshotService) return
+
+    // Only capture if actively recording
+    if (sessionController.getState() === SessionState.RECORDING) {
+      const screenshot = await screenshotService.capture()
+      if (screenshot) {
+        sessionController.addScreenshot(screenshot.path)
+        // Notify renderer
+        mainWindow?.webContents.send('screenshot:captured', {
+          index: screenshot.index,
+          timestamp: screenshot.timestamp,
+          path: screenshot.path
+        })
+      }
+    }
+  })
+}
+
+function unregisterGlobalShortcuts(): void {
+  globalShortcut.unregisterAll()
 }
 
 async function checkForRecovery(): Promise<void> {
@@ -87,10 +114,13 @@ app.whenReady().then(async () => {
   mainWindow = createWindow()
 
   // Setup IPC
-  setupIPC(sessionController!, transcriptionService!, () => mainWindow)
+  setupIPC(sessionController!, transcriptionService!, () => mainWindow, screenshotService!)
 
   // Create tray
   createTray(mainWindow)
+
+  // Register global shortcuts
+  registerGlobalShortcuts()
 
   // Check for crash recovery after window is ready
   mainWindow.webContents.on('did-finish-load', () => {
@@ -106,8 +136,10 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   // Cleanup
+  unregisterGlobalShortcuts()
   sessionController?.destroy()
   audioService?.destroy()
   transcriptionService?.destroy()
   stateStore?.destroy()
+  screenshotService?.destroy()
 })

@@ -1,11 +1,12 @@
 import { ipcMain, clipboard, BrowserWindow } from 'electron'
-import { SessionController, SessionState, type SessionData } from './services'
+import { SessionController, type SessionData, ScreenshotService, SessionState } from './services'
 import { TranscriptionService } from './services'
 
 export function setupIPC(
   sessionController: SessionController,
   transcriptionService: TranscriptionService,
-  getMainWindow: () => BrowserWindow | null
+  getMainWindow: () => BrowserWindow | null,
+  screenshotService?: ScreenshotService
 ): void {
   // Session control
   ipcMain.handle('session:start', async () => {
@@ -83,5 +84,27 @@ export function setupIPC(
     if (window) {
       window.webContents.send('session:stateChanged', { state: newState, session })
     }
+  })
+
+  // Screenshot
+  ipcMain.handle('screenshot:capture', async () => {
+    if (!screenshotService) {
+      return { success: false, error: 'Screenshot service not available' }
+    }
+
+    if (sessionController.getState() !== SessionState.RECORDING) {
+      return { success: false, error: 'Not currently recording' }
+    }
+
+    const screenshot = await screenshotService.capture()
+    if (screenshot) {
+      sessionController.addScreenshot(screenshot.path)
+      return { success: true, screenshot }
+    }
+    return { success: false, error: 'Failed to capture screenshot' }
+  })
+
+  ipcMain.handle('screenshot:getCount', () => {
+    return screenshotService?.getCaptureCount() ?? 0
   })
 }

@@ -57,6 +57,11 @@ export function useSession() {
     await window.api.invoke('clipboard:write', text)
   }, [])
 
+  const captureScreenshot = useCallback(async () => {
+    const result = await window.api.invoke('screenshot:capture')
+    return result as { success: boolean; error?: string }
+  }, [])
+
   return {
     state,
     session,
@@ -65,6 +70,7 @@ export function useSession() {
     stop,
     cancel,
     reset,
-    copyToClipboard
+    copyToClipboard,
+    captureScreenshot
   }
 }

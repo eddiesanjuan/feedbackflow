@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { AudioService } from './AudioService'
 import { TranscriptionService } from './TranscriptionService'
 import { StateStore } from './StateStore'
+import { ScreenshotService } from './ScreenshotService'
 
 export enum SessionState {
   IDLE = 'idle',
@@ -22,6 +23,7 @@ export interface SessionData {
   audioPath: string | null
   transcript: string | null
   screenshots: string[]
+  markdownOutput: string | null
   error: string | null
   stateEnteredAt: number
 }
@@ -46,18 +48,21 @@ export class SessionController extends EventEmitter {
   private audioService: AudioService
   private transcriptionService: TranscriptionService
   private stateStore: StateStore
+  private screenshotService: ScreenshotService | null
   private watchdogInterval: NodeJS.Timeout | null = null
   private stateTimeout: NodeJS.Timeout | null = null
 
   constructor(
     audioService: AudioService,
     transcriptionService: TranscriptionService,
-    stateStore: StateStore
+    stateStore: StateStore,
+    screenshotService?: ScreenshotService
   ) {
     super()
     this.audioService = audioService
     this.transcriptionService = transcriptionService
     this.stateStore = stateStore
+    this.screenshotService = screenshotService || null
     this.session = this.createFreshSession()
 
     this.startWatchdog()
@@ -72,6 +77,7 @@ export class SessionController extends EventEmitter {
       audioPath: null,
       transcript: null,
       screenshots: [],
+      markdownOutput: null,
       error: null,
       stateEnteredAt: Date.now()
     }
@@ -175,6 +181,9 @@ export class SessionController extends EventEmitter {
     this.session = this.createFreshSession()
     this.setState(SessionState.STARTING)
 
+    // Start screenshot session
+    this.screenshotService?.startSession(this.session.id)
+
     try {
       const audioPath = await this.withTimeout(
         () => this.audioService.startRecording(this.session.id),
@@ -183,6 +192,7 @@ export class SessionController extends EventEmitter {
       )
 
       if (!audioPath) {
+        this.screenshotService?.endSession()
         this.setState(SessionState.ERROR, 'Failed to start audio recording')
         return false
       }
@@ -193,6 +203,7 @@ export class SessionController extends EventEmitter {
 
       return true
     } catch (err) {
+      this.screenshotService?.endSession()
       const message = err instanceof Error ? err.message : 'Unknown error'
       this.setState(SessionState.ERROR, message)
       return false
@@ -227,7 +238,11 @@ export class SessionController extends EventEmitter {
   private async processRecording(): Promise<void> {
     this.setState(SessionState.PROCESSING)
 
+    // End screenshot session
+    this.screenshotService?.endSession()
+
     if (!this.session.audioPath) {
+      this.session.markdownOutput = this.generateMarkdown()
       this.setState(SessionState.COMPLETE)
       return
     }
@@ -240,18 +255,80 @@ export class SessionController extends EventEmitter {
       )
 
       this.session.transcript = transcript
+      this.session.markdownOutput = this.generateMarkdown()
       this.setState(SessionState.COMPLETE)
     } catch (err) {
       console.error('Transcription failed:', err)
       this.session.transcript = '[Transcription failed]'
+      this.session.markdownOutput = this.generateMarkdown()
       this.setState(SessionState.COMPLETE)
     }
+  }
+
+  private generateMarkdown(): string {
+    const lines: string[] = []
+    const date = new Date()
+    const dateStr = date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    })
+    const timeStr = date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+
+    // Header
+    lines.push(`# Feedback - ${dateStr}`)
+    lines.push('')
+    lines.push(`*Recorded at ${timeStr}*`)
+    lines.push('')
+
+    // Duration if available
+    if (this.session.startedAt && this.session.stoppedAt) {
+      const durationMs = this.session.stoppedAt - this.session.startedAt
+      const durationSec = Math.round(durationMs / 1000)
+      const minutes = Math.floor(durationSec / 60)
+      const seconds = durationSec % 60
+      lines.push(`**Duration:** ${minutes}:${String(seconds).padStart(2, '0')}`)
+      lines.push('')
+    }
+
+    // Transcript
+    lines.push('## Transcript')
+    lines.push('')
+    if (this.session.transcript) {
+      lines.push(this.session.transcript)
+    } else {
+      lines.push('*No transcript available*')
+    }
+    lines.push('')
+
+    // Screenshots
+    if (this.session.screenshots.length > 0) {
+      lines.push('## Screenshots')
+      lines.push('')
+      this.session.screenshots.forEach((path, index) => {
+        lines.push(`### Screenshot ${index + 1}`)
+        lines.push(`![Screenshot ${index + 1}](${path})`)
+        lines.push('')
+      })
+    }
+
+    // Footer
+    lines.push('---')
+    lines.push('*Generated by FeedbackFlow*')
+
+    return lines.join('\n')
   }
 
   async cancel(): Promise<void> {
     if (this.session.state === SessionState.IDLE) {
       return
     }
+
+    // End screenshot session
+    this.screenshotService?.endSession()
 
     if (this.session.state === SessionState.RECORDING) {
       try {
