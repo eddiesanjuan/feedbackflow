@@ -1,6 +1,47 @@
-import { ipcMain, clipboard, BrowserWindow } from 'electron'
+import { ipcMain, clipboard, BrowserWindow, shell } from 'electron'
 import { SessionController, type SessionData, ScreenshotService, SessionState } from './services'
 import { TranscriptionService } from './services'
+
+/**
+ * Structured IPC response type for consistent error handling
+ */
+export interface IPCResponse<T = unknown> {
+  success: boolean
+  data?: T
+  error?: string
+}
+
+/**
+ * Helper to wrap async IPC handlers with structured error responses
+ */
+function wrapHandler<T>(handler: () => Promise<T> | T): () => Promise<IPCResponse<T>> {
+  return async () => {
+    try {
+      const data = await handler()
+      return { success: true, data }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      return { success: false, error: message }
+    }
+  }
+}
+
+/**
+ * Helper to wrap async IPC handlers that take arguments
+ */
+function wrapHandlerWithArgs<T, A extends unknown[]>(
+  handler: (...args: A) => Promise<T> | T
+): (...args: A) => Promise<IPCResponse<T>> {
+  return async (...args: A) => {
+    try {
+      const data = await handler(...args)
+      return { success: true, data }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      return { success: false, error: message }
+    }
+  }
+}
 
 export function setupIPC(
   sessionController: SessionController,
@@ -8,75 +49,70 @@ export function setupIPC(
   getMainWindow: () => BrowserWindow | null,
   screenshotService?: ScreenshotService
 ): void {
-  // Session control
-  ipcMain.handle('session:start', async () => {
-    return sessionController.start()
-  })
+  // Session control - wrapped with structured error handling
+  ipcMain.handle('session:start', wrapHandler(() => sessionController.start()))
 
-  ipcMain.handle('session:stop', async () => {
-    return sessionController.stop()
-  })
+  ipcMain.handle('session:stop', wrapHandler(() => sessionController.stop()))
 
-  ipcMain.handle('session:cancel', async () => {
-    return sessionController.cancel()
-  })
+  ipcMain.handle('session:cancel', wrapHandler(() => sessionController.cancel()))
 
-  ipcMain.handle('session:reset', async () => {
-    return sessionController.reset()
-  })
+  ipcMain.handle('session:reset', wrapHandler(() => sessionController.reset()))
 
-  ipcMain.handle('session:getState', () => {
-    return sessionController.getState()
-  })
+  ipcMain.handle('session:getState', wrapHandler(() => sessionController.getState()))
 
-  ipcMain.handle('session:getSession', () => {
-    return sessionController.getSession()
-  })
+  ipcMain.handle('session:getSession', wrapHandler(() => sessionController.getSession()))
 
-  // Transcription
-  ipcMain.handle('transcription:isModelReady', () => {
-    return transcriptionService.isModelDownloaded()
-  })
+  // Transcription - wrapped with structured error handling
+  ipcMain.handle('transcription:isModelReady', wrapHandler(() => transcriptionService.isModelDownloaded()))
 
-  ipcMain.handle('transcription:downloadModel', async () => {
+  ipcMain.handle('transcription:downloadModel', wrapHandler(() => {
     return transcriptionService.downloadModel((percent) => {
       const window = getMainWindow()
       if (window) {
         window.webContents.send('transcription:downloadProgress', percent)
       }
     })
+  }))
+
+  ipcMain.handle('transcription:getConfig', wrapHandler(() => transcriptionService.getConfig()))
+
+  ipcMain.handle('transcription:setConfig', async (_, config) => {
+    try {
+      transcriptionService.setConfig(config)
+      return { success: true }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      return { success: false, error: message }
+    }
   })
 
-  ipcMain.handle('transcription:getConfig', () => {
-    return transcriptionService.getConfig()
+  // Clipboard - wrapped with structured error handling
+  ipcMain.handle('clipboard:write', async (_, text: string) => {
+    try {
+      clipboard.writeText(text)
+      return { success: true, data: true }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      return { success: false, error: message }
+    }
   })
 
-  ipcMain.handle('transcription:setConfig', (_, config) => {
-    transcriptionService.setConfig(config)
-  })
+  ipcMain.handle('clipboard:read', wrapHandler(() => clipboard.readText()))
 
-  // Clipboard
-  ipcMain.handle('clipboard:write', (_, text: string) => {
-    clipboard.writeText(text)
-    return true
-  })
-
-  ipcMain.handle('clipboard:read', () => {
-    return clipboard.readText()
-  })
-
-  // Recovery
-  ipcMain.handle('recovery:check', async () => {
-    return sessionController.checkRecovery()
-  })
+  // Recovery - wrapped with structured error handling
+  ipcMain.handle('recovery:check', wrapHandler(() => sessionController.checkRecovery()))
 
   ipcMain.handle('recovery:recover', async (_, session: SessionData) => {
-    return sessionController.recoverSession(session)
+    try {
+      await sessionController.recoverSession(session)
+      return { success: true }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      return { success: false, error: message }
+    }
   })
 
-  ipcMain.handle('recovery:discard', async () => {
-    return sessionController.reset()
-  })
+  ipcMain.handle('recovery:discard', wrapHandler(() => sessionController.reset()))
 
   // Forward state changes to renderer
   sessionController.on('stateChange', ({ newState, session }) => {
@@ -106,5 +142,21 @@ export function setupIPC(
 
   ipcMain.handle('screenshot:getCount', () => {
     return screenshotService?.getCaptureCount() ?? 0
+  })
+
+  // External URL handler - safe way to open URLs in system browser
+  ipcMain.handle('shell:openExternal', async (_, url: string) => {
+    // Validate URL before opening
+    try {
+      const parsed = new URL(url)
+      // Only allow http and https protocols
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        return { success: false, error: 'Only http and https URLs are allowed' }
+      }
+      await shell.openExternal(url)
+      return { success: true }
+    } catch {
+      return { success: false, error: 'Invalid URL' }
+    }
   })
 }

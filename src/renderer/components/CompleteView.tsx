@@ -114,7 +114,7 @@ export function CompleteView({ session, onReset, onCopy }: CompleteViewProps) {
         <button
           onClick={onReset}
           aria-label="Start a new recording"
-          className="flex-1 px-4 py-2.5 btn-macos btn-macos-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          className="flex-1 px-4 py-2.5 btn-macos btn-macos-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ring-offset-theme"
         >
           New Recording
         </button>
@@ -124,7 +124,7 @@ export function CompleteView({ session, onReset, onCopy }: CompleteViewProps) {
           aria-label={copied ? 'Path copied to clipboard' : 'Copy report path to clipboard'}
           className={`flex-1 px-4 py-2.5 btn-macos ${
             copied ? 'bg-green-600' : 'btn-macos-primary disabled:opacity-50 disabled:cursor-not-allowed'
-          } text-white font-medium flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2`}
+          } text-white font-medium flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ring-offset-theme`}
         >
           {copied ? (
             <>

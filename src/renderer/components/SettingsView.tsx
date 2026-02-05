@@ -21,7 +21,7 @@ export function SettingsView({ onBack }: SettingsViewProps) {
         <button
           onClick={onBack}
           aria-label="Go back to main view"
-          className="p-1 hover:bg-theme-secondary rounded transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="p-1 hover:bg-theme-secondary rounded transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ring-offset-theme"
         >
           <ChevronBackIcon className="w-5 h-5 text-theme-tertiary" />
         </button>
@@ -41,7 +41,7 @@ export function SettingsView({ onBack }: SettingsViewProps) {
                 value={config?.whisperModel || 'base'}
                 onChange={(e) => updateConfig({ whisperModel: e.target.value as 'tiny' | 'base' | 'small' | 'medium' })}
                 aria-label="Select Whisper model size"
-                className="bg-theme-secondary text-theme-primary text-sm rounded px-2 py-1 border border-theme focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="bg-theme-secondary text-theme-primary text-sm rounded px-2 py-1 border border-theme focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ring-offset-theme"
               >
                 <option value="tiny">Tiny (~75MB)</option>
                 <option value="base">Base (~140MB)</option>
@@ -61,7 +61,7 @@ export function SettingsView({ onBack }: SettingsViewProps) {
                 <button
                   onClick={downloadModel}
                   aria-label="Download transcription model"
-                  className="px-3 py-1.5 btn-macos btn-macos-primary text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="px-3 py-1.5 btn-macos btn-macos-primary text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ring-offset-theme"
                 >
                   Download
                 </button>
@@ -100,7 +100,7 @@ export function SettingsView({ onBack }: SettingsViewProps) {
             value={config?.language || 'en'}
             onChange={(e) => updateConfig({ language: e.target.value })}
             aria-label="Select transcription language"
-            className="w-full bg-theme-secondary text-theme-primary text-sm rounded px-3 py-2 border border-theme focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full bg-theme-secondary text-theme-primary text-sm rounded px-3 py-2 border border-theme focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ring-offset-theme"
           >
             <option value="en">English</option>
             <option value="es">Spanish</option>

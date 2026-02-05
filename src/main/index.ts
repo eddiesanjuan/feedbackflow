@@ -1,4 +1,4 @@
-import { app, BrowserWindow, globalShortcut } from "electron";
+import { app, BrowserWindow, globalShortcut, shell } from "electron";
 import { join } from "path";
 import { electronApp, optimizer } from "@electron-toolkit/utils";
 import { createTray, updateTrayIcon, updateRecentSessions } from "./tray";
@@ -48,6 +48,12 @@ function createWindow(): BrowserWindow {
 
   window.on("blur", () => {
     window.hide();
+  });
+
+  // Block window.open and redirect to system browser
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url);
+    return { action: "deny" };
   });
 
   if (process.env.ELECTRON_RENDERER_URL) {

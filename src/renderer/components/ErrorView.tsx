@@ -130,7 +130,7 @@ export function ErrorView({ error, onReset, onOpenSettings }: ErrorViewProps) {
       <button
         onClick={handleAction}
         aria-label={`${errorDetails.actionLabel}, ${errorDetails.action === 'settings' ? 'open settings' : 'start a new recording'}`}
-        className="w-full px-6 py-3 btn-macos btn-macos-secondary font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+        className="w-full px-6 py-3 btn-macos btn-macos-secondary font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ring-offset-theme"
       >
         {errorDetails.actionLabel}
       </button>
@@ -139,7 +139,7 @@ export function ErrorView({ error, onReset, onOpenSettings }: ErrorViewProps) {
       {errorDetails.action === 'settings' && (
         <button
           onClick={onReset}
-          className="mt-3 text-sm text-theme-muted hover:text-theme-secondary transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded px-2 py-1"
+          className="mt-3 text-sm text-theme-muted hover:text-theme-secondary transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ring-offset-theme rounded px-2 py-1"
         >
           Try Again Instead
         </button>

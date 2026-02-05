@@ -31,7 +31,7 @@ export function IdleView({ onStart, onOpenSettings, isLoading }: IdleViewProps) 
           <button
             onClick={downloadModel}
             aria-label="Download Whisper model, approximately 140 megabytes"
-            className="w-full px-3 py-1.5 btn-macos btn-macos-primary text-white text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
+            className="w-full px-3 py-1.5 btn-macos btn-macos-primary text-white text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ring-offset-theme"
           >
             Download Model (~140MB)
           </button>
@@ -68,7 +68,7 @@ export function IdleView({ onStart, onOpenSettings, isLoading }: IdleViewProps) 
         disabled={isLoading || isDownloading}
         aria-label={isLoading ? 'Starting recording' : 'Start recording'}
         aria-busy={isLoading}
-        className="w-full px-6 py-3 btn-macos btn-macos-danger disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2"
+        className="w-full px-6 py-3 btn-macos btn-macos-danger disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ring-offset-theme"
       >
         {isLoading ? (
           <>
@@ -89,7 +89,7 @@ export function IdleView({ onStart, onOpenSettings, isLoading }: IdleViewProps) 
       <button
         onClick={onOpenSettings}
         aria-label="Open settings"
-        className="mt-4 text-sm text-theme-muted hover:text-theme-secondary transition-colors flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded px-2 py-1"
+        className="mt-4 text-sm text-theme-muted hover:text-theme-secondary transition-colors flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ring-offset-theme rounded px-2 py-1"
       >
         <GearIcon className="w-4 h-4" />
         Settings

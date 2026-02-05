@@ -1,5 +1,4 @@
 import { contextBridge, ipcRenderer } from "electron";
-import { electronAPI } from "@electron-toolkit/preload";
 
 const allowedInvokeChannels = new Set([
   "session:start",
@@ -19,6 +18,7 @@ const allowedInvokeChannels = new Set([
   "recovery:discard",
   "screenshot:capture",
   "screenshot:getCount",
+  "shell:openExternal",
 ]);
 
 const allowedOnChannels = new Set([
@@ -52,16 +52,23 @@ const api = {
   },
 };
 
+// Only expose minimal electron API - just process.versions as typed in api.d.ts
+const minimalElectronAPI = {
+  process: {
+    versions: process.versions,
+  },
+};
+
 if (process.contextIsolated) {
   try {
-    contextBridge.exposeInMainWorld("electron", electronAPI);
+    contextBridge.exposeInMainWorld("electron", minimalElectronAPI);
     contextBridge.exposeInMainWorld("api", api);
   } catch (error) {
     console.error(error);
   }
 } else {
   // @ts-expect-error - window types not available in preload context
-  window.electron = electronAPI;
+  window.electron = minimalElectronAPI;
   // @ts-expect-error - window types not available in preload context
   window.api = api;
 }

@@ -81,6 +81,7 @@ export class SessionController extends EventEmitter {
   private screenshotService: ScreenshotService | null;
   private watchdogInterval: NodeJS.Timeout | null = null;
   private stateTimeout: NodeJS.Timeout | null = null;
+  private operationLock = false;
 
   constructor(
     audioService: AudioService,
@@ -129,7 +130,8 @@ export class SessionController extends EventEmitter {
       logger.warn(
         `State ${this.session.state} timed out after ${stateAge}ms, transitioning to ${timeout.fallbackState}`,
       );
-      this.forceTransition(
+      // Fire and forget - the forceTransition handles cleanup async
+      void this.forceTransition(
         timeout.fallbackState,
         `Timeout after ${Math.round(stateAge / 1000)}s`,
       );
@@ -170,8 +172,15 @@ export class SessionController extends EventEmitter {
     }
   }
 
-  private forceTransition(state: SessionState, reason: string): void {
+  private async forceTransition(
+    state: SessionState,
+    reason: string,
+  ): Promise<void> {
     logger.log(`Force transition to ${state}: ${reason}`);
+    const currentState = this.session.state;
+
+    // Perform actionful cleanup based on current state before transitioning
+    await this.cleanupCurrentState(currentState);
 
     if (state === SessionState.IDLE) {
       // Reset to fresh session and emit single state change
@@ -188,6 +197,48 @@ export class SessionController extends EventEmitter {
     }
 
     this.setState(state, reason);
+  }
+
+  /**
+   * Performs actionful cleanup based on current state.
+   * This ensures processes are actually stopped, not just state changed.
+   */
+  private async cleanupCurrentState(currentState: SessionState): Promise<void> {
+    switch (currentState) {
+      case SessionState.RECORDING:
+        // Force stop the recording - kill the audio process
+        if (this.audioService.isCurrentlyRecording()) {
+          try {
+            await this.audioService.stopRecording();
+          } catch {
+            // Force kill via destroy if graceful stop fails
+            this.audioService.destroy();
+          }
+        }
+        break;
+
+      case SessionState.STARTING:
+        // Kill any audio process that might be starting
+        this.audioService.destroy();
+        // End any screenshot session that was started
+        this.screenshotService?.endSession();
+        break;
+
+      case SessionState.STOPPING:
+        // Ensure audio is killed if stop is stuck
+        if (this.audioService.isCurrentlyRecording()) {
+          this.audioService.destroy();
+        }
+        break;
+
+      case SessionState.PROCESSING:
+        // Note: TranscriptionService doesn't track active process externally,
+        // but the watchdog timeout will cause us to move on.
+        // The transcription's internal timeout will kill the whisper process.
+        // End screenshot session if still active
+        this.screenshotService?.endSession();
+        break;
+    }
   }
 
   async withTimeout<T>(
@@ -223,18 +274,21 @@ export class SessionController extends EventEmitter {
   }
 
   async start(): Promise<boolean> {
-    if (this.session.state !== SessionState.IDLE) {
-      logger.warn(`Cannot start: current state is ${this.session.state}`);
+    // Atomic state check with operation lock to prevent race conditions
+    // from double-triggering via global shortcut + UI button
+    if (this.operationLock || this.session.state !== SessionState.IDLE) {
+      logger.warn(`Cannot start: current state is ${this.session.state}, lock=${this.operationLock}`);
       return false;
     }
 
-    this.session = this.createFreshSession();
-    this.setState(SessionState.STARTING);
-
-    // Start screenshot session
-    this.screenshotService?.startSession(this.session.id);
-
+    this.operationLock = true;
     try {
+      this.session = this.createFreshSession();
+      this.setState(SessionState.STARTING);
+
+      // Start screenshot session
+      this.screenshotService?.startSession(this.session.id);
+
       const audioPath = await this.withTimeout(
         () => this.audioService.startRecording(this.session.id),
         4000,
@@ -257,19 +311,24 @@ export class SessionController extends EventEmitter {
       const message = err instanceof Error ? err.message : "Unknown error";
       this.setState(SessionState.ERROR, message);
       return false;
+    } finally {
+      this.operationLock = false;
     }
   }
 
   async stop(): Promise<boolean> {
-    if (this.session.state !== SessionState.RECORDING) {
-      logger.warn(`Cannot stop: current state is ${this.session.state}`);
+    // Atomic state check with operation lock to prevent race conditions
+    // from double-triggering via global shortcut + UI button
+    if (this.operationLock || this.session.state !== SessionState.RECORDING) {
+      logger.warn(`Cannot stop: current state is ${this.session.state}, lock=${this.operationLock}`);
       return false;
     }
 
-    this.setState(SessionState.STOPPING);
-    this.session.stoppedAt = Date.now();
-
+    this.operationLock = true;
     try {
+      this.setState(SessionState.STOPPING);
+      this.session.stoppedAt = Date.now();
+
       await this.withTimeout(
         () => this.audioService.stopRecording(),
         2500,
@@ -282,6 +341,8 @@ export class SessionController extends EventEmitter {
       const message = err instanceof Error ? err.message : "Unknown error";
       this.setState(SessionState.ERROR, message);
       return false;
+    } finally {
+      this.operationLock = false;
     }
   }
 
@@ -328,14 +389,14 @@ export class SessionController extends EventEmitter {
         mkdirSync(feedbackDir, { recursive: true });
       }
 
-      // Generate filename: session-YYYY-MM-DD-HHMM.md
-      const now = new Date();
-      const dateStr = now.toISOString().split("T")[0];
-      const timeStr = now
-        .toTimeString()
-        .slice(0, 5)
-        .replace(":", "");
-      const filename = `session-${dateStr}-${timeStr}.md`;
+      // Generate filename with seconds and unique ID to prevent collisions
+      // Format: session-YYYY-MM-DD-HHMMSS-xxxx.md
+      const timestamp = new Date()
+        .toISOString()
+        .replace(/[T:]/g, "-")
+        .replace(/\..+/, ""); // Remove milliseconds
+      const shortId = Math.random().toString(36).substring(2, 6);
+      const filename = `session-${timestamp}-${shortId}.md`;
       const filePath = join(feedbackDir, filename);
 
       // Write markdown to file
@@ -431,6 +492,20 @@ export class SessionController extends EventEmitter {
   }
 
   async reset(): Promise<void> {
+    // Stop any active recording before clearing state
+    if (this.audioService.isCurrentlyRecording()) {
+      try {
+        await this.audioService.stopRecording();
+      } catch {
+        // Force kill if graceful stop fails
+        this.audioService.destroy();
+      }
+    }
+
+    // End any active screenshot session
+    this.screenshotService?.endSession();
+
+    // Now clear persisted state and reset to fresh session
     await this.stateStore.clear();
     this.session = this.createFreshSession();
     this.setState(SessionState.IDLE);

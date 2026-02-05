@@ -27,6 +27,10 @@ export interface TranscriptionConfig {
   language: string;
 }
 
+export interface TranscribeOptions {
+  signal?: AbortSignal;
+}
+
 const DEFAULT_CONFIG: TranscriptionConfig = {
   preferredTier: TranscriptionTier.WHISPER_LOCAL,
   whisperModel: "base",
@@ -210,15 +214,27 @@ export class TranscriptionService extends EventEmitter {
     });
   }
 
-  async transcribe(audioPath: string): Promise<string> {
+  async transcribe(
+    audioPath: string,
+    options: TranscribeOptions = {},
+  ): Promise<string> {
+    const { signal } = options;
+
+    if (signal?.aborted) {
+      throw new Error("Transcription aborted before start");
+    }
+
     // Try Whisper first
     if (this.isModelDownloaded()) {
       try {
-        const result = await this.transcribeWithWhisper(audioPath);
+        const result = await this.transcribeWithWhisper(audioPath, signal);
         if (result && result.trim()) {
           return result;
         }
       } catch (err) {
+        if (signal?.aborted) {
+          throw new Error("Transcription aborted");
+        }
         logger.warn("Whisper transcription failed, falling back:", err);
       }
     }
@@ -227,7 +243,10 @@ export class TranscriptionService extends EventEmitter {
     return this.transcribeWithFallback(audioPath);
   }
 
-  private async transcribeWithWhisper(audioPath: string): Promise<string> {
+  private async transcribeWithWhisper(
+    audioPath: string,
+    signal?: AbortSignal,
+  ): Promise<string> {
     return new Promise((resolve, reject) => {
       const modelPath = this.getModelPath();
 
@@ -253,31 +272,55 @@ export class TranscriptionService extends EventEmitter {
         "-otxt",
       ];
 
-      const process = spawn(whisperBinary, args, {
+      const whisperProcess = spawn(whisperBinary, args, {
         stdio: ["pipe", "pipe", "pipe"],
       });
 
       let output = "";
       let error = "";
       let timeoutId: NodeJS.Timeout | null = null;
+      let aborted = false;
 
       const cleanup = () => {
         if (timeoutId) {
           clearTimeout(timeoutId);
           timeoutId = null;
         }
+        signal?.removeEventListener("abort", handleAbort);
       };
 
-      process.stdout?.on("data", (data) => {
+      const handleAbort = () => {
+        if (!whisperProcess.killed) {
+          aborted = true;
+          whisperProcess.kill("SIGKILL");
+          cleanup();
+          reject(new Error("Transcription aborted"));
+        }
+      };
+
+      // Set up abort handler
+      if (signal) {
+        if (signal.aborted) {
+          whisperProcess.kill("SIGKILL");
+          reject(new Error("Transcription aborted"));
+          return;
+        }
+        signal.addEventListener("abort", handleAbort, { once: true });
+      }
+
+      whisperProcess.stdout?.on("data", (data) => {
         output += data.toString();
       });
 
-      process.stderr?.on("data", (data) => {
+      whisperProcess.stderr?.on("data", (data) => {
         error += data.toString();
       });
 
-      process.on("close", (code) => {
+      whisperProcess.on("close", (code) => {
         cleanup();
+        if (aborted) {
+          return; // Already rejected
+        }
         if (code === 0) {
           const trimmed = output.trim();
           if (trimmed) {
@@ -304,15 +347,17 @@ export class TranscriptionService extends EventEmitter {
         }
       });
 
-      process.on("error", (err) => {
+      whisperProcess.on("error", (err) => {
         cleanup();
-        reject(err);
+        if (!aborted) {
+          reject(err);
+        }
       });
 
       // Timeout after 60 seconds
       timeoutId = setTimeout(() => {
-        if (!process.killed) {
-          process.kill();
+        if (!whisperProcess.killed) {
+          whisperProcess.kill();
           reject(new Error("Whisper transcription timed out"));
         }
       }, 60000);

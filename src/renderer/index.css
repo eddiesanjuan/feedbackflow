@@ -391,3 +391,8 @@ select:focus-visible,
 .border-theme-subtle {
   border-color: var(--border-subtle);
 }
+
+/* Theme-aware ring offset for focus states */
+.ring-offset-theme {
+  --tw-ring-offset-color: var(--ring-offset);
+}

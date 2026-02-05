@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSession } from './hooks/useSession'
 import { IdleView } from './components/IdleView'
 import { RecordingView } from './components/RecordingView'
@@ -14,6 +14,12 @@ function App() {
   const { state, session, isLoading, start, stop, cancel, reset, copyToClipboard, captureScreenshot } = useSession()
   const [view, setView] = useState<View>('main')
   const [screenshotCount, setScreenshotCount] = useState(0)
+
+  // Use ref to access state in IPC callbacks without re-subscribing on state changes
+  const stateRef = useRef(state)
+  useEffect(() => {
+    stateRef.current = state
+  }, [state])
 
   // Keyboard navigation handler
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
@@ -40,9 +46,10 @@ function App() {
   }, [handleKeyDown])
 
   // Listen for tray menu events
+  // Use stateRef to avoid re-subscribing listeners on every state change
   useEffect(() => {
     const unsubStartRecording = window.api.on('tray:startRecording', () => {
-      if (state === 'idle') {
+      if (stateRef.current === 'idle') {
         start()
       }
     })
@@ -55,7 +62,7 @@ function App() {
       unsubStartRecording()
       unsubOpenSettings()
     }
-  }, [state, start])
+  }, [start])
 
   // Listen for screenshot events
   useEffect(() => {
@@ -144,7 +151,7 @@ function App() {
           />
         ) : null
       case 'error':
-        return <ErrorView error={session?.error || null} onReset={reset} />
+        return <ErrorView error={session?.error || null} onReset={reset} onOpenSettings={() => setView('settings')} />
       default:
         return null
     }

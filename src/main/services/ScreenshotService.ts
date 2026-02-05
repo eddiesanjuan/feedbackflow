@@ -47,13 +47,23 @@ export class ScreenshotService extends EventEmitter {
 
     try {
       const primaryDisplay = screen.getPrimaryDisplay()
+      const scaleFactor = primaryDisplay.scaleFactor
+
+      // Calculate scaled dimensions, capped at max width to prevent OOM on 4K/5K displays
+      const maxWidth = 1920
+      const scaledWidth = Math.round(primaryDisplay.size.width * scaleFactor)
+      const scaledHeight = Math.round(primaryDisplay.size.height * scaleFactor)
+
+      // Cap to max resolution while maintaining aspect ratio
+      const finalWidth = Math.min(scaledWidth, maxWidth)
+      const finalHeight = Math.round(finalWidth * (scaledHeight / scaledWidth))
 
       // Get sources - capture entire screen
       const sources = await desktopCapturer.getSources({
         types: ['screen'],
         thumbnailSize: {
-          width: primaryDisplay.size.width * primaryDisplay.scaleFactor,
-          height: primaryDisplay.size.height * primaryDisplay.scaleFactor
+          width: finalWidth,
+          height: finalHeight
         }
       })
 

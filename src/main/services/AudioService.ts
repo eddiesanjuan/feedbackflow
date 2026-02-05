@@ -11,6 +11,14 @@ export interface AudioConfig {
   format: "wav" | "mp3";
 }
 
+export interface StartRecordingOptions {
+  signal?: AbortSignal;
+}
+
+export interface StopRecordingOptions {
+  signal?: AbortSignal;
+}
+
 const DEFAULT_CONFIG: AudioConfig = {
   sampleRate: 16000,
   channels: 1,
@@ -37,7 +45,16 @@ export class AudioService extends EventEmitter {
     }
   }
 
-  async startRecording(sessionId: string): Promise<string> {
+  async startRecording(
+    sessionId: string,
+    options: StartRecordingOptions = {},
+  ): Promise<string> {
+    const { signal } = options;
+
+    if (signal?.aborted) {
+      throw new Error("Recording aborted before start");
+    }
+
     if (this.isRecording) {
       throw new Error("Already recording");
     }
@@ -46,8 +63,20 @@ export class AudioService extends EventEmitter {
     const outputPath = join(this.recordingsDir, filename);
     this.currentPath = outputPath;
 
+    // Set up abort handler
+    const abortHandler = () => {
+      if (this.recordingProcess && !this.recordingProcess.killed) {
+        this.recordingProcess.kill("SIGKILL");
+        this.isRecording = false;
+        this.recordingProcess = null;
+      }
+    };
+
+    signal?.addEventListener("abort", abortHandler, { once: true });
+
     try {
-      return await this.startWithRec(outputPath);
+      const result = await this.startWithRec(outputPath);
+      return result;
     } catch (err) {
       const isMissingBinary =
         err instanceof Error &&
@@ -57,6 +86,8 @@ export class AudioService extends EventEmitter {
         return this.startWithFfmpeg(outputPath);
       }
       throw err;
+    } finally {
+      signal?.removeEventListener("abort", abortHandler);
     }
   }
 
@@ -81,6 +112,9 @@ export class AudioService extends EventEmitter {
       ];
 
       let settled = false;
+      let stderrBuffer = "";
+      const STARTUP_GRACE_PERIOD = 300; // ms to wait after spawn to verify process stays alive
+
       const markStarted = () => {
         if (settled) return;
         settled = true;
@@ -106,14 +140,71 @@ export class AudioService extends EventEmitter {
         return;
       }
 
-      this.recordingProcess.once("spawn", markStarted);
-      this.recordingProcess.once("error", handleError);
-
+      // Collect stderr for error reporting
       this.recordingProcess.stderr?.on("data", (data) => {
         const str = data.toString();
+        stderrBuffer += str;
         if (str.includes("error") || str.includes("Error")) {
           logger.error("Recording error:", str);
         }
+      });
+
+      // Handle early exit during startup grace period
+      const handleEarlyExit = (code: number | null) => {
+        if (settled) {
+          // Process exited after successful start - emit fatal error
+          this.isRecording = false;
+          this.recordingProcess = null;
+          this.emit(
+            "fatalError",
+            new Error(
+              stderrBuffer || `Recording process exited with code ${code}`,
+            ),
+          );
+          return;
+        }
+        // Process exited before we marked it as started
+        const errorMsg =
+          stderrBuffer.trim() ||
+          `Recording process exited immediately with code ${code}`;
+        handleError(new Error(errorMsg));
+      };
+
+      this.recordingProcess.once("exit", handleEarlyExit);
+      this.recordingProcess.once("close", handleEarlyExit);
+      this.recordingProcess.once("error", handleError);
+
+      // Wait for spawn, then verify process survives grace period
+      this.recordingProcess.once("spawn", () => {
+        setTimeout(() => {
+          // If still not settled and process is alive, mark as started
+          if (
+            !settled &&
+            this.recordingProcess &&
+            !this.recordingProcess.killed
+          ) {
+            // Remove early exit handlers and add normal runtime handlers
+            this.recordingProcess.removeListener("exit", handleEarlyExit);
+            this.recordingProcess.removeListener("close", handleEarlyExit);
+
+            // Add runtime exit handler for fatal errors during recording
+            this.recordingProcess.once("exit", (code) => {
+              if (this.isRecording) {
+                this.isRecording = false;
+                this.recordingProcess = null;
+                this.emit(
+                  "fatalError",
+                  new Error(
+                    stderrBuffer ||
+                      `Recording process exited unexpectedly with code ${code}`,
+                  ),
+                );
+              }
+            });
+
+            markStarted();
+          }
+        }, STARTUP_GRACE_PERIOD);
       });
     });
   }
@@ -134,6 +225,9 @@ export class AudioService extends EventEmitter {
       ];
 
       let settled = false;
+      let stderrBuffer = "";
+      const STARTUP_GRACE_PERIOD = 300; // ms to wait after spawn to verify process stays alive
+
       const markStarted = () => {
         if (settled) return;
         settled = true;
@@ -171,12 +265,78 @@ export class AudioService extends EventEmitter {
         return;
       }
 
-      this.recordingProcess.once("spawn", markStarted);
+      // Collect stderr for error reporting
+      this.recordingProcess.stderr?.on("data", (data) => {
+        const str = data.toString();
+        stderrBuffer += str;
+        if (str.includes("error") || str.includes("Error")) {
+          logger.error("Recording error:", str);
+        }
+      });
+
+      // Handle early exit during startup grace period
+      const handleEarlyExit = (code: number | null) => {
+        if (settled) {
+          // Process exited after successful start - emit fatal error
+          this.isRecording = false;
+          this.recordingProcess = null;
+          this.emit(
+            "fatalError",
+            new Error(
+              stderrBuffer || `Recording process exited with code ${code}`,
+            ),
+          );
+          return;
+        }
+        // Process exited before we marked it as started
+        const errorMsg =
+          stderrBuffer.trim() ||
+          `Recording process exited immediately with code ${code}`;
+        handleError(new Error(errorMsg));
+      };
+
+      this.recordingProcess.once("exit", handleEarlyExit);
+      this.recordingProcess.once("close", handleEarlyExit);
       this.recordingProcess.once("error", handleError);
+
+      // Wait for spawn, then verify process survives grace period
+      this.recordingProcess.once("spawn", () => {
+        setTimeout(() => {
+          // If still not settled and process is alive, mark as started
+          if (
+            !settled &&
+            this.recordingProcess &&
+            !this.recordingProcess.killed
+          ) {
+            // Remove early exit handlers and add normal runtime handlers
+            this.recordingProcess.removeListener("exit", handleEarlyExit);
+            this.recordingProcess.removeListener("close", handleEarlyExit);
+
+            // Add runtime exit handler for fatal errors during recording
+            this.recordingProcess.once("exit", (code) => {
+              if (this.isRecording) {
+                this.isRecording = false;
+                this.recordingProcess = null;
+                this.emit(
+                  "fatalError",
+                  new Error(
+                    stderrBuffer ||
+                      `Recording process exited unexpectedly with code ${code}`,
+                  ),
+                );
+              }
+            });
+
+            markStarted();
+          }
+        }, STARTUP_GRACE_PERIOD);
+      });
     });
   }
 
-  async stopRecording(): Promise<string | null> {
+  async stopRecording(options: StopRecordingOptions = {}): Promise<string | null> {
+    const { signal } = options;
+
     if (!this.isRecording || !this.recordingProcess) {
       return this.currentPath;
     }
@@ -194,11 +354,28 @@ export class AudioService extends EventEmitter {
           clearTimeout(timeoutId);
           timeoutId = null;
         }
+        signal?.removeEventListener("abort", forceKill);
         this.isRecording = false;
         this.recordingProcess = null;
         this.emit("stopped", path);
         resolve(path);
       };
+
+      const forceKill = () => {
+        if (this.recordingProcess && !this.recordingProcess.killed) {
+          this.recordingProcess.kill("SIGKILL");
+        }
+        cleanup();
+      };
+
+      // If signal is already aborted, force kill immediately
+      if (signal?.aborted) {
+        forceKill();
+        return;
+      }
+
+      // Set up abort handler for immediate kill
+      signal?.addEventListener("abort", forceKill, { once: true });
 
       if (!process) {
         cleanup();
