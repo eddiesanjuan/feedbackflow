@@ -1,15 +1,6 @@
 import { useState } from 'react'
 import { MicIcon, GearIcon, MacSpinner } from './icons'
-import type { TranscriptionConfig } from '../types/api'
-
-interface TranscriptionState {
-  isModelReady: boolean
-  isDownloading: boolean
-  downloadProgress: number
-  config: TranscriptionConfig | null
-  downloadModel: () => Promise<boolean>
-  updateConfig: (newConfig: Partial<TranscriptionConfig>) => Promise<void>
-}
+import type { TranscriptionState } from '../hooks/useTranscription'
 
 interface IdleViewProps {
   onStart: () => void

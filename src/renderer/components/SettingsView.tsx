@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { DonateButton } from './DonateButton'
-import type { TranscriptionConfig } from '../types/api'
 import { isIPCResponse } from '../utils/ipc'
+import type { TranscriptionState } from '../hooks/useTranscription'
 
 // SF Symbol: chevron.backward
 const ChevronBackIcon = ({ className }: { className?: string }) => (
@@ -9,15 +9,6 @@ const ChevronBackIcon = ({ className }: { className?: string }) => (
     <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
   </svg>
 )
-
-interface TranscriptionState {
-  isModelReady: boolean
-  isDownloading: boolean
-  downloadProgress: number
-  config: TranscriptionConfig | null
-  downloadModel: () => Promise<boolean>
-  updateConfig: (newConfig: Partial<TranscriptionConfig>) => Promise<void>
-}
 
 interface SettingsViewProps {
   onBack: () => void

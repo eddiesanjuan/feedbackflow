@@ -1,6 +1,8 @@
 import { ipcMain, clipboard, BrowserWindow, shell, app } from 'electron'
-import { SessionController, type SessionData, ScreenshotService, SessionState } from './services'
+import { normalize, resolve } from 'path'
+import { SessionController, ScreenshotService, SessionState } from './services'
 import { TranscriptionService } from './services'
+import { isValidSessionData } from './utils/validation'
 
 /**
  * Structured IPC response type for consistent error handling
@@ -86,8 +88,22 @@ export function setupIPC(
   // Recovery - wrapped with structured error handling
   ipcMain.handle('recovery:check', wrapHandler(() => sessionController.checkRecovery()))
 
-  ipcMain.handle('recovery:recover', async (_, session: SessionData) => {
+  ipcMain.handle('recovery:recover', async (_, session: unknown) => {
     try {
+      // Validate session data structure before passing to recoverSession
+      if (!isValidSessionData(session)) {
+        return { success: false, error: 'Invalid session data' }
+      }
+
+      // Validate audioPath is within expected recordings directory
+      if (session.audioPath !== null) {
+        const recordingsDir = normalize(resolve(app.getPath('userData'), 'recordings'))
+        const normalizedAudioPath = normalize(resolve(session.audioPath))
+        if (!normalizedAudioPath.startsWith(recordingsDir)) {
+          return { success: false, error: 'Invalid session data' }
+        }
+      }
+
       await sessionController.recoverSession(session)
       return { success: true }
     } catch (error) {
@@ -106,22 +122,27 @@ export function setupIPC(
     }
   })
 
-  // Screenshot
+  // Screenshot - wrapped with try/catch for consistent error handling
   ipcMain.handle('screenshot:capture', async () => {
-    if (!screenshotService) {
-      return { success: false, error: 'Screenshot service not available' }
-    }
+    try {
+      if (!screenshotService) {
+        return { success: false, error: 'Screenshot service not available' }
+      }
 
-    if (sessionController.getState() !== SessionState.RECORDING) {
-      return { success: false, error: 'Not currently recording' }
-    }
+      if (sessionController.getState() !== SessionState.RECORDING) {
+        return { success: false, error: 'Not currently recording' }
+      }
 
-    const screenshot = await screenshotService.capture()
-    if (screenshot) {
-      sessionController.addScreenshot(screenshot.path)
-      return { success: true, screenshot }
+      const screenshot = await screenshotService.capture()
+      if (screenshot) {
+        sessionController.addScreenshot(screenshot.path)
+        return { success: true, screenshot }
+      }
+      return { success: false, error: 'Failed to capture screenshot' }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      return { success: false, error: message }
     }
-    return { success: false, error: 'Failed to capture screenshot' }
   })
 
   ipcMain.handle('screenshot:getCount', wrapHandler(() => {

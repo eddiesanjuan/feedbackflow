@@ -59,9 +59,11 @@ function App() {
   // Listen for session recovery events
   useEffect(() => {
     const unsubRecovery = window.api.on('recovery:found', (data: unknown) => {
-      const saved = data as RecoverySession
-      setRecoverySession(saved)
-      setShowRecoveryModal(true)
+      if (data && typeof data === 'object' && 'id' in data && 'state' in data) {
+        const saved = data as RecoverySession
+        setRecoverySession(saved)
+        setShowRecoveryModal(true)
+      }
     })
     return () => unsubRecovery()
   }, [])
@@ -102,8 +104,10 @@ function App() {
   // Listen for screenshot events
   useEffect(() => {
     const unsubScreenshot = window.api.on('screenshot:captured', (data: unknown) => {
-      const { index } = data as { index: number }
-      setScreenshotCount(index)
+      if (data && typeof data === 'object' && 'index' in data && typeof (data as Record<string, unknown>).index === 'number') {
+        const { index } = data as { index: number }
+        setScreenshotCount(index)
+      }
     })
 
     return () => {

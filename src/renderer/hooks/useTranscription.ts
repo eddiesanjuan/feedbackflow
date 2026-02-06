@@ -27,7 +27,16 @@ function isTranscriptionConfig(value: unknown): value is TranscriptionConfig {
   );
 }
 
-export function useTranscription() {
+export interface TranscriptionState {
+  isModelReady: boolean;
+  isDownloading: boolean;
+  downloadProgress: number;
+  config: TranscriptionConfig | null;
+  downloadModel: () => Promise<boolean>;
+  updateConfig: (newConfig: Partial<TranscriptionConfig>) => Promise<void>;
+}
+
+export function useTranscription(): TranscriptionState {
   const [isModelReady, setIsModelReady] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);

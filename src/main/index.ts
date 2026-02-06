@@ -72,6 +72,14 @@ function createWindow(): BrowserWindow {
     return { action: "deny" };
   });
 
+  // Block all navigation - this is a single-page app that should never
+  // navigate away from its loaded content. Prevents navigation hijacking
+  // via window.location, meta refresh, or anchor clicks.
+  window.webContents.on("will-navigate", (event, url) => {
+    event.preventDefault();
+    logger.warn("Blocked navigation attempt to:", url);
+  });
+
   if (process.env.ELECTRON_RENDERER_URL) {
     window.loadURL(process.env.ELECTRON_RENDERER_URL);
   } else {

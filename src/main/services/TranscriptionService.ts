@@ -460,7 +460,16 @@ export class TranscriptionService extends EventEmitter {
     return TranscriptionTier.NONE;
   }
 
+  private static readonly VALID_MODELS = new Set(['tiny', 'base', 'small', 'medium'])
+  private static readonly VALID_TIERS = new Set(['whisper_local', 'macos_dictation', 'none'])
+
   setConfig(config: Partial<TranscriptionConfig>): void {
+    if (config.whisperModel !== undefined && !TranscriptionService.VALID_MODELS.has(config.whisperModel)) {
+      throw new Error(`Invalid whisper model: ${config.whisperModel}`)
+    }
+    if (config.preferredTier !== undefined && !TranscriptionService.VALID_TIERS.has(config.preferredTier)) {
+      throw new Error(`Invalid preferred tier: ${config.preferredTier}`)
+    }
     this.config = { ...this.config, ...config };
   }
 
