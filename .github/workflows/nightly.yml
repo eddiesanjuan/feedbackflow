@@ -111,7 +111,7 @@ jobs:
           ls -la
 
       - name: Upload macOS nightly artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: nightly-macos
           path: |
@@ -165,7 +165,7 @@ jobs:
           Get-ChildItem
 
       - name: Upload Windows nightly artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: nightly-windows
           path: |
