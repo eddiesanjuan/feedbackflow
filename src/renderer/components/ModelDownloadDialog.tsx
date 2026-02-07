@@ -135,7 +135,7 @@ export const ModelDownloadDialog: React.FC<ModelDownloadDialogProps> = ({
   onSkip,
 }) => {
   const [state, setState] = useState<DialogState>('prompt');
-  const [selectedModel, setSelectedModel] = useState<string>('small');
+  const [selectedModel, setSelectedModel] = useState<string>('tiny');
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -223,7 +223,7 @@ export const ModelDownloadDialog: React.FC<ModelDownloadDialogProps> = ({
 
             {/* Description */}
             <p style={styles.description}>
-              markupr needs to download a speech recognition model ({selectedModelInfo?.sizeMB || 466}MB)
+              markupr needs to download a speech recognition model ({selectedModelInfo?.sizeMB || 75}MB)
               to transcribe your voice offline. This is a one-time download.
             </p>
 
@@ -278,7 +278,7 @@ export const ModelDownloadDialog: React.FC<ModelDownloadDialogProps> = ({
                     strokeLinejoin="round"
                   />
                 </svg>
-                Download Now ({selectedModelInfo?.sizeMB || 466}MB)
+                Download Now ({selectedModelInfo?.sizeMB || 75}MB)
               </button>
 
               <button style={styles.skipButton} onClick={onSkip}>
@@ -492,7 +492,7 @@ export function useModelCheck(): ModelCheckResult {
 
     const checkModel = async () => {
       try {
-        // Check if we have any transcription capability (Deepgram or Whisper)
+        // Check if we have any transcription capability (OpenAI or Whisper)
         const hasCapability = await withTimeout(
           window.feedbackflow.whisper.hasTranscriptionCapability(),
           4000,
@@ -510,8 +510,8 @@ export function useModelCheck(): ModelCheckResult {
               hasAnyModel: false,
               defaultModel: null,
               downloadedModels: [],
-              recommendedModel: 'small',
-              recommendedModelSizeMB: 466,
+              recommendedModel: 'tiny',
+              recommendedModelSizeMB: 75,
             }
           );
           if (!isMounted) return;

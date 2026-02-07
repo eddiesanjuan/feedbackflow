@@ -11,12 +11,11 @@ import {
   CompactAudioIndicator,
   DonateButton,
   KeyboardShortcuts,
-  RecordingOverlay,
   ExportDialog,
   SessionReview,
 } from './components';
 import { SessionHistory } from './components/SessionHistory';
-import { ToggleRecordingHint, ManualScreenshotHint } from './components/HotkeyHint';
+import { ToggleRecordingHint, ManualScreenshotHint, PauseResumeHint } from './components/HotkeyHint';
 import StatusIndicator from './components/StatusIndicator';
 import './styles/app-shell.css';
 
@@ -42,6 +41,7 @@ interface LastCapture {
 }
 
 type AppView = 'main' | 'settings' | 'history' | 'shortcuts';
+const MAX_TRANSCRIPT_PREVIEW_LINES = 24;
 
 // ============================================================================
 // Helpers
@@ -129,9 +129,14 @@ const App: React.FC = () => {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showCountdown, setShowCountdown] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showReviewEditor, setShowReviewEditor] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
   const [isVoiceActive, setIsVoiceActive] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [transcriptLines, setTranscriptLines] = useState<string[]>([]);
+  const [interimTranscript, setInterimTranscript] = useState('');
   const [settings, setSettings] = useState<AppSettings | null>(null);
+  const [hasRequiredByokKeys, setHasRequiredByokKeys] = useState<boolean | null>(null);
 
   // ---------------------------------------------------------------------------
   // Crash recovery (existing)
@@ -147,9 +152,37 @@ const App: React.FC = () => {
   // Load settings once on mount
   // ---------------------------------------------------------------------------
   useEffect(() => {
-    window.feedbackflow.settings.getAll().then(setSettings).catch(() => {
-      // Settings load failure is non-fatal
-    });
+    let mounted = true;
+    const loadInitialSettings = async () => {
+      try {
+        const loadedSettings = await window.feedbackflow.settings.getAll();
+        if (mounted) {
+          setSettings(loadedSettings);
+        }
+      } catch {
+        // Settings load failure is non-fatal
+      }
+
+      try {
+        const [hasOpenAiKey, hasAnthropicKey] = await Promise.all([
+          window.feedbackflow.settings.hasApiKey('openai'),
+          window.feedbackflow.settings.hasApiKey('anthropic'),
+        ]);
+        if (mounted) {
+          setHasRequiredByokKeys(hasOpenAiKey && hasAnthropicKey);
+        }
+      } catch {
+        if (mounted) {
+          setHasRequiredByokKeys(false);
+        }
+      }
+    };
+
+    void loadInitialSettings();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   // ---------------------------------------------------------------------------
@@ -190,38 +223,78 @@ const App: React.FC = () => {
   // ---------------------------------------------------------------------------
   // Screen recording sync (existing)
   // ---------------------------------------------------------------------------
-  const syncScreenRecording = useCallback(async (nextState: SessionState, session: SessionPayload | null) => {
-    const recorder = screenRecorderRef.current;
+  const syncScreenRecording = useCallback(
+    async (nextState: SessionState, session: SessionPayload | null, paused: boolean) => {
+      const recorder = screenRecorderRef.current;
 
-    if (nextState === 'recording') {
+      if (nextState === 'recording') {
+        if (!recorder.isRecording()) {
+          let activeSession = session;
+          if (!activeSession) {
+            for (let attempt = 0; attempt < 4; attempt += 1) {
+              activeSession = await window.feedbackflow.session.getCurrent();
+              if (activeSession) {
+                break;
+              }
+              if (attempt < 3) {
+                await new Promise((resolve) => setTimeout(resolve, 180));
+              }
+            }
+          }
+
+          if (!activeSession) {
+            setErrorMessage((prev) => prev || 'Session started, but screen recorder could not find an active capture target.');
+            return;
+          }
+
+          try {
+            await recorder.start({
+              sessionId: activeSession.id,
+              sourceId: activeSession.sourceId,
+            });
+          } catch (error) {
+            console.warn('[App] Continuous screen recording failed to start with primary source:', error);
+
+            try {
+              const sources = await window.feedbackflow.capture.getSources();
+              const fallbackSource = sources.find((source) => source.type === 'screen');
+
+              if (!fallbackSource || fallbackSource.id === activeSession.sourceId) {
+                throw error;
+              }
+
+              await recorder.start({
+                sessionId: activeSession.id,
+                sourceId: fallbackSource.id,
+              });
+            } catch (fallbackError) {
+              const message =
+                fallbackError instanceof Error
+                  ? fallbackError.message
+                  : 'Unknown screen recording error.';
+              console.warn('[App] Continuous screen recording fallback also failed:', message);
+              setErrorMessage((prev) => prev || `Screen recording unavailable: ${message}`);
+              return;
+            }
+          }
+        }
+
+        if (paused) {
+          await recorder.pause();
+        } else {
+          await recorder.resume();
+        }
+        return;
+      }
+
       if (recorder.isRecording()) {
-        return;
-      }
-
-      const activeSession = session || (await window.feedbackflow.session.getCurrent());
-      if (!activeSession) {
-        return;
-      }
-
-      try {
-        await recorder.start({
-          sessionId: activeSession.id,
-          sourceId: activeSession.sourceId,
+        await recorder.stop().catch((error) => {
+          console.warn('[App] Failed to stop continuous screen recording:', error);
         });
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown screen recording error.';
-        console.warn('[App] Continuous screen recording failed to start:', message);
-        setErrorMessage((prev) => prev || `Screen recording unavailable: ${message}`);
       }
-      return;
-    }
-
-    if (recorder.isRecording()) {
-      await recorder.stop().catch((error) => {
-        console.warn('[App] Failed to stop continuous screen recording:', error);
-      });
-    }
-  }, []);
+    },
+    []
+  );
 
   // ---------------------------------------------------------------------------
   // Session IPC listeners (existing)
@@ -237,6 +310,8 @@ const App: React.FC = () => {
         setState(status.state);
         setDuration(status.duration);
         setScreenshotCount(status.screenshotCount);
+        setIsPaused(status.isPaused);
+        void syncScreenRecording(status.state, null, status.isPaused);
       })
       .catch((error) => {
         console.error('[App] Failed to load initial status:', error);
@@ -244,7 +319,7 @@ const App: React.FC = () => {
 
     const unsubState = window.feedbackflow.session.onStateChange(({ state: nextState, session }) => {
       setState(nextState);
-      void syncScreenRecording(nextState, session);
+      void syncScreenRecording(nextState, session, false);
       if (nextState === 'recording') {
         setErrorMessage(null);
         setReportPath(null);
@@ -252,12 +327,18 @@ const App: React.FC = () => {
         setAudioPath(null);
         setSessionDir(null);
         setReviewSession(null);
+        setShowReviewEditor(false);
+        setTranscriptLines([]);
+        setInterimTranscript('');
         // Dismiss overlays when recording starts
         setCurrentView('main');
         setShowCountdown(false);
+        setIsPaused(false);
       }
       if (nextState === 'idle') {
         setDuration(0);
+        setInterimTranscript('');
+        setIsPaused(false);
       }
     });
 
@@ -265,6 +346,8 @@ const App: React.FC = () => {
       setDuration(status.duration);
       setScreenshotCount(status.screenshotCount);
       setState(status.state);
+      setIsPaused(status.isPaused);
+      void syncScreenRecording(status.state, null, status.isPaused);
     });
 
     const unsubScreenshot = window.feedbackflow.capture.onScreenshot((payload) => {
@@ -283,6 +366,7 @@ const App: React.FC = () => {
       setAudioPath(payload.audioPath || null);
       setSessionDir(payload.sessionDir || null);
       setReviewSession(payload.reviewSession || null);
+      setShowReviewEditor(false);
       setDuration(0);
       loadRecentSessions();
     });
@@ -322,9 +406,37 @@ const App: React.FC = () => {
     const unsubVoice = window.feedbackflow.audio.onVoiceActivity((active) => {
       setIsVoiceActive(active);
     });
+    const unsubSessionVoice = window.feedbackflow.session.onVoiceActivity(({ active }) => {
+      setIsVoiceActive(active);
+    });
+    const unsubTranscript = window.feedbackflow.transcript.onChunk((payload) => {
+      const text = payload.text.trim();
+      if (!text) {
+        return;
+      }
+
+      if (payload.isFinal) {
+        setTranscriptLines((prev) => {
+          if (prev[prev.length - 1] === text) {
+            return prev;
+          }
+          const next = [...prev, text];
+          if (next.length > MAX_TRANSCRIPT_PREVIEW_LINES) {
+            return next.slice(next.length - MAX_TRANSCRIPT_PREVIEW_LINES);
+          }
+          return next;
+        });
+        setInterimTranscript('');
+      } else {
+        setInterimTranscript(text);
+      }
+    });
+
     return () => {
       unsubLevel();
       unsubVoice();
+      unsubSessionVoice();
+      unsubTranscript();
     };
   }, []);
 
@@ -390,7 +502,9 @@ const App: React.FC = () => {
       case 'recording':
         return {
           title: 'Recording Live',
-          detail: 'Speak while testing. Transcript is generated after you stop recording.',
+          detail: isPaused
+            ? 'Session paused. Resume to continue capturing screen and narration.'
+            : 'Speak while testing. Transcript is generated after you stop recording.',
         };
       case 'stopping':
       case 'processing':
@@ -413,22 +527,22 @@ const App: React.FC = () => {
           title: 'Ready To Capture',
           detail:
             hasTranscriptionCapability === false
-              ? 'Recording works now. Add Whisper or Deepgram for automatic transcript generation after stop.'
+              ? 'Recording works now. Add an OpenAI API key (or a local Whisper model) for automatic transcript generation after stop.'
               : 'Press Cmd+Shift+F to start a fresh feedback pass.',
         };
     }
-  }, [state, errorMessage, hasTranscriptionCapability]);
+  }, [state, errorMessage, hasTranscriptionCapability, isPaused]);
 
   // ---------------------------------------------------------------------------
   // Derived state (existing)
   // ---------------------------------------------------------------------------
   const primaryActionLabel = state === 'recording' ? 'Stop Session' : 'Start Session';
   const primaryActionDisabled = isMutating || state === 'starting' || state === 'stopping' || state === 'processing';
-  const manualCaptureDisabled = isMutating || state !== 'recording';
+  const pauseActionDisabled = isMutating || state !== 'recording';
+  const manualCaptureDisabled = isMutating || state !== 'recording' || isPaused;
+  const showNarrationCapture = state === 'recording' || state === 'stopping';
 
   const countdownDuration = settings?.defaultCountdown ?? 0;
-  const showAudioWaveform = settings?.showAudioWaveform ?? true;
-
   // ---------------------------------------------------------------------------
   // Handlers (existing, with countdown integration)
   // ---------------------------------------------------------------------------
@@ -468,6 +582,11 @@ const App: React.FC = () => {
           .catch(() => {
             // Keep previous badge state when status refresh fails.
           });
+      } else {
+        const activeSession = await window.feedbackflow.session.getCurrent();
+        if (activeSession) {
+          await syncScreenRecording('recording', activeSession, false);
+        }
       }
     } catch (error) {
       setState('error');
@@ -475,7 +594,7 @@ const App: React.FC = () => {
     } finally {
       setIsMutating(false);
     }
-  }, [primaryActionDisabled, state, countdownDuration]);
+  }, [primaryActionDisabled, state, countdownDuration, syncScreenRecording]);
 
   const handleCountdownComplete = useCallback(async () => {
     setShowCountdown(false);
@@ -491,6 +610,11 @@ const App: React.FC = () => {
       if (!result.success) {
         setState('error');
         setErrorMessage(result.error || 'Unable to start session.');
+      } else {
+        const activeSession = await window.feedbackflow.session.getCurrent();
+        if (activeSession) {
+          await syncScreenRecording('recording', activeSession, false);
+        }
       }
     } catch (error) {
       setState('error');
@@ -498,7 +622,38 @@ const App: React.FC = () => {
     } finally {
       setIsMutating(false);
     }
-  }, []);
+  }, [syncScreenRecording]);
+
+  const handlePauseAction = useCallback(async () => {
+    if (pauseActionDisabled) return;
+
+    setIsMutating(true);
+    try {
+      if (isPaused) {
+        const result = await window.feedbackflow.session.resume();
+        if (!result.success) {
+          setErrorMessage(result.error || 'Unable to resume session.');
+          return;
+        }
+        setIsPaused(false);
+        await syncScreenRecording('recording', null, false);
+        return;
+      }
+
+      const result = await window.feedbackflow.session.pause();
+      if (!result.success) {
+        setErrorMessage(result.error || 'Unable to pause session.');
+        return;
+      }
+      setIsPaused(true);
+      setIsVoiceActive(false);
+      await syncScreenRecording('recording', null, true);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Pause/resume failed.');
+    } finally {
+      setIsMutating(false);
+    }
+  }, [isPaused, pauseActionDisabled, syncScreenRecording]);
 
   const handleCountdownSkip = useCallback(() => {
     setShowCountdown(false);
@@ -594,8 +749,7 @@ const App: React.FC = () => {
   }, []);
 
   const handleReviewClose = useCallback(() => {
-    setReviewSession(null);
-    setState('idle');
+    setShowReviewEditor(false);
   }, []);
 
   // ---------------------------------------------------------------------------
@@ -713,34 +867,6 @@ const App: React.FC = () => {
 
         <p className="ff-shell__subtitle">{statusCopy.detail}</p>
 
-        {/* === Recording Overlay (compact indicator during recording) === */}
-        {state === 'recording' && (
-          <RecordingOverlay
-            duration={Math.floor(duration / 1000)}
-            screenshotCount={screenshotCount}
-            isDarkMode={false}
-            onStop={async () => {
-              const result = await window.feedbackflow.session.stop();
-              if (!result.success) {
-                setState('error');
-                setErrorMessage(result.error || 'Unable to stop session.');
-              }
-            }}
-          />
-        )}
-
-        {/* === Audio Waveform (during recording, when enabled) === */}
-        {state === 'recording' && showAudioWaveform && (
-          <div style={{ padding: '0 2px' }}>
-            <CompactAudioIndicator
-              audioLevel={audioLevel}
-              isVoiceActive={isVoiceActive}
-              accentColor="#0a84ff"
-              inactiveColor="#c7c7cc"
-            />
-          </div>
-        )}
-
         <section className="ff-shell__controls">
           <button
             className={`ff-shell__primary-btn ${state === 'recording' ? 'is-live' : ''}`}
@@ -749,6 +875,15 @@ const App: React.FC = () => {
             disabled={primaryActionDisabled}
           >
             {state === 'processing' || state === 'stopping' ? 'Processing\u2026' : primaryActionLabel}
+          </button>
+
+          <button
+            className="ff-shell__secondary-btn"
+            type="button"
+            onClick={handlePauseAction}
+            disabled={pauseActionDisabled}
+          >
+            {isPaused ? 'Resume Session' : 'Pause Session'} (<PauseResumeHint inline />)
           </button>
 
           <button
@@ -765,7 +900,7 @@ const App: React.FC = () => {
           <span>{formatDuration(duration)}</span>
           <span>{screenshotCount} screenshots</span>
           <span className={hasTranscriptionCapability ? 'is-ready' : 'is-optional'}>
-            {hasTranscriptionCapability ? 'Transcript Enabled' : 'Transcript Optional'}
+            {hasTranscriptionCapability ? 'Transcript Ready' : 'Add OpenAI Key'}
           </span>
           {lastCapture && (
             <span title={new Date(lastCapture.timestamp).toLocaleString()}>
@@ -774,16 +909,101 @@ const App: React.FC = () => {
           )}
         </section>
 
-        {state === 'recording' && (
-          <section className="ff-shell__transcript">
-            <p className="ff-shell__transcript-label">Narration Capture</p>
-            <p className="ff-shell__transcript-line">
-              Audio is recording now. Transcript generation runs automatically when you stop.
+        {state === 'idle' && hasRequiredByokKeys === false && (
+          <section className="ff-shell__byok-cta">
+            <p className="ff-shell__byok-title">BYOK setup required for full reports</p>
+            <p className="ff-shell__byok-detail">
+              Add your OpenAI and Anthropic API keys in Settings {'>'} Advanced.
             </p>
+            <button
+              type="button"
+              className="ff-shell__byok-btn"
+              onClick={() => setCurrentView('settings')}
+            >
+              Open BYOK Setup
+            </button>
           </section>
         )}
 
-        {state === 'complete' && reviewSession && (
+        {showNarrationCapture && (
+          <section className="ff-shell__transcript">
+            <p className="ff-shell__transcript-label">Narration Capture</p>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 10,
+                padding: '8px 10px',
+                borderRadius: 10,
+                background: 'rgba(255,255,255,0.65)',
+                border: '1px solid rgba(60, 60, 67, 0.15)',
+              }}
+            >
+              <span className="ff-shell__transcript-line">
+                {state === 'stopping'
+                  ? 'Finalizing capture and processing transcript'
+                  : isPaused
+                    ? 'Session paused'
+                  : isVoiceActive
+                    ? 'Mic is active'
+                    : 'Listening for narration'}
+              </span>
+              {settings?.showAudioWaveform !== false && (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  <CompactAudioIndicator
+                    audioLevel={audioLevel}
+                    isVoiceActive={isVoiceActive}
+                    accentColor="#0a84ff"
+                    inactiveColor="#c7c7cc"
+                    barCount={7}
+                  />
+                  <span
+                    style={{
+                      minWidth: 44,
+                      textAlign: 'right',
+                      fontSize: 11,
+                      color: '#6e6e73',
+                      fontVariantNumeric: 'tabular-nums',
+                    }}
+                  >
+                    {Math.round(Math.max(0, Math.min(1, audioLevel)) * 100)}%
+                  </span>
+                </div>
+              )}
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+              <span className="ff-shell__meta-pill">
+                Screenshot: <ManualScreenshotHint inline />
+              </span>
+              <span className="ff-shell__meta-pill">
+                Stop: <ToggleRecordingHint inline />
+              </span>
+              <span className="ff-shell__meta-pill">
+                Pause: <PauseResumeHint inline />
+              </span>
+              <span className="ff-shell__meta-pill">Auto screenshots trigger when narration pauses</span>
+            </div>
+            {transcriptLines.length > 0 || interimTranscript ? (
+              <div className="ff-shell__transcript-scroll" style={{ marginTop: 8 }}>
+                {transcriptLines.map((line, index) => (
+                  <p key={`${index}-${line.slice(0, 24)}`} className="ff-shell__transcript-line">
+                    {line}
+                  </p>
+                ))}
+                {interimTranscript && (
+                  <p className="ff-shell__transcript-interim">{interimTranscript}</p>
+                )}
+              </div>
+            ) : (
+              <p className="ff-shell__transcript-placeholder" style={{ marginTop: 8 }}>
+                Transcript preview appears here while you narrate.
+              </p>
+            )}
+          </section>
+        )}
+
+        {state === 'complete' && reviewSession && showReviewEditor && (
           <SessionReview
             session={reviewSession}
             onSave={handleReviewSave}
@@ -793,7 +1013,7 @@ const App: React.FC = () => {
           />
         )}
 
-        {reportPath && !reviewSession && (
+        {reportPath && (!reviewSession || !showReviewEditor) && (
           <section className="ff-shell__report">
             <p className="ff-shell__report-label">Latest Report Path</p>
             <code className="ff-shell__path">{reportPath}</code>
@@ -804,6 +1024,11 @@ const App: React.FC = () => {
               <button type="button" onClick={handleOpenReportFolder}>
                 Open Folder
               </button>
+              {reviewSession && (
+                <button type="button" onClick={() => setShowReviewEditor(true)}>
+                  Open Review Editor
+                </button>
+              )}
             </div>
             {recordingPath && (
               <>

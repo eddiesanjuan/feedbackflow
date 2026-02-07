@@ -50,6 +50,17 @@ export function UpdateNotification(): React.ReactElement | null {
       }
 
       unsubscribe = window.feedbackflow.updates.onStatus((status: UpdateStatusPayload) => {
+        // Local/manual builds may not ship updater metadata; suppress that noisy non-actionable state.
+        if (
+          status.status === 'error' &&
+          typeof status.message === 'string' &&
+          /(app-update\.yml|latest\.yml|enoent)/i.test(status.message)
+        ) {
+          setUpdate({ status: 'not-available' });
+          setIsDismissed(true);
+          return;
+        }
+
         setUpdate({
           status: status.status,
           version: status.version,

@@ -21,6 +21,9 @@ import type { MarkdownDocument as FileManagerDocument } from './FileManager';
 import { markdownGenerator } from './MarkdownGenerator';
 import { feedbackAnalyzer } from '../analysis';
 
+const NO_TRANSCRIPTION_PLACEHOLDER =
+  '[Narration was recorded but not transcribed. Add an OpenAI API key, or download a Tiny Whisper model for local fallback.]';
+
 /**
  * Map analyzer category labels to markdown report labels
  */
@@ -58,7 +61,7 @@ function mapSeverity(severity: ReturnType<typeof feedbackAnalyzer.analyze>['seve
  * Convert SessionController.FeedbackItem to MarkdownGenerator.FeedbackItem
  */
 function adaptFeedbackItem(item: ControllerFeedbackItem, index: number): MarkdownFeedbackItem {
-  const transcription = item.text.trim() || '[No matching narration]';
+  const transcription = item.text.trim() || NO_TRANSCRIPTION_PLACEHOLDER;
   const analysis = feedbackAnalyzer.analyze(transcription);
 
   return {
@@ -143,7 +146,7 @@ export function adaptSessionForMarkdown(session: ControllerSession): MarkdownSes
   const adaptedFromScreenshots = session.feedbackItems.map((item, index) => adaptFeedbackItem(item, index));
   const transcriptOnlyItems = buildTranscriptOnlyItems(session);
   const hasNarratedScreenshotItems = adaptedFromScreenshots.some(
-    (item) => item.transcription !== '[No matching narration]'
+    (item) => item.transcription !== NO_TRANSCRIPTION_PLACEHOLDER
   );
 
   const adaptedItems =

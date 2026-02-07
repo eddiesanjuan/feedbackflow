@@ -15,10 +15,10 @@
 import Store from 'electron-store';
 import { BrowserWindow } from 'electron';
 import { randomUUID } from 'crypto';
-import { audioCapture, type AudioChunk } from './audio/AudioCapture';
+import { audioCapture, type AudioChunk, type CapturedAudioAsset } from './audio/AudioCapture';
 import { screenCapture } from './capture/ScreenCapture';
-import { tierManager, whisperService, transcriptionService } from './transcription';
-import type { TranscriptEvent, TranscriptionTier } from './transcription/types';
+import { whisperService } from './transcription';
+import type { TranscriptEvent } from './transcription/types';
 import { getSettingsManager } from './settings';
 import { IPC_CHANNELS } from '../shared/types';
 import { errorHandler } from './ErrorHandler';
@@ -114,6 +114,7 @@ export interface SessionStatus {
   duration: number;
   feedbackCount: number;
   screenshotCount: number;
+  isPaused: boolean;
 }
 
 export interface SessionControllerEvents {
@@ -217,6 +218,7 @@ export interface CrashRecoveryInfo {
 export class SessionController {
   // Core state
   private state: SessionState = 'idle';
+  private isPaused = false;
   private session: Session | null = null;
   private events: SessionControllerEvents | null = null;
   private mainWindow: BrowserWindow | null = null;
@@ -250,6 +252,10 @@ export class SessionController {
   private readonly SCREENSHOT_DEBOUNCE_MS = 450;
   private readonly MAX_RECENT_SESSIONS = 10;
   private readonly MAX_TRANSCRIPT_BUFFER_EVENTS = 2000;
+  private readonly WHISPER_RECOVERY_CHUNK_SECONDS = 30;
+  private readonly OPENAI_RECOVERY_CHUNK_SECONDS = 180;
+  private readonly MAX_POST_SESSION_LOCAL_RECOVERY_DURATION_SEC = 8 * 60;
+  private readonly VOICE_PAUSE_CAPTURE_COOLDOWN_MS = 1800;
   private readonly VOICE_SCREENSHOT_COMMANDS: RegExp[] = [
     /\b(?:take|grab|capture)\s+(?:a\s+)?screenshot\b/i,
     /\bscreenshot\s+(?:this|that|now|here)\b/i,
@@ -570,6 +576,9 @@ export class SessionController {
 
     // Reset counters
     this.audioChunkCount = 0;
+    this.wasVoiceActive = false;
+    this.lastVoicePauseCaptureAt = 0;
+    this.isPaused = false;
 
     // Create new session
     this.session = {
@@ -651,42 +660,9 @@ export class SessionController {
 
     this.cleanupFunctions.push(unsubAudioChunk, unsubVoiceActivity, unsubAudioError);
 
-    // Subscribe to transcription events via TierManager
-    const unsubTranscript = tierManager.onTranscript((event) =>
-      this.handleTranscriptResult(event)
+    console.log(
+      '[SessionController] Live transcription disabled for this workflow; using post-session transcription from captured audio.'
     );
-    const unsubPause = tierManager.onPause((event) =>
-      this.handleUtteranceEnd(event.timestamp)
-    );
-    const unsubTransError = tierManager.onError((error) =>
-      this.handleServiceError('transcription', error)
-    );
-    const unsubTierChange = tierManager.onTierChange((fromTier, toTier, reason) => {
-      void this.handleTranscriptionTierChange(fromTier, toTier, reason);
-    });
-
-    this.cleanupFunctions.push(unsubTranscript, unsubPause, unsubTransError, unsubTierChange);
-
-    // Calculate remaining time
-    const elapsed = Date.now() - startTime;
-    const remaining = Math.max(totalTimeout - elapsed, 1000);
-
-    // Start transcription service with timeout (TierManager auto-selects best tier)
-    const selectedTier = await this.withTimeout(
-      tierManager.start(),
-      remaining / 2, // Half of remaining time
-      'timer-only' as const,
-      'TierManager.start()'
-    );
-
-    if (tierManager.tierProvidesTranscription(selectedTier)) {
-      console.log(`[SessionController] Transcription tier active: ${selectedTier}`);
-    } else {
-      console.warn(
-        `[SessionController] Started without live transcription (tier: "${selectedTier}"). ` +
-        'Session recording will continue and post-session transcript recovery will be attempted from captured audio.'
-      );
-    }
 
     // Check if we still have time
     const elapsed2 = Date.now() - startTime;
@@ -723,6 +699,12 @@ export class SessionController {
     }
 
     console.log(`[SessionController] Stopping session: ${this.session.id}`);
+
+    // Capture one final screenshot before tearing services down to avoid
+    // ending with an empty visual timeline on long, uninterrupted narration.
+    await this.captureAndQueueScreenshot('manual', true, true).catch((error) => {
+      console.warn('[SessionController] Final stop-time screenshot capture failed:', error);
+    });
 
     // Transition to stopping state
     if (!this.transition('stopping')) {
@@ -766,6 +748,7 @@ export class SessionController {
 
     // Set end time
     this.session.endTime = Date.now();
+    this.isPaused = false;
 
     // Final persist
     this.persistState();
@@ -818,6 +801,7 @@ export class SessionController {
 
     // Clear session
     this.session = null;
+    this.isPaused = false;
     store.set('currentSession', null);
 
     // Force transition to idle (bypass normal validation since we're cancelling)
@@ -831,6 +815,7 @@ export class SessionController {
     this.cleanupServices();
     this.session = null;
     this.pendingScreenshots = [];
+    this.isPaused = false;
     this.state = 'idle';
     this.emitStateChange();
   }
@@ -850,7 +835,37 @@ export class SessionController {
       duration,
       feedbackCount: this.session?.feedbackItems.length ?? 0,
       screenshotCount: this.session?.screenshotBuffer.length ?? 0,
+      isPaused: this.state === 'recording' && this.isPaused,
     };
+  }
+
+  isSessionPaused(): boolean {
+    return this.state === 'recording' && this.isPaused;
+  }
+
+  pause(): boolean {
+    if (this.state !== 'recording' || this.isPaused) {
+      return false;
+    }
+
+    this.isPaused = true;
+    this.audioCaptureService.setPaused(true);
+    this.wasVoiceActive = false;
+    this.emitToRenderer(IPC_CHANNELS.SESSION_VOICE_ACTIVITY, { active: false });
+    this.emitStatus();
+    return true;
+  }
+
+  resume(): boolean {
+    if (this.state !== 'recording' || !this.isPaused) {
+      return false;
+    }
+
+    this.isPaused = false;
+    this.audioCaptureService.setPaused(false);
+    this.wasVoiceActive = false;
+    this.emitStatus();
+    return true;
   }
 
   /**
@@ -880,19 +895,15 @@ export class SessionController {
   /**
    * Export the captured microphone audio for the most recent session.
    */
-  async exportCapturedAudioWav(
-    outputPath: string,
-  ): Promise<{ path: string; bytesWritten: number; durationMs: number } | null> {
-    const exported = await this.audioCaptureService.exportCapturedAudioWav(outputPath);
+  async exportCapturedAudio(
+    outputPathBase: string,
+  ): Promise<{ path: string; bytesWritten: number; durationMs: number; mimeType: string } | null> {
+    const exported = await this.audioCaptureService.exportCapturedAudio(outputPathBase);
     if (!exported) {
       return null;
     }
 
-    return {
-      path: outputPath,
-      bytesWritten: exported.bytesWritten,
-      durationMs: exported.durationMs,
-    };
+    return exported;
   }
 
   clearCapturedAudio(): void {
@@ -985,6 +996,8 @@ export class SessionController {
 
   // Audio chunk counter for debug logging
   private audioChunkCount: number = 0;
+  private wasVoiceActive = false;
+  private lastVoicePauseCaptureAt = 0;
 
   /**
    * Handle audio chunk from microphone
@@ -994,15 +1007,18 @@ export class SessionController {
       return;
     }
 
-    // Send audio to TierManager (handles routing to active transcription tier)
-    // TierManager expects: samples (Float32Array|Buffer), timestamp, durationMs
-    const durationMs = (chunk.buffer.byteLength / 4) / 16000 * 1000; // Assuming 16kHz mono Float32
-    tierManager.sendAudio(chunk.buffer, chunk.timestamp, durationMs);
+    if (this.isPaused) {
+      return;
+    }
 
     // Log every 100 chunks (roughly every 10 seconds at 100ms chunks)
     this.audioChunkCount++;
     if (this.audioChunkCount % 100 === 0) {
-      console.log(`[SessionController] Audio: ${this.audioChunkCount} chunks sent, ${Math.round(this.audioChunkCount * 0.1)}s of audio`);
+      console.log(
+        `[SessionController] Audio captured: ${this.audioChunkCount} chunks, ${Math.round(
+          this.audioChunkCount * 0.1
+        )}s of audio`
+      );
     }
   }
 
@@ -1010,8 +1026,34 @@ export class SessionController {
    * Handle voice activity changes (for UI feedback)
    */
   private handleVoiceActivity(active: boolean): void {
+    if (this.isPaused) {
+      this.wasVoiceActive = false;
+      this.emitToRenderer(IPC_CHANNELS.SESSION_VOICE_ACTIVITY, { active: false });
+      return;
+    }
+
     // Emit to renderer for visual feedback
-    this.emitToRenderer('session:voiceActivity', { active });
+    this.emitToRenderer(IPC_CHANNELS.SESSION_VOICE_ACTIVITY, { active });
+
+    if (this.state !== 'recording') {
+      this.wasVoiceActive = active;
+      return;
+    }
+
+    if (active) {
+      this.wasVoiceActive = true;
+      return;
+    }
+
+    // Trigger an automatic screenshot when speech transitions into silence.
+    if (this.wasVoiceActive) {
+      this.wasVoiceActive = false;
+      const now = Date.now();
+      if (now - this.lastVoicePauseCaptureAt >= this.VOICE_PAUSE_CAPTURE_COOLDOWN_MS) {
+        this.lastVoicePauseCaptureAt = now;
+        void this.captureAndQueueScreenshot('pause');
+      }
+    }
   }
 
   /**
@@ -1019,31 +1061,6 @@ export class SessionController {
    */
   private async handleUtteranceEnd(_timestamp: number): Promise<void> {
     await this.captureAndQueueScreenshot('pause');
-  }
-
-  /**
-   * Enforce transcription availability during active recording.
-   * If failover lands on a non-transcribing tier, keep recording and recover transcript post-session.
-   */
-  private async handleTranscriptionTierChange(
-    fromTier: TranscriptionTier,
-    toTier: TranscriptionTier,
-    reason: string
-  ): Promise<void> {
-    if (tierManager.tierProvidesTranscription(toTier)) {
-      console.log(`[SessionController] Transcription failover: ${fromTier} -> ${toTier}`);
-      return;
-    }
-
-    if (this.state !== 'recording' || !this.session) {
-      return;
-    }
-
-    const message =
-      `Live transcription became unavailable (${fromTier} -> ${toTier}). ${reason}. ` +
-      'Session recording will continue. A post-session transcription recovery pass will retry from captured audio.';
-
-    console.warn(`[SessionController] ${message}`);
   }
 
   /**
@@ -1063,10 +1080,37 @@ export class SessionController {
       return;
     }
 
-    // Use captured in-memory audio (float32 PCM) to reconstruct missing transcript.
+    const capturedAudio = this.audioCaptureService.getCapturedAudioAsset();
+    if (!capturedAudio || capturedAudio.buffer.byteLength === 0) {
+      console.warn('[SessionController] Post-session transcription recovery skipped: no captured audio asset.');
+      return;
+    }
+
+    const sessionStartSec = this.session.startTime / 1000;
+    const openAiApiKey = await this.getOpenAIApiKey();
+    if (openAiApiKey) {
+      const openAiRecovered = await this.recoverTranscriptWithOpenAIAudioAsset(
+        capturedAudio,
+        sessionStartSec,
+        openAiApiKey,
+      2
+      );
+      if (openAiRecovered.length > 0) {
+        this.appendRecoveredTranscriptEvents(openAiRecovered);
+        return;
+      }
+    } else {
+      console.warn(
+        '[SessionController] Post-session OpenAI recovery skipped: API key not configured.',
+      );
+    }
+
+    // Local Whisper fallback only works with raw PCM buffers.
     const mergedAudio = this.audioCaptureService.getCapturedAudioBuffer();
     if (!mergedAudio || mergedAudio.byteLength === 0) {
-      console.warn('[SessionController] Post-session transcription recovery skipped: no captured audio buffers.');
+      console.warn(
+        '[SessionController] Post-session Whisper recovery skipped: captured audio is encoded-only.',
+      );
       return;
     }
 
@@ -1079,9 +1123,10 @@ export class SessionController {
       return;
     }
 
-    const sessionStartSec = this.session.startTime / 1000;
-
-    if (whisperService.isModelAvailable()) {
+    const audioDurationSec = audioSamples.length / 16000;
+    const canRunLocalWhisperRecovery =
+      audioDurationSec <= this.MAX_POST_SESSION_LOCAL_RECOVERY_DURATION_SEC;
+    if (canRunLocalWhisperRecovery && whisperService.isModelAvailable()) {
       const whisperRecovered = await this.recoverTranscriptWithWhisper(
         audioSamples,
         sessionStartSec,
@@ -1091,32 +1136,18 @@ export class SessionController {
         this.appendRecoveredTranscriptEvents(whisperRecovered);
         return;
       }
+    } else if (!canRunLocalWhisperRecovery) {
+      console.warn(
+        `[SessionController] Skipping post-session Whisper recovery for long session (${Math.round(audioDurationSec)}s).`,
+      );
     } else {
       console.warn(
         '[SessionController] Post-session Whisper recovery skipped: no local model available.',
       );
     }
 
-    const deepgramApiKey = await this.getDeepgramApiKey();
-    if (deepgramApiKey) {
-      const deepgramRecovered = await this.recoverTranscriptWithDeepgram(
-        audioSamples,
-        sessionStartSec,
-        deepgramApiKey,
-        2
-      );
-      if (deepgramRecovered.length > 0) {
-        this.appendRecoveredTranscriptEvents(deepgramRecovered);
-        return;
-      }
-    } else {
-      console.warn(
-        '[SessionController] Post-session Deepgram recovery skipped: API key not configured.',
-      );
-    }
-
     console.warn(
-      '[SessionController] Post-session transcription recovery exhausted all providers without transcript output.',
+      '[SessionController] Post-session transcription recovery exhausted OpenAI + local Whisper without transcript output.',
     );
   }
 
@@ -1144,12 +1175,28 @@ export class SessionController {
     sessionStartSec: number,
     maxAttempts: number,
   ): Promise<TranscriptEvent[]> {
+    const sampleRate = 16000;
+    const chunkSamples = sampleRate * this.WHISPER_RECOVERY_CHUNK_SECONDS;
+
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        const recoveredSegments = await whisperService.transcribeSamples(
-          audioSamples,
-          sessionStartSec,
-        );
+        const recoveredSegments: Array<{
+          text: string;
+          startTime: number;
+          endTime: number;
+          confidence: number;
+        }> = [];
+        for (let offset = 0; offset < audioSamples.length; offset += chunkSamples) {
+          const chunk = audioSamples.subarray(offset, Math.min(audioSamples.length, offset + chunkSamples));
+          const chunkStartSec = sessionStartSec + offset / sampleRate;
+          const chunkSegments = await whisperService.transcribeSamples(chunk, chunkStartSec);
+          recoveredSegments.push(...chunkSegments);
+
+          // Yield between chunks to keep the app responsive during longer sessions.
+          if (offset + chunkSamples < audioSamples.length) {
+            await new Promise((resolve) => setTimeout(resolve, 0));
+          }
+        }
 
         const recoveredEvents: TranscriptEvent[] = recoveredSegments
           .map((segment) => ({
@@ -1185,45 +1232,97 @@ export class SessionController {
     return [];
   }
 
-  private async recoverTranscriptWithDeepgram(
-    audioSamples: Float32Array,
+  private async recoverTranscriptWithOpenAIAudioAsset(
+    audioAsset: CapturedAudioAsset,
     sessionStartSec: number,
     apiKey: string,
     maxAttempts: number,
   ): Promise<TranscriptEvent[]> {
-    const wavBuffer = this.encodeFloat32Pcm16Wav(audioSamples, 16000, 1);
-    const audioDurationSec = audioSamples.length / 16000;
-    const timeoutMs = Math.min(10 * 60_000, Math.max(60_000, Math.round(audioDurationSec * 2000)));
-
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        const segments = await transcriptionService.transcribePrerecordedAudio(wavBuffer, {
-          apiKey,
-          timeoutMs,
-        });
+        const controller = new AbortController();
+        const timeoutMs = Math.min(180_000, Math.max(30_000, Math.round(audioAsset.durationMs * 1.8)));
+        const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
-        const recoveredEvents: TranscriptEvent[] = segments
-          .map((segment) => ({
-            text: segment.text,
-            isFinal: true,
-            confidence: segment.confidence,
-            timestamp: this.normalizeTranscriptTimestamp(sessionStartSec + segment.startTime),
-            tier: 'deepgram' as const,
-          }))
-          .filter((segment) => segment.text.trim().length > 0);
+        const recoveredEvents: TranscriptEvent[] = [];
+
+        try {
+          const extension = this.extensionFromMimeType(audioAsset.mimeType);
+          const form = new FormData();
+          form.append('model', 'whisper-1');
+          form.append('response_format', 'verbose_json');
+          form.append('temperature', '0');
+          form.append(
+            'file',
+            new Blob([new Uint8Array(audioAsset.buffer)], { type: audioAsset.mimeType }),
+            `session-audio${extension}`,
+          );
+
+          const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: form,
+            signal: controller.signal,
+          });
+
+          if (!response.ok) {
+            const detail = await this.extractOpenAiError(response);
+            throw new Error(`OpenAI transcription failed (${response.status}): ${detail}`);
+          }
+
+          const payload = (await response.json()) as {
+            text?: string;
+            segments?: Array<{
+              text?: string;
+              start?: number;
+            }>;
+          };
+
+          const segments = Array.isArray(payload.segments) ? payload.segments : [];
+          if (segments.length > 0) {
+            for (const segment of segments) {
+              const text = segment.text?.trim();
+              if (!text) {
+                continue;
+              }
+
+              const start = Number.isFinite(segment.start) ? Math.max(0, Number(segment.start)) : 0;
+              const normalizedTimestamp = this.normalizeTranscriptTimestamp(sessionStartSec + start);
+              recoveredEvents.push({
+                text,
+                isFinal: true,
+                confidence: 0.9,
+                timestamp: normalizedTimestamp,
+                tier: 'whisper',
+              });
+            }
+          } else if (payload.text?.trim()) {
+            recoveredEvents.push({
+              text: payload.text.trim(),
+              isFinal: true,
+              confidence: 0.85,
+              timestamp: this.normalizeTranscriptTimestamp(sessionStartSec),
+              tier: 'whisper',
+            });
+          }
+        } finally {
+          clearTimeout(timeout);
+        }
 
         if (recoveredEvents.length === 0) {
-          throw new Error('No transcript text recovered from prerecorded transcription');
+          throw new Error('No transcript text recovered from OpenAI transcription');
         }
 
         console.log(
-          `[SessionController] Recovered ${recoveredEvents.length} transcript segments via Deepgram prerecorded (attempt ${attempt}/${maxAttempts}).`,
+          `[SessionController] Recovered ${recoveredEvents.length} transcript segments via OpenAI (attempt ${attempt}/${maxAttempts}).`,
         );
         return recoveredEvents;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         console.warn(
-          `[SessionController] Deepgram recovery attempt ${attempt}/${maxAttempts} failed: ${message}`,
+          `[SessionController] OpenAI recovery attempt ${attempt}/${maxAttempts} failed: ${message}`,
         );
 
         if (attempt < maxAttempts) {
@@ -1236,16 +1335,46 @@ export class SessionController {
     return [];
   }
 
-  private async getDeepgramApiKey(): Promise<string | null> {
+  private async getOpenAIApiKey(): Promise<string | null> {
     try {
       const settings = getSettingsManager();
-      const apiKey = await settings.getApiKey('deepgram');
+      const apiKey = await settings.getApiKey('openai');
       const normalized = apiKey?.trim();
       return normalized && normalized.length > 0 ? normalized : null;
     } catch (error) {
-      console.warn('[SessionController] Failed to read Deepgram API key for recovery:', error);
+      console.warn('[SessionController] Failed to read OpenAI API key for recovery:', error);
       return null;
     }
+  }
+
+  private async extractOpenAiError(response: Response): Promise<string> {
+    try {
+      const raw = await response.text();
+      const trimmed = raw.trim();
+      if (trimmed.length === 0) {
+        return 'Unknown API error';
+      }
+
+      const parsed = JSON.parse(trimmed) as { error?: { message?: string } };
+      const message = parsed?.error?.message;
+      if (message && message.trim().length > 0) {
+        return message.trim();
+      }
+      return trimmed.length > 220 ? `${trimmed.slice(0, 220)}...` : trimmed;
+    } catch {
+      return `HTTP ${response.status}`;
+    }
+  }
+
+  private extensionFromMimeType(mimeType: string): string {
+    const normalized = mimeType.toLowerCase();
+    if (normalized.includes('webm')) return '.webm';
+    if (normalized.includes('ogg')) return '.ogg';
+    if (normalized.includes('mp4') || normalized.includes('aac') || normalized.includes('m4a')) {
+      return '.m4a';
+    }
+    if (normalized.includes('wav')) return '.wav';
+    return '.audio';
   }
 
   private encodeFloat32Pcm16Wav(samples: Float32Array, sampleRate: number, channels: number): Buffer {
@@ -1279,7 +1408,7 @@ export class SessionController {
   }
 
   /**
-   * Handle transcript result from TierManager (any tier: Deepgram, Whisper, etc.)
+   * Handle transcript result from the active transcription source.
    */
   private handleTranscriptResult(event: TranscriptEvent): void {
     if (!this.session) {
@@ -1333,7 +1462,7 @@ export class SessionController {
 
   /**
    * Normalizes transcript timestamps to epoch seconds for consistent matching.
-   * Deepgram may emit relative offsets while Whisper emits absolute timestamps.
+   * Some providers emit relative offsets while others emit absolute timestamps.
    */
   private normalizeTranscriptTimestamp(timestamp: number): number {
     if (!this.session) {
@@ -1400,8 +1529,16 @@ export class SessionController {
     return cleaned.trim();
   }
 
-  private async captureAndQueueScreenshot(trigger: ScreenshotTrigger): Promise<Screenshot | null> {
+  private async captureAndQueueScreenshot(
+    trigger: ScreenshotTrigger,
+    bypassDebounce: boolean = false,
+    allowWhenPaused: boolean = false
+  ): Promise<Screenshot | null> {
     if (this.state !== 'recording' || !this.session) {
+      return null;
+    }
+
+    if (this.isPaused && !allowWhenPaused) {
       return null;
     }
 
@@ -1410,7 +1547,7 @@ export class SessionController {
     }
 
     const now = Date.now();
-    if (now - this.lastScreenshotCapturedAt < this.SCREENSHOT_DEBOUNCE_MS) {
+    if (!bypassDebounce && now - this.lastScreenshotCapturedAt < this.SCREENSHOT_DEBOUNCE_MS) {
       return null;
     }
 
@@ -1989,6 +2126,7 @@ export class SessionController {
    */
   private cleanupServicesForced(): void {
     console.log('[SessionController] FORCED service cleanup');
+    this.isPaused = false;
 
     // Stop timers
     this.stopAutoSave();
@@ -2011,14 +2149,7 @@ export class SessionController {
     } catch {
       // Ignore
     }
-    try {
-      // TierManager.stop() is async but we don't wait in forced cleanup
-      tierManager.stop().catch(() => {
-        // Ignore errors in forced cleanup
-      });
-    } catch {
-      // Ignore
-    }
+    // No-op: transcription recovery is post-session and does not run as a live service.
   }
 
   /**
@@ -2088,6 +2219,10 @@ export class SessionController {
    */
   private emitStateChange(): void {
     this.events?.onStateChange(this.state, this.session);
+    this.emitStatus();
+  }
+
+  private emitStatus(): void {
     this.emitToRenderer(IPC_CHANNELS.SESSION_STATUS, this.getStatus());
   }
 
@@ -2123,6 +2258,7 @@ export class SessionController {
    * Clean up all services and timers (synchronous version for backwards compatibility)
    */
   private cleanupServices(): void {
+    this.isPaused = false;
     // Stop timers
     this.stopAutoSave();
     this.stopDurationTimer();
@@ -2140,10 +2276,6 @@ export class SessionController {
 
     // Stop services
     this.audioCaptureService.stop();
-    // TierManager.stop() is async, but we call it and don't wait
-    tierManager.stop().catch((error) => {
-      console.warn('[SessionController] TierManager stop error:', error);
-    });
   }
 
   /**
@@ -2152,6 +2284,7 @@ export class SessionController {
    */
   private async cleanupServicesAsync(): Promise<void> {
     console.log('[SessionController] Cleaning up services...');
+    this.isPaused = false;
 
     // Stop timers first (fast, non-blocking)
     this.stopAutoSave();
@@ -2170,17 +2303,11 @@ export class SessionController {
     // Stop services with timeout protection (may block)
     const serviceTimeout = 2000; // 2 seconds per service
 
-    const [audioResult, transcriptionResult] = await Promise.allSettled([
+    const [audioResult] = await Promise.allSettled([
       this.withTimeoutSync(
         () => this.audioCaptureService.stop(),
         serviceTimeout,
         'AudioCapture.stop()'
-      ),
-      this.withTimeout(
-        tierManager.stop(),
-        serviceTimeout,
-        undefined,
-        'TierManager.stop()'
       ),
     ]);
 
@@ -2188,10 +2315,6 @@ export class SessionController {
     if (audioResult.status === 'rejected') {
       console.warn('[SessionController] Audio cleanup failed:', audioResult.reason);
     }
-    if (transcriptionResult.status === 'rejected') {
-      console.warn('[SessionController] TierManager cleanup failed:', transcriptionResult.reason);
-    }
-
     console.log('[SessionController] Service cleanup complete');
   }
 

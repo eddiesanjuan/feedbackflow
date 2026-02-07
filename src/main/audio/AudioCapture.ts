@@ -38,6 +38,12 @@ export interface AudioChunk {
   sampleRate: number;
 }
 
+export interface CapturedAudioAsset {
+  buffer: Buffer;
+  mimeType: string;
+  durationMs: number;
+}
+
 export interface AudioCaptureConfig {
   sampleRate: number;
   channels: number;
@@ -52,11 +58,16 @@ export interface AudioCaptureService {
   requestPermission(): Promise<boolean>;
   getDevices(): Promise<AudioDevice[]>;
   setDevice(deviceId: string): void;
+  setPaused(paused: boolean): void;
   start(): Promise<void>;
   stop(): void;
   getAudioLevel(): number;
   isCapturing(): boolean;
   getCapturedAudioBuffer(): Buffer | null;
+  getCapturedAudioAsset(): CapturedAudioAsset | null;
+  exportCapturedAudio(
+    filePathBase: string
+  ): Promise<{ path: string; bytesWritten: number; durationMs: number; mimeType: string } | null>;
   exportCapturedAudioWav(filePath: string): Promise<{ bytesWritten: number; durationMs: number } | null>;
   clearCapturedAudio(): void;
 
@@ -91,11 +102,11 @@ export const AUDIO_IPC_CHANNELS = {
 // ============================================================================
 
 const DEFAULT_CONFIG: AudioCaptureConfig = {
-  sampleRate: 16000, // 16kHz required by Deepgram
+  sampleRate: 16000,
   channels: 1, // Mono
-  chunkDurationMs: 100, // 100ms chunks for real-time streaming
+  chunkDurationMs: 250,
   vadThreshold: 0.01, // RMS threshold for voice detection
-  vadSilenceMs: 300, // Consecutive silence before marking inactive
+  vadSilenceMs: 600, // Consecutive silence before marking inactive
   recoveryBufferMinutes: 5, // Rotate buffer files every 5 minutes
 };
 
@@ -109,6 +120,7 @@ class AudioCaptureServiceImpl extends EventEmitter implements AudioCaptureServic
   private currentDeviceId: string | null = null;
   private currentAudioLevel: number = 0;
   private voiceActive: boolean = false;
+  private paused: boolean = false;
   private silenceStartTime: number = 0;
   private mainWindow: BrowserWindow | null = null;
 
@@ -122,6 +134,12 @@ class AudioCaptureServiceImpl extends EventEmitter implements AudioCaptureServic
   // Full-session audio capture (used for post-session transcription + retry workflows)
   private sessionAudioChunks: Buffer[] = [];
   private sessionAudioBytes: number = 0;
+  private sessionAudioDurationMs: number = 0;
+  private sessionAudioMimeType: string = 'audio/wav';
+  private encodedAudioChunks: Buffer[] = [];
+  private encodedAudioBytes: number = 0;
+  private encodedAudioDurationMs: number = 0;
+  private encodedAudioMimeType: string | null = null;
 
   constructor(config: Partial<AudioCaptureConfig> = {}) {
     super();
@@ -297,8 +315,15 @@ class AudioCaptureServiceImpl extends EventEmitter implements AudioCaptureServic
         ipcMain.removeListener(AUDIO_IPC_CHANNELS.CAPTURE_ERROR, errorHandler);
 
         this.capturing = true;
+        this.paused = false;
         this.sessionAudioChunks = [];
         this.sessionAudioBytes = 0;
+        this.sessionAudioDurationMs = 0;
+        this.sessionAudioMimeType = 'audio/wav';
+        this.encodedAudioChunks = [];
+        this.encodedAudioBytes = 0;
+        this.encodedAudioDurationMs = 0;
+        this.encodedAudioMimeType = null;
         this.startRecoveryBuffer();
         console.log('[AudioCapture] Capture started');
         resolve();
@@ -333,6 +358,7 @@ class AudioCaptureServiceImpl extends EventEmitter implements AudioCaptureServic
     }
 
     this.capturing = false;
+    this.paused = false;
     this.stopRecoveryBuffer();
 
     if (this.mainWindow) {
@@ -342,6 +368,7 @@ class AudioCaptureServiceImpl extends EventEmitter implements AudioCaptureServic
     // Reset state
     this.voiceActive = false;
     this.currentAudioLevel = 0;
+    this.emit('audioLevel', 0);
     this.emit('voiceActivity', false);
 
     console.log('[AudioCapture] Capture stopped');
@@ -354,6 +381,16 @@ class AudioCaptureServiceImpl extends EventEmitter implements AudioCaptureServic
     return this.capturing;
   }
 
+  setPaused(paused: boolean): void {
+    this.paused = paused;
+    if (paused) {
+      this.voiceActive = false;
+      this.currentAudioLevel = 0;
+      this.emit('audioLevel', 0);
+      this.emit('voiceActivity', false);
+    }
+  }
+
   /**
    * Get current audio level (0-1 normalized)
    */
@@ -362,8 +399,44 @@ class AudioCaptureServiceImpl extends EventEmitter implements AudioCaptureServic
   }
 
   /**
-   * Export captured audio as a WAV file (IEEE float 32-bit PCM).
-   * Returns null when there is no audio for the current session.
+   * Export captured audio with the most accurate available source format.
+   * Encoded MediaRecorder audio is preserved as-is; PCM falls back to WAV.
+   */
+  async exportCapturedAudio(
+    filePathBase: string
+  ): Promise<{ path: string; bytesWritten: number; durationMs: number; mimeType: string } | null> {
+    const encodedAsset = this.getCapturedEncodedAudioAsset();
+    if (encodedAsset) {
+      const extension = this.extensionFromMimeType(encodedAsset.mimeType);
+      const outputPath = `${filePathBase}${extension}`;
+      await mkdir(dirname(outputPath), { recursive: true });
+      await writeFile(outputPath, encodedAsset.buffer);
+      return {
+        path: outputPath,
+        bytesWritten: encodedAsset.buffer.byteLength,
+        durationMs: encodedAsset.durationMs,
+        mimeType: encodedAsset.mimeType,
+      };
+    }
+
+    const pcmAsset = this.getCapturedPcmAudioAsset();
+    if (!pcmAsset) {
+      return null;
+    }
+
+    const outputPath = `${filePathBase}.wav`;
+    await mkdir(dirname(outputPath), { recursive: true });
+    await writeFile(outputPath, pcmAsset.buffer);
+    return {
+      path: outputPath,
+      bytesWritten: pcmAsset.buffer.byteLength,
+      durationMs: pcmAsset.durationMs,
+      mimeType: 'audio/wav',
+    };
+  }
+
+  /**
+   * Backward-compatible WAV export wrapper.
    */
   async exportCapturedAudioWav(
     filePath: string
@@ -373,11 +446,7 @@ class AudioCaptureServiceImpl extends EventEmitter implements AudioCaptureServic
       return null;
     }
 
-    const wavBuffer = this.encodeFloat32Wav(
-      rawAudio,
-      this.config.sampleRate,
-      this.config.channels
-    );
+    const wavBuffer = this.encodeFloat32Wav(rawAudio, this.config.sampleRate, this.config.channels);
     await mkdir(dirname(filePath), { recursive: true });
     await writeFile(filePath, wavBuffer);
 
@@ -395,6 +464,12 @@ class AudioCaptureServiceImpl extends EventEmitter implements AudioCaptureServic
   clearCapturedAudio(): void {
     this.sessionAudioChunks = [];
     this.sessionAudioBytes = 0;
+    this.sessionAudioDurationMs = 0;
+    this.sessionAudioMimeType = 'audio/wav';
+    this.encodedAudioChunks = [];
+    this.encodedAudioBytes = 0;
+    this.encodedAudioDurationMs = 0;
+    this.encodedAudioMimeType = null;
   }
 
   // ==========================================================================
@@ -460,37 +535,68 @@ class AudioCaptureServiceImpl extends EventEmitter implements AudioCaptureServic
    */
   private handleAudioChunk(
     _event: Electron.IpcMainEvent,
-    data: { samples: number[]; timestamp: number; duration: number }
+    data: {
+      samples?: number[];
+      encodedChunk?: Buffer | Uint8Array | ArrayBuffer;
+      mimeType?: string;
+      timestamp: number;
+      duration: number;
+    }
   ): void {
     if (!this.capturing) return;
 
-    // Convert samples array back to Float32Array then to Buffer
-    const float32 = new Float32Array(data.samples);
-    const buffer = Buffer.from(float32.buffer);
+    if (this.paused) {
+      return;
+    }
 
-    // Calculate RMS for VAD and level visualization
-    const rms = this.calculateRMS(float32);
-    this.currentAudioLevel = Math.min(1, rms * 10); // Normalize for visualization
-    this.emit('audioLevel', this.currentAudioLevel);
+    if (Array.isArray(data.samples) && data.samples.length > 0) {
+      const float32 = new Float32Array(data.samples);
+      const buffer = Buffer.from(float32.buffer);
 
-    // Voice Activity Detection
-    this.updateVAD(rms, data.timestamp);
+      // Calculate RMS for VAD and level visualization
+      const rms = this.calculateRMS(float32);
+      this.currentAudioLevel = Math.min(1, rms * 10);
+      this.emit('audioLevel', this.currentAudioLevel);
 
-    // Create chunk object
-    const chunk: AudioChunk = {
-      buffer,
-      timestamp: data.timestamp,
-      duration: data.duration,
-      sampleRate: this.config.sampleRate,
-    };
+      // Voice Activity Detection
+      this.updateVAD(rms, data.timestamp);
 
-    // Add to recovery buffer
-    this.recoveryChunks.push(buffer);
-    this.sessionAudioChunks.push(buffer);
-    this.sessionAudioBytes += buffer.byteLength;
+      // Create chunk object
+      const chunk: AudioChunk = {
+        buffer,
+        timestamp: data.timestamp,
+        duration: data.duration,
+        sampleRate: this.config.sampleRate,
+      };
 
-    // Emit chunk for transcription
-    this.emit('audioChunk', chunk);
+      // Add to recovery/session buffers
+      this.recoveryChunks.push(buffer);
+      this.sessionAudioChunks.push(buffer);
+      this.sessionAudioBytes += buffer.byteLength;
+      this.sessionAudioDurationMs += Math.max(0, data.duration || this.config.chunkDurationMs);
+      this.sessionAudioMimeType = 'audio/wav';
+
+      this.emit('audioChunk', chunk);
+      return;
+    }
+
+    const encodedBuffer = this.toBuffer(data.encodedChunk);
+    if (!encodedBuffer || encodedBuffer.byteLength === 0) {
+      return;
+    }
+
+    this.encodedAudioChunks.push(encodedBuffer);
+    this.encodedAudioBytes += encodedBuffer.byteLength;
+    this.encodedAudioDurationMs += Math.max(0, data.duration || this.config.chunkDurationMs);
+    this.encodedAudioMimeType = data.mimeType || this.encodedAudioMimeType || 'audio/webm';
+    this.recoveryChunks.push(encodedBuffer);
+
+    // Approximate activity from encoded chunk size variance.
+    const baseline = 3200;
+    const level = Math.max(0, Math.min(1, encodedBuffer.byteLength / baseline));
+    this.currentAudioLevel = level;
+    this.emit('audioLevel', level);
+    this.updateVAD(level * 0.1, data.timestamp);
   }
 
   // ==========================================================================
@@ -724,6 +830,73 @@ class AudioCaptureServiceImpl extends EventEmitter implements AudioCaptureServic
       return null;
     }
     return Buffer.concat(this.sessionAudioChunks, this.sessionAudioBytes);
+  }
+
+  getCapturedAudioAsset(): CapturedAudioAsset | null {
+    const encoded = this.getCapturedEncodedAudioAsset();
+    if (encoded) {
+      return encoded;
+    }
+
+    return this.getCapturedPcmAudioAsset();
+  }
+
+  private getCapturedPcmAudioAsset(): CapturedAudioAsset | null {
+    const rawAudio = this.getCapturedAudioBuffer();
+    if (!rawAudio) {
+      return null;
+    }
+
+    const wavBuffer = this.encodeFloat32Wav(rawAudio, this.config.sampleRate, this.config.channels);
+    const durationMs =
+      this.sessionAudioDurationMs > 0
+        ? this.sessionAudioDurationMs
+        : (rawAudio.byteLength / (this.config.channels * this.config.sampleRate * 4)) * 1000;
+
+    return {
+      buffer: wavBuffer,
+      mimeType: 'audio/wav',
+      durationMs,
+    };
+  }
+
+  private getCapturedEncodedAudioAsset(): CapturedAudioAsset | null {
+    if (this.encodedAudioChunks.length === 0 || this.encodedAudioBytes === 0) {
+      return null;
+    }
+
+    return {
+      buffer: Buffer.concat(this.encodedAudioChunks, this.encodedAudioBytes),
+      mimeType: this.encodedAudioMimeType || 'audio/webm',
+      durationMs: this.encodedAudioDurationMs,
+    };
+  }
+
+  private toBuffer(chunk: Buffer | Uint8Array | ArrayBuffer | undefined): Buffer | null {
+    if (!chunk) {
+      return null;
+    }
+    if (Buffer.isBuffer(chunk)) {
+      return chunk;
+    }
+    if (chunk instanceof ArrayBuffer) {
+      return Buffer.from(chunk);
+    }
+    if (ArrayBuffer.isView(chunk)) {
+      return Buffer.from(chunk.buffer, chunk.byteOffset, chunk.byteLength);
+    }
+    return null;
+  }
+
+  private extensionFromMimeType(mimeType: string): string {
+    const normalized = mimeType.toLowerCase();
+    if (normalized.includes('webm')) return '.webm';
+    if (normalized.includes('ogg')) return '.ogg';
+    if (normalized.includes('mp4') || normalized.includes('aac') || normalized.includes('m4a')) {
+      return '.m4a';
+    }
+    if (normalized.includes('wav')) return '.wav';
+    return '.audio';
   }
 
   /**

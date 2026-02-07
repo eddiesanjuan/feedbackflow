@@ -39,6 +39,8 @@ interface SessionAPI {
     sourceName?: string
   ) => Promise<{ success: boolean; sessionId?: string; error?: string }>;
   stop: () => Promise<{ success: boolean; session?: SessionPayload; error?: string }>;
+  pause: () => Promise<{ success: boolean; error?: string }>;
+  resume: () => Promise<{ success: boolean; error?: string }>;
   cancel: () => Promise<{ success: boolean }>;
   getStatus: () => Promise<SessionStatusPayload>;
   getCurrent: () => Promise<SessionPayload | null>;
@@ -80,7 +82,13 @@ interface AudioAPI {
   }) => void) => Unsubscribe;
   onStopCapture: (callback: () => void) => Unsubscribe;
   onSetDevice: (callback: (deviceId: string) => void) => Unsubscribe;
-  sendAudioChunk: (data: { samples: number[]; timestamp: number; duration: number }) => void;
+  sendAudioChunk: (data: {
+    timestamp: number;
+    duration: number;
+    samples?: number[];
+    encodedChunk?: Uint8Array;
+    mimeType?: string;
+  }) => void;
   notifyCaptureStarted: () => void;
   notifyCaptureStopped: () => void;
   sendCaptureError: (error: string) => void;

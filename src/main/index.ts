@@ -65,6 +65,7 @@ import {
 import { hotkeyManager, type HotkeyAction } from './HotkeyManager';
 import { sessionController, type Session, type SessionState } from './SessionController';
 import { trayManager } from './TrayManager';
+import { audioCapture } from './audio/AudioCapture';
 import { SettingsManager } from './settings';
 import { fileManager, outputManager, clipboardService, generateDocumentForFileManager, adaptSessionForMarkdown } from './output';
 import { processSession as aiProcessSession } from './ai';
@@ -95,6 +96,33 @@ function wrapConsoleMethod(method: ConsoleMethod): ConsoleMethod {
   };
 }
 
+function isIgnorableStdioError(error: unknown): boolean {
+  if (!error) {
+    return false;
+  }
+
+  if (typeof error === 'string') {
+    return error.toUpperCase().includes('EIO');
+  }
+
+  if (error instanceof Error) {
+    if (error.message.toUpperCase().includes('EIO')) {
+      return true;
+    }
+    const withCode = error as Error & { code?: string };
+    return withCode.code?.toUpperCase() === 'EIO';
+  }
+
+  if (typeof error === 'object' && 'code' in error) {
+    const code = (error as { code?: unknown }).code;
+    if (typeof code === 'string' && code.toUpperCase() === 'EIO') {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 console.log = wrapConsoleMethod(console.log.bind(console));
 console.info = wrapConsoleMethod(console.info.bind(console));
 console.warn = wrapConsoleMethod(console.warn.bind(console));
@@ -109,6 +137,8 @@ let popover: PopoverManager | null = null;
 let settingsManager: SettingsManager | null = null;
 let isQuitting = false;
 let hasCompletedOnboarding = false;
+const rendererRecoveryAttempts = new WeakMap<BrowserWindow, number>();
+let teardownAudioTelemetry: Array<() => void> = [];
 
 // Windows taskbar integration (Windows only)
 let windowsTaskbar: WindowsTaskbar | null = null;
@@ -141,6 +171,31 @@ function attachRendererDiagnostics(window: BrowserWindow, label: string): void {
 
   window.webContents.on('render-process-gone', (_event, details) => {
     console.error(`[Main] ${label} renderer process gone`, details);
+
+    const attempts = rendererRecoveryAttempts.get(window) ?? 0;
+    if (attempts >= 3) {
+      console.error(`[Main] ${label} renderer recovery skipped after ${attempts} failed attempts`);
+      return;
+    }
+
+    const nextAttempt = attempts + 1;
+    rendererRecoveryAttempts.set(window, nextAttempt);
+
+    const retryDelayMs = 300 * nextAttempt;
+    setTimeout(() => {
+      if (window.isDestroyed()) {
+        return;
+      }
+
+      void loadRendererIntoWindow(window, `${label} (recovery #${nextAttempt})`)
+        .then(() => {
+          rendererRecoveryAttempts.set(window, 0);
+          console.log(`[Main] ${label} renderer recovered on attempt ${nextAttempt}`);
+        })
+        .catch((error) => {
+          console.error(`[Main] ${label} renderer recovery attempt ${nextAttempt} failed`, error);
+        });
+    }, retryDelayMs);
   });
 
   window.webContents.on(
@@ -153,6 +208,24 @@ function attachRendererDiagnostics(window: BrowserWindow, label: string): void {
         `[Main] ${label} failed to load renderer (${errorCode}): ${errorDescription} (${validatedURL})`,
       );
     },
+  );
+}
+
+function wireAudioTelemetry(): void {
+  teardownAudioTelemetry.forEach((teardown) => teardown());
+  teardownAudioTelemetry = [];
+
+  const sendAudioLevel = (level: number) => {
+    mainWindow?.webContents.send(IPC_CHANNELS.AUDIO_LEVEL, level);
+  };
+
+  const sendVoiceActivity = (active: boolean) => {
+    mainWindow?.webContents.send(IPC_CHANNELS.AUDIO_VOICE_ACTIVITY, active);
+  };
+
+  teardownAudioTelemetry.push(
+    audioCapture.onAudioLevel(sendAudioLevel),
+    audioCapture.onVoiceActivity(sendVoiceActivity),
   );
 }
 
@@ -314,6 +387,9 @@ function handleSessionStateChange(state: SessionState, session: Session | null):
 
   // Update tray icon
   trayManager.setState(mapToTrayState(state));
+  if (state === 'recording' && sessionController.isSessionPaused()) {
+    trayManager.setTooltip('markupr - Paused (Cmd+Shift+P to resume)');
+  }
 
   const keepVisibleOnBlur =
     state === 'starting' ||
@@ -485,6 +561,10 @@ function showSuccessNotification(title: string, body: string): void {
 }
 
 function showErrorNotification(title: string, body: string): void {
+  if (body.toUpperCase().includes('EIO')) {
+    return;
+  }
+
   if (Notification.isSupported()) {
     const notification = new Notification({ title, body, silent: false, urgency: 'critical' });
     notification.show();
@@ -519,11 +599,15 @@ function handleHotkeyAction(action: HotkeyAction): void {
 
   switch (action) {
     case 'toggleRecording':
-      handleToggleRecording();
+      void handleToggleRecording();
       break;
 
     case 'manualScreenshot':
-      handleManualScreenshot();
+      void handleManualScreenshot();
+      break;
+
+    case 'pauseResume':
+      void handlePauseResume();
       break;
 
     default:
@@ -545,6 +629,19 @@ async function handleToggleRecording(): Promise<void> {
   }
 }
 
+async function handlePauseResume(): Promise<void> {
+  if (sessionController.getState() !== 'recording') {
+    return;
+  }
+
+  if (sessionController.isSessionPaused()) {
+    resumeSession();
+    return;
+  }
+
+  pauseSession();
+}
+
 async function handleManualScreenshot(): Promise<void> {
   try {
     const screenshot = await sessionController.captureManualScreenshot();
@@ -554,6 +651,34 @@ async function handleManualScreenshot(): Promise<void> {
   } catch (error) {
     console.error('[Main] Manual screenshot failed:', error);
   }
+}
+
+function pauseSession(): { success: boolean; error?: string } {
+  if (sessionController.getState() !== 'recording') {
+    return { success: false, error: 'No recording session is active.' };
+  }
+
+  const paused = sessionController.pause();
+  if (!paused) {
+    return { success: false, error: 'Session is already paused.' };
+  }
+
+  trayManager.setTooltip('markupr - Paused (Cmd+Shift+P to resume)');
+  return { success: true };
+}
+
+function resumeSession(): { success: boolean; error?: string } {
+  if (sessionController.getState() !== 'recording') {
+    return { success: false, error: 'No recording session is active.' };
+  }
+
+  const resumed = sessionController.resume();
+  if (!resumed) {
+    return { success: false, error: 'Session is not paused.' };
+  }
+
+  trayManager.setTooltip('markupr - Recording... (Cmd+Shift+F to stop)');
+  return { success: true };
 }
 
 // =============================================================================
@@ -665,22 +790,27 @@ async function attachRecordingToSessionOutput(
 async function attachAudioToSessionOutput(
   sessionDir: string,
   markdownPath: string
-): Promise<{ path: string; bytesWritten: number; durationMs: number } | undefined> {
-  const finalPath = join(sessionDir, 'session-audio.wav');
+): Promise<{ path: string; bytesWritten: number; durationMs: number; mimeType: string } | undefined> {
+  const basePath = join(sessionDir, 'session-audio');
 
   try {
-    const exported = await sessionController.exportCapturedAudioWav(finalPath);
+    const exported = await sessionController.exportCapturedAudio(basePath);
     if (!exported || exported.bytesWritten <= 0) {
       return undefined;
     }
 
     let markdown = await fs.readFile(markdownPath, 'utf-8');
     if (!markdown.includes('## Session Audio')) {
-      markdown += `\n## Session Audio\n- [Open narration audio](./${basename(finalPath)})\n`;
+      markdown += `\n## Session Audio\n- [Open narration audio](./${basename(exported.path)})\n`;
       await fs.writeFile(markdownPath, markdown, 'utf-8');
     }
 
-    return exported;
+    return {
+      path: exported.path,
+      bytesWritten: exported.bytesWritten,
+      durationMs: exported.durationMs,
+      mimeType: exported.mimeType,
+    };
   } catch (error) {
     console.warn('[Main] Failed to attach session audio to output:', error);
     return undefined;
@@ -816,6 +946,26 @@ async function stopSession(): Promise<{
     }
     stoppedSessionId = session.id;
 
+    const recordingProbe = await finalizeScreenRecording(session.id).catch(() => null);
+    const hasTranscript = session.transcriptBuffer.some((entry) => entry.text.trim().length > 0);
+    const hasScreenshots = session.screenshotBuffer.length > 0;
+    const hasRecording = !!recordingProbe && recordingProbe.bytesWritten > 0;
+    const recordingExtension = hasRecording
+      ? extname(recordingProbe?.tempPath ?? '') || extensionFromMimeType(recordingProbe?.mimeType)
+      : '.webm';
+    const recordingFilename = `session-recording${recordingExtension}`;
+
+    if (!hasTranscript && !hasScreenshots && !hasRecording) {
+      await cleanupRecordingArtifacts(session.id);
+      sessionController.clearCapturedAudio();
+      windowsTaskbar?.clearProgress();
+      return {
+        success: false,
+        error:
+          'No capture data was collected (no transcript, screenshots, or recording). Check microphone/screen capture access and retry.',
+      };
+    }
+
     // Update progress: generating document (33%)
     windowsTaskbar?.setProgress(0.33);
 
@@ -826,6 +976,8 @@ async function stopSession(): Promise<{
           settingsManager,
           projectName: session.metadata?.sourceName || 'Feedback Session',
           screenshotDir: './screenshots',
+          hasRecording,
+          recordingFilename,
         })
       : {
           document: generateDocumentForFileManager(session, {
@@ -1099,6 +1251,18 @@ function setupIPC(): void {
     return stopSession();
   });
 
+  // Pause active recording session
+  ipcMain.handle(IPC_CHANNELS.SESSION_PAUSE, async () => {
+    console.log('[Main] Pausing session');
+    return pauseSession();
+  });
+
+  // Resume paused recording session
+  ipcMain.handle(IPC_CHANNELS.SESSION_RESUME, async () => {
+    console.log('[Main] Resuming session');
+    return resumeSession();
+  });
+
   // Cancel session without saving
   ipcMain.handle(IPC_CHANNELS.SESSION_CANCEL, async () => {
     console.log('[Main] Cancelling session');
@@ -1334,7 +1498,10 @@ function setupIPC(): void {
       // Ignore missing directories.
     });
 
-    await settingsManager.deleteApiKey('deepgram').catch(() => {
+    await settingsManager.deleteApiKey('openai').catch(() => {
+      // Ignore missing keychain entries.
+    });
+    await settingsManager.deleteApiKey('anthropic').catch(() => {
       // Ignore missing keychain entries.
     });
 
@@ -1919,8 +2086,8 @@ function setupIPC(): void {
     }
 
     const defaultModel = hasAnyModel ? modelDownloadManager.getDefaultModel() : null;
-    const recommendedModel = 'small'; // Good balance of quality and size
-    const recommendedInfo = modelDownloadManager.getModelInfo('small');
+    const recommendedModel = 'tiny'; // Fastest path to first usable transcripts
+    const recommendedInfo = modelDownloadManager.getModelInfo('tiny');
 
     return {
       hasAnyModel,
@@ -1931,7 +2098,7 @@ function setupIPC(): void {
     };
   });
 
-  // Check if we have transcription capability (Deepgram or Whisper)
+  // Check if we have transcription capability (OpenAI or local Whisper)
   ipcMain.handle(IPC_CHANNELS.WHISPER_HAS_TRANSCRIPTION_CAPABILITY, async () => {
     return tierManager.hasTranscriptionCapability();
   });
@@ -2028,6 +2195,16 @@ async function checkStartupPermissions(): Promise<void> {
     return;
   }
 
+  const initial = await permissionManager.checkAllPermissions();
+
+  // On first launch, proactively trigger macOS permission prompts for not-determined states.
+  if (initial.state.microphone === 'not-determined') {
+    await requestPermission('microphone');
+  }
+  if (initial.state.screen === 'not-determined') {
+    await requestPermission('screen');
+  }
+
   const result = await permissionManager.checkAllPermissions();
 
   if (!result.allGranted && result.missing.length > 0) {
@@ -2041,8 +2218,8 @@ async function checkStartupPermissions(): Promise<void> {
       },
     });
 
-    // If user hasn't completed onboarding, don't show the dialog
-    // They'll see it during onboarding instead
+    // Show guidance dialog for users who already finished onboarding.
+    // New users will continue through onboarding guidance.
     if (hasCompletedOnboarding) {
       // Avoid blocking startup on a modal dialog; show guidance asynchronously.
       setTimeout(() => {
@@ -2107,10 +2284,14 @@ app.whenReady().then(async () => {
   settingsManager = new SettingsManager();
   console.log('[Main] Settings loaded');
 
-  // 3. Determine onboarding state from available transcription providers
-  const hasDeepgramKey = await settingsManager.hasApiKey('deepgram');
+  // 3. Determine onboarding readiness from BYOK keys + transcription path
+  const [hasOpenAiKey, hasAnthropicKey] = await Promise.all([
+    settingsManager.hasApiKey('openai'),
+    settingsManager.hasApiKey('anthropic'),
+  ]);
   const hasLocalWhisperModel = modelDownloadManager.hasAnyModel();
-  hasCompletedOnboarding = hasDeepgramKey || hasLocalWhisperModel;
+  const hasTranscriptionPath = hasOpenAiKey || hasLocalWhisperModel;
+  hasCompletedOnboarding = hasAnthropicKey && hasTranscriptionPath;
 
   // 5. Initialize session controller
   await sessionController.initialize();
@@ -2150,6 +2331,8 @@ app.whenReady().then(async () => {
     createWindow();
     console.log('[Main] Fallback: Regular window created (no tray)');
   }
+
+  wireAudioTelemetry();
 
   // Set error handler main window
   errorHandler.setMainWindow(mainWindow!);
@@ -2286,6 +2469,8 @@ app.on('will-quit', async () => {
   finalizedScreenRecordings.clear();
 
   // Cleanup services
+  teardownAudioTelemetry.forEach((teardown) => teardown());
+  teardownAudioTelemetry = [];
   hotkeyManager.unregisterAll();
   popover?.destroy();
   trayManager.destroy();
@@ -2303,6 +2488,10 @@ app.on('will-quit', async () => {
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (error) => {
+  if (isIgnorableStdioError(error)) {
+    return;
+  }
+
   console.error('[Main] Uncaught exception:', error);
   try {
     showErrorNotification('markupr Error', error.message);
@@ -2313,6 +2502,10 @@ process.on('uncaughtException', (error) => {
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (reason) => {
+  if (isIgnorableStdioError(reason)) {
+    return;
+  }
+
   console.error('[Main] Unhandled rejection:', reason);
 });
 

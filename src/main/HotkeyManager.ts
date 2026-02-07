@@ -10,6 +10,7 @@
  * Default hotkeys:
  * - Cmd+Shift+F (Ctrl+Shift+F on Windows): Toggle recording
  * - Cmd+Shift+S (Ctrl+Shift+S on Windows): Manual screenshot
+ * - Cmd+Shift+P (Ctrl+Shift+P on Windows): Pause/resume recording
  */
 
 import { globalShortcut, app } from 'electron';
@@ -17,7 +18,7 @@ import { globalShortcut, app } from 'electron';
 /**
  * Available hotkey actions
  */
-export type HotkeyAction = 'toggleRecording' | 'manualScreenshot';
+export type HotkeyAction = 'toggleRecording' | 'manualScreenshot' | 'pauseResume';
 
 /**
  * Configuration for all hotkeys
@@ -25,6 +26,7 @@ export type HotkeyAction = 'toggleRecording' | 'manualScreenshot';
 export interface HotkeyConfig {
   toggleRecording: string;
   manualScreenshot: string;
+  pauseResume: string;
 }
 
 /**
@@ -59,6 +61,7 @@ export interface IHotkeyManager {
 export const DEFAULT_HOTKEY_CONFIG: HotkeyConfig = {
   toggleRecording: 'CommandOrControl+Shift+F',
   manualScreenshot: 'CommandOrControl+Shift+S',
+  pauseResume: 'CommandOrControl+Shift+P',
 };
 
 /**
@@ -74,6 +77,11 @@ const FALLBACK_HOTKEYS: Record<HotkeyAction, string[]> = {
     'CommandOrControl+Shift+P',
     'CommandOrControl+Alt+S',
     'CommandOrControl+Alt+P',
+  ],
+  pauseResume: [
+    'CommandOrControl+Shift+Space',
+    'CommandOrControl+Alt+P',
+    'CommandOrControl+Alt+Space',
   ],
 };
 
@@ -107,6 +115,9 @@ class HotkeyManagerImpl implements IHotkeyManager {
 
     // Register manual screenshot hotkey
     results.push(this.register('manualScreenshot', this.config.manualScreenshot));
+
+    // Register pause/resume hotkey
+    results.push(this.register('pauseResume', this.config.pauseResume));
 
     // Setup cleanup on app quit
     app.on('will-quit', () => {
@@ -336,6 +347,10 @@ class HotkeyManagerImpl implements IHotkeyManager {
 
     if (newConfig.manualScreenshot && newConfig.manualScreenshot !== this.config.manualScreenshot) {
       results.push(this.register('manualScreenshot', newConfig.manualScreenshot));
+    }
+
+    if (newConfig.pauseResume && newConfig.pauseResume !== this.config.pauseResume) {
+      results.push(this.register('pauseResume', newConfig.pauseResume));
     }
 
     return results;

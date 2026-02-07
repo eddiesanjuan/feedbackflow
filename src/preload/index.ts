@@ -82,6 +82,20 @@ const feedbackflow = {
     },
 
     /**
+     * Pause the current recording session
+     */
+    pause: (): Promise<{ success: boolean; error?: string }> => {
+      return ipcRenderer.invoke(IPC_CHANNELS.SESSION_PAUSE);
+    },
+
+    /**
+     * Resume a paused recording session
+     */
+    resume: (): Promise<{ success: boolean; error?: string }> => {
+      return ipcRenderer.invoke(IPC_CHANNELS.SESSION_RESUME);
+    },
+
+    /**
      * Cancel the current session without saving
      */
     cancel: (): Promise<{ success: boolean }> => {
@@ -260,7 +274,13 @@ const feedbackflow = {
     /**
      * Send audio chunk to main for transcription
      */
-    sendAudioChunk: (data: { samples: number[]; timestamp: number; duration: number }): void => {
+    sendAudioChunk: (data: {
+      timestamp: number;
+      duration: number;
+      samples?: number[];
+      encodedChunk?: Uint8Array;
+      mimeType?: string;
+    }): void => {
       ipcRenderer.send(IPC_CHANNELS.AUDIO_CHUNK, data);
     },
 
@@ -800,7 +820,7 @@ const feedbackflow = {
 
     /**
      * Check if we have any tier that can actually transcribe
-     * (Deepgram with API key or Whisper with model)
+     * (OpenAI key or Whisper with model)
      */
     hasTranscriptionCapability: (): Promise<boolean> => {
       return ipcRenderer.invoke(IPC_CHANNELS.WHISPER_HAS_TRANSCRIPTION_CAPABILITY);

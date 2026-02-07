@@ -46,7 +46,7 @@ export interface AppSettings {
   maxImageWidth: number; // 800-2400
 
   // Transcription
-  transcriptionService: 'deepgram';
+  transcriptionService: 'openai' | 'deepgram';
   language: string;
   enableKeywordTriggers: boolean;
 
@@ -65,7 +65,7 @@ export interface AppSettings {
   keepAudioBackups: boolean;
 
   // Legacy (for migration compatibility - these are mapped to secure storage or new fields)
-  /** @deprecated Use SettingsManager.getApiKey('deepgram') for secure storage */
+  /** @deprecated Kept for migration compatibility only */
   deepgramApiKey?: string;
   /** @deprecated Use audioDeviceId instead */
   preferredAudioDevice?: string;
@@ -124,6 +124,7 @@ const SETTINGS_VERSION = 2;
 const DEFAULT_HOTKEY_CONFIG: HotkeyConfig = {
   toggleRecording: 'CommandOrControl+Shift+F',
   manualScreenshot: 'CommandOrControl+Shift+S',
+  pauseResume: 'CommandOrControl+Shift+P',
 };
 
 /**
@@ -148,7 +149,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   maxImageWidth: 1920,
 
   // Transcription
-  transcriptionService: 'deepgram',
+  transcriptionService: 'openai',
   language: 'en',
   enableKeywordTriggers: false,
 
@@ -182,7 +183,7 @@ const SETTINGS_SCHEMA = {
   imageFormat: { type: 'string', enum: ['png', 'jpeg'] },
   imageQuality: { type: 'number', minimum: 1, maximum: 100 },
   maxImageWidth: { type: 'number', minimum: 800, maximum: 2400 },
-  transcriptionService: { type: 'string', enum: ['deepgram'] },
+  transcriptionService: { type: 'string', enum: ['openai', 'deepgram'] },
   language: { type: 'string' },
   enableKeywordTriggers: { type: 'boolean' },
   hotkeys: {
@@ -190,6 +191,7 @@ const SETTINGS_SCHEMA = {
     properties: {
       toggleRecording: { type: 'string' },
       manualScreenshot: { type: 'string' },
+      pauseResume: { type: 'string' },
     },
   },
   theme: { type: 'string', enum: ['dark', 'light', 'system'] },
@@ -222,6 +224,11 @@ export class SettingsManager implements ISettingsManager {
 
     // Run migrations
     this.migrate();
+    this.store.set('hotkeys', {
+      ...DEFAULT_HOTKEY_CONFIG,
+      ...(this.store.get('hotkeys') || {}),
+    });
+    this.normalizeTranscriptionService();
 
     console.log('[SettingsManager] Initialized with settings version:', SETTINGS_VERSION);
   }
@@ -340,7 +347,7 @@ export class SettingsManager implements ISettingsManager {
         return value === 'dark' || value === 'light' || value === 'system';
 
       case 'transcriptionService':
-        return value === 'deepgram';
+        return (value as unknown as string) === 'openai' || (value as unknown as string) === 'deepgram';
 
       case 'accentColor':
         return typeof value === 'string' && /^#[0-9A-Fa-f]{6}$/.test(value as string);
@@ -478,6 +485,17 @@ export class SettingsManager implements ISettingsManager {
 
     // Set current version
     this.store.set('_version' as keyof AppSettings, SETTINGS_VERSION as unknown as AppSettings[keyof AppSettings]);
+  }
+
+  /**
+   * Normalize deprecated transcription service values to the current default.
+   */
+  private normalizeTranscriptionService(): void {
+    const current = this.store.get('transcriptionService');
+    if (current === 'deepgram') {
+      this.store.set('transcriptionService', 'openai');
+      console.log('[SettingsManager] Normalized legacy transcriptionService "deepgram" -> "openai"');
+    }
   }
 
   /**

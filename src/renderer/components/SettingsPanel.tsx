@@ -16,7 +16,6 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import type { AppSettings, AudioDevice, HotkeyConfig } from '../../shared/types';
 import { DEFAULT_SETTINGS, DEFAULT_HOTKEY_CONFIG } from '../../shared/types';
 import { HotkeyHint } from './HotkeyHint';
-import { TranscriptionTierSelector, type TranscriptionTier } from './TranscriptionTierSelector';
 import { DonateButton } from './DonateButton';
 
 // ============================================================================
@@ -836,6 +835,7 @@ const HotkeysTab: React.FC<{
           const labels: Record<keyof HotkeyConfig, string> = {
             toggleRecording: 'Start/Stop Recording',
             manualScreenshot: 'Manual Screenshot',
+            pauseResume: 'Pause/Resume',
           };
           return labels[key];
         }
@@ -866,6 +866,13 @@ const HotkeysTab: React.FC<{
           onChange={(value) => onHotkeyChange('manualScreenshot', value)}
           conflict={findConflict('manualScreenshot', settings.hotkeys.manualScreenshot)}
         />
+        <KeyRecorder
+          label="Pause/Resume"
+          description="Temporarily pause active capture"
+          value={settings.hotkeys.pauseResume}
+          onChange={(value) => onHotkeyChange('pauseResume', value)}
+          conflict={findConflict('pauseResume', settings.hotkeys.pauseResume)}
+        />
       </SettingsSection>
 
       <SettingsSection title="Quick Reference">
@@ -878,6 +885,10 @@ const HotkeysTab: React.FC<{
             <span style={styles.hotkeyRefLabel}>Manual Screenshot</span>
             <HotkeyHint keys={settings.hotkeys.manualScreenshot} size="medium" />
           </div>
+          <div style={styles.hotkeyRefItem}>
+            <span style={styles.hotkeyRefLabel}>Pause/Resume</span>
+            <HotkeyHint keys={settings.hotkeys.pauseResume} size="medium" />
+          </div>
         </div>
       </SettingsSection>
     </div>
@@ -889,78 +900,118 @@ const HotkeysTab: React.FC<{
  */
 const AdvancedTab: React.FC<{
   settings: AppSettings;
-  apiKey: ApiKeyState;
-  currentTier: TranscriptionTier | null;
-  onTierSelect: (tier: TranscriptionTier) => void;
+  openAiApiKey: ApiKeyState;
+  anthropicApiKey: ApiKeyState;
   onSettingChange: <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => void;
-  onApiKeyChange: (value: string) => void;
-  onToggleApiKeyVisibility: () => void;
-  onTestApiKey: () => void;
+  onOpenAiApiKeyChange: (value: string) => void;
+  onToggleOpenAiApiKeyVisibility: () => void;
+  onTestOpenAiApiKey: () => void;
+  onAnthropicApiKeyChange: (value: string) => void;
+  onToggleAnthropicApiKeyVisibility: () => void;
+  onTestAnthropicApiKey: () => void;
   onClearAllData: () => void;
   onExportSettings: () => void;
   onImportSettings: () => void;
   onResetSection: () => void;
 }> = ({
   settings,
-  apiKey,
-  currentTier,
-  onTierSelect,
+  openAiApiKey,
+  anthropicApiKey,
   onSettingChange,
-  onApiKeyChange,
-  onToggleApiKeyVisibility,
-  onTestApiKey,
+  onOpenAiApiKeyChange,
+  onToggleOpenAiApiKeyVisibility,
+  onTestOpenAiApiKey,
+  onAnthropicApiKeyChange,
+  onToggleAnthropicApiKeyVisibility,
+  onTestAnthropicApiKey,
   onClearAllData,
   onExportSettings,
   onImportSettings,
   onResetSection,
 }) => (
   <div style={styles.tabContent}>
-    {/* Transcription Tier Selection */}
+    {/* Transcription workflow */}
     <SettingsSection
-      title="Transcription"
-      description="Choose your transcription service"
+      title="Transcription Workflow"
+      description="Simple and reliable capture pipeline"
       onReset={onResetSection}
     >
-      <TranscriptionTierSelector
-        currentTier={currentTier}
-        onTierSelect={onTierSelect}
-        compact={false}
-      />
+      <div style={styles.settingDescription}>
+        markupr records screen + microphone first, then runs transcription after you stop.
+        OpenAI is the primary cloud path. Local Whisper is optional fallback when available.
+      </div>
     </SettingsSection>
 
-    {/* Deepgram API Key (Optional - for premium tier) */}
     <SettingsSection
-      title="Deepgram API Key (Optional)"
-      description="Add an API key to enable premium cloud transcription"
+      title="BYOK Mode"
+      description="This open-source build uses your own keys for both transcription and AI analysis."
+    >
+      <div style={styles.settingDescription}>
+        Set both the OpenAI key (transcription) and Anthropic key (analysis) below for full end-to-end reports.
+      </div>
+    </SettingsSection>
+
+    {/* OpenAI API Key (BYOK primary transcription fallback) */}
+    <SettingsSection
+      title="OpenAI API Key"
+      description="Required for BYOK post-session transcription"
     >
       <div style={styles.serviceInfo}>
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
           <path
-            d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
-            stroke="#8B5CF6"
-            strokeWidth="2"
+            d="M12 3l2.4 1.4 2.8-.3 1.2 2.6 2.3 1.6-.8 2.7.8 2.7-2.3 1.6-1.2 2.6-2.8-.3L12 21l-2.4-1.4-2.8.3-1.2-2.6-2.3-1.6.8-2.7-.8-2.7 2.3-1.6 1.2-2.6 2.8.3L12 3z"
+            stroke="#10B981"
+            strokeWidth="1.5"
             strokeLinecap="round"
             strokeLinejoin="round"
           />
+          <path d="M9.5 12h5M12 9.5v5" stroke="#10B981" strokeWidth="1.5" strokeLinecap="round" />
         </svg>
         <div>
-          <span style={styles.serviceName}>Deepgram Nova-3</span>
+          <span style={styles.serviceName}>OpenAI Audio Transcription</span>
           <span style={styles.serviceDescription}>
-            Best quality cloud transcription. Free tier: 200 hours/month at{' '}
-            <a href="https://deepgram.com" target="_blank" rel="noopener noreferrer" style={{ color: '#3B82F6' }}>
-              deepgram.com
-            </a>
+            Used for reliable post-session narration transcription when local models are unavailable.
           </span>
         </div>
       </div>
       <ApiKeyInput
         label="API Key"
-        description="Optional - leave blank to use local Whisper"
-        serviceName="Deepgram"
-        apiKey={apiKey}
-        onApiKeyChange={onApiKeyChange}
-        onToggleVisibility={onToggleApiKeyVisibility}
-        onTest={onTestApiKey}
+        description="Required for BYOK transcription"
+        serviceName="OpenAI"
+        apiKey={openAiApiKey}
+        onApiKeyChange={onOpenAiApiKeyChange}
+        onToggleVisibility={onToggleOpenAiApiKeyVisibility}
+        onTest={onTestOpenAiApiKey}
+      />
+    </SettingsSection>
+
+    {/* Anthropic API Key (BYOK AI analysis) */}
+    <SettingsSection
+      title="Anthropic API Key"
+      description="Required for BYOK AI analysis in this version"
+    >
+      <div style={styles.serviceInfo}>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path
+            d="M4 20L10.5 4h3L20 20h-3.5l-1.3-3.3H8.8L7.5 20H4zM9.9 13.9h4.2L12 8.4l-2.1 5.5z"
+            fill="#F59E0B"
+          />
+        </svg>
+        <div>
+          <span style={styles.serviceName}>Anthropic Analysis</span>
+          <span style={styles.serviceDescription}>
+            Used to generate structured, agent-ready markdown insights from your capture session.
+          </span>
+        </div>
+      </div>
+      <ApiKeyInput
+        label="API Key"
+        description="Required for BYOK AI analysis"
+        serviceName="Anthropic"
+        apiKey={anthropicApiKey}
+        onApiKeyChange={onAnthropicApiKeyChange}
+        onToggleVisibility={onToggleAnthropicApiKeyVisibility}
+        onTest={onTestAnthropicApiKey}
       />
     </SettingsSection>
 
@@ -1025,7 +1076,14 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [audioDevices, setAudioDevices] = useState<AudioDevice[]>([]);
-  const [apiKey, setApiKey] = useState<ApiKeyState>({
+  const [openAiApiKey, setOpenAiApiKey] = useState<ApiKeyState>({
+    value: '',
+    visible: false,
+    testing: false,
+    valid: null,
+    error: null,
+  });
+  const [anthropicApiKey, setAnthropicApiKey] = useState<ApiKeyState>({
     value: '',
     visible: false,
     testing: false,
@@ -1034,8 +1092,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   });
   const [hasChanges, setHasChanges] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
-  const [currentTier, setCurrentTier] = useState<TranscriptionTier | null>('whisper');
   const [appVersion, setAppVersion] = useState('');
+  const [hasRequiredByokKeys, setHasRequiredByokKeys] = useState(false);
   const [isCompact, setIsCompact] = useState(
     () => typeof window !== 'undefined' && window.innerWidth < 760
   );
@@ -1056,25 +1114,29 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         const devices = await window.feedbackflow.audio.getDevices();
         setAudioDevices(devices);
 
-        // Check if API key exists (we won't show the actual value for security)
+        // Check if API keys exist (we won't show the actual values for security)
         try {
-          const hasKey = await window.feedbackflow.settings.hasApiKey('deepgram');
-          if (hasKey) {
-            setApiKey((prev) => ({ ...prev, value: '********', valid: true }));
+          const [hasOpenAiKey, hasAnthropicKey] = await Promise.all([
+            window.feedbackflow.settings.hasApiKey('openai'),
+            window.feedbackflow.settings.hasApiKey('anthropic'),
+          ]);
+          if (hasOpenAiKey) {
+            setOpenAiApiKey((prev) => ({ ...prev, value: '********', valid: true }));
+          }
+          if (hasAnthropicKey) {
+            setAnthropicApiKey((prev) => ({ ...prev, value: '********', valid: true }));
+          }
+          const hasRequiredKeys = hasOpenAiKey && hasAnthropicKey;
+          setHasRequiredByokKeys(hasRequiredKeys);
+          if (!hasRequiredKeys && initialTab === 'general') {
+            setActiveTab('advanced');
           }
         } catch {
-          // No API key stored
-        }
-
-        // Load current transcription tier
-        try {
-          const tier = await window.feedbackflow.transcription.getCurrentTier();
-          if (tier && tier !== 'auto') {
-            setCurrentTier(tier as TranscriptionTier);
+          // No API keys stored
+          setHasRequiredByokKeys(false);
+          if (initialTab === 'general') {
+            setActiveTab('advanced');
           }
-        } catch {
-          // Default to whisper
-          setCurrentTier('whisper');
         }
 
         // Load app version
@@ -1090,7 +1152,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     };
 
     loadSettings();
-  }, [isOpen]);
+  }, [isOpen, initialTab]);
 
   // Handle setting changes with immediate save
   const handleSettingChange = useCallback(
@@ -1127,69 +1189,101 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   );
 
   // API key handlers
-  const handleApiKeyChange = useCallback((value: string) => {
-    setApiKey((prev) => ({ ...prev, value, valid: null, error: null }));
+  const handleOpenAiApiKeyChange = useCallback((value: string) => {
+    setOpenAiApiKey((prev) => ({ ...prev, value, valid: null, error: null }));
   }, []);
 
-  const handleToggleApiKeyVisibility = useCallback(() => {
-    setApiKey((prev) => ({ ...prev, visible: !prev.visible }));
+  const handleToggleOpenAiApiKeyVisibility = useCallback(() => {
+    setOpenAiApiKey((prev) => ({ ...prev, visible: !prev.visible }));
   }, []);
 
-  const handleTestApiKey = useCallback(async () => {
-    setApiKey((prev) => ({ ...prev, testing: true, error: null }));
+  const handleTestOpenAiApiKey = useCallback(async () => {
+    setOpenAiApiKey((prev) => ({ ...prev, testing: true, error: null }));
 
     try {
-      const response = await fetch('https://api.deepgram.com/v1/projects', {
+      const response = await fetch('https://api.openai.com/v1/models', {
         method: 'GET',
         headers: {
-          Authorization: `Token ${apiKey.value}`,
+          Authorization: `Bearer ${openAiApiKey.value}`,
           'Content-Type': 'application/json',
         },
       });
 
       if (response.ok) {
-        // Save the API key securely
-        await window.feedbackflow.settings.setApiKey('deepgram', apiKey.value);
-        setApiKey((prev) => ({ ...prev, testing: false, valid: true }));
+        await window.feedbackflow.settings.setApiKey('openai', openAiApiKey.value);
+        setOpenAiApiKey((prev) => ({ ...prev, testing: false, valid: true }));
       } else if (response.status === 401) {
-        setApiKey((prev) => ({
+        setOpenAiApiKey((prev) => ({
           ...prev,
           testing: false,
           valid: false,
-          error: 'Invalid API key. Please check and try again.',
+          error: 'Invalid OpenAI API key. Please check and try again.',
         }));
       } else {
-        setApiKey((prev) => ({
+        setOpenAiApiKey((prev) => ({
           ...prev,
           testing: false,
           valid: false,
-          error: `API error (${response.status}). Please try again.`,
+          error: `OpenAI API error (${response.status}). Please try again.`,
         }));
       }
     } catch {
-      setApiKey((prev) => ({
+      setOpenAiApiKey((prev) => ({
         ...prev,
         testing: false,
         valid: false,
         error: 'Network error. Please check your connection.',
       }));
     }
-  }, [apiKey.value]);
+  }, [openAiApiKey.value]);
 
-  // Transcription tier selection handler
-  const handleTierSelect = useCallback(async (tier: TranscriptionTier) => {
-    try {
-      const result = await window.feedbackflow.transcription.setTier(tier);
-      if (!result.success) {
-        throw new Error(result.error || 'Unable to switch transcription tier.');
-      }
-
-      setCurrentTier(tier);
-      setHasChanges(true);
-    } catch (error) {
-      console.error('Failed to set transcription tier:', error);
-    }
+  const handleAnthropicApiKeyChange = useCallback((value: string) => {
+    setAnthropicApiKey((prev) => ({ ...prev, value, valid: null, error: null }));
   }, []);
+
+  const handleToggleAnthropicApiKeyVisibility = useCallback(() => {
+    setAnthropicApiKey((prev) => ({ ...prev, visible: !prev.visible }));
+  }, []);
+
+  const handleTestAnthropicApiKey = useCallback(async () => {
+    setAnthropicApiKey((prev) => ({ ...prev, testing: true, error: null }));
+
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/models', {
+        method: 'GET',
+        headers: {
+          'x-api-key': anthropicApiKey.value,
+          'anthropic-version': '2023-06-01',
+        },
+      });
+
+      if (response.ok) {
+        await window.feedbackflow.settings.setApiKey('anthropic', anthropicApiKey.value);
+        setAnthropicApiKey((prev) => ({ ...prev, testing: false, valid: true }));
+      } else if (response.status === 401 || response.status === 403) {
+        setAnthropicApiKey((prev) => ({
+          ...prev,
+          testing: false,
+          valid: false,
+          error: 'Invalid Anthropic API key. Please check and try again.',
+        }));
+      } else {
+        setAnthropicApiKey((prev) => ({
+          ...prev,
+          testing: false,
+          valid: false,
+          error: `Anthropic API error (${response.status}). Please try again.`,
+        }));
+      }
+    } catch {
+      setAnthropicApiKey((prev) => ({
+        ...prev,
+        testing: false,
+        valid: false,
+        error: 'Network error. Please check your connection.',
+      }));
+    }
+  }, [anthropicApiKey.value]);
 
   // Reset handlers
   const resetGeneralSection = useCallback(async () => {
@@ -1262,7 +1356,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     try {
       await window.feedbackflow.settings.clearAllData();
       setSettings(DEFAULT_SETTINGS);
-      setApiKey({ value: '', visible: false, testing: false, valid: null, error: null });
+      setOpenAiApiKey({ value: '', visible: false, testing: false, valid: null, error: null });
+      setAnthropicApiKey({ value: '', visible: false, testing: false, valid: null, error: null });
+      setHasRequiredByokKeys(false);
     } catch (error) {
       console.error('Failed to clear data:', error);
     }
@@ -1362,13 +1458,15 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         return (
           <AdvancedTab
             settings={settings}
-            apiKey={apiKey}
-            currentTier={currentTier}
-            onTierSelect={handleTierSelect}
+            openAiApiKey={openAiApiKey}
+            anthropicApiKey={anthropicApiKey}
             onSettingChange={handleSettingChange}
-            onApiKeyChange={handleApiKeyChange}
-            onToggleApiKeyVisibility={handleToggleApiKeyVisibility}
-            onTestApiKey={handleTestApiKey}
+            onOpenAiApiKeyChange={handleOpenAiApiKeyChange}
+            onToggleOpenAiApiKeyVisibility={handleToggleOpenAiApiKeyVisibility}
+            onTestOpenAiApiKey={handleTestOpenAiApiKey}
+            onAnthropicApiKeyChange={handleAnthropicApiKeyChange}
+            onToggleAnthropicApiKeyVisibility={handleToggleAnthropicApiKeyVisibility}
+            onTestAnthropicApiKey={handleTestAnthropicApiKey}
             onClearAllData={handleClearAllData}
             onExportSettings={handleExportSettings}
             onImportSettings={handleImportSettings}
@@ -1382,14 +1480,16 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     activeTab,
     settings,
     audioDevices,
-    apiKey,
-    currentTier,
+    openAiApiKey,
+    anthropicApiKey,
     handleSettingChange,
     handleHotkeyChange,
-    handleTierSelect,
-    handleApiKeyChange,
-    handleToggleApiKeyVisibility,
-    handleTestApiKey,
+    handleOpenAiApiKeyChange,
+    handleToggleOpenAiApiKeyVisibility,
+    handleTestOpenAiApiKey,
+    handleAnthropicApiKeyChange,
+    handleToggleAnthropicApiKeyVisibility,
+    handleTestAnthropicApiKey,
     handleClearAllData,
     handleExportSettings,
     handleImportSettings,
@@ -1416,7 +1516,19 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       >
         {/* Header */}
         <div style={styles.header}>
-          <h2 style={styles.headerTitle}>Settings</h2>
+          <div style={styles.headerTitleWrap}>
+            <h2 style={styles.headerTitle}>Settings</h2>
+            {!hasRequiredByokKeys && (
+              <button
+                type="button"
+                style={styles.byokBadge}
+                onClick={() => setActiveTab('advanced')}
+                title="Open BYOK key setup"
+              >
+                BYOK Setup Required
+              </button>
+            )}
+          </div>
           <button style={styles.closeButton} onClick={onClose} aria-label="Close settings">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
               <path
@@ -1619,6 +1731,24 @@ const styles: Record<string, ExtendedCSSProperties> = {
     fontWeight: 600,
     color: '#1d1d1f',
     margin: 0,
+  },
+
+  headerTitleWrap: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+  },
+
+  byokBadge: {
+    border: '1px solid rgba(245, 158, 11, 0.4)',
+    backgroundColor: 'rgba(245, 158, 11, 0.16)',
+    color: '#7a4b00',
+    fontSize: 11,
+    fontWeight: 600,
+    borderRadius: 999,
+    padding: '4px 10px',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
   },
 
   closeButton: {

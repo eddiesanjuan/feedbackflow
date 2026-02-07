@@ -1,15 +1,9 @@
 /**
- * AudioCaptureRenderer.ts - Browser-side Audio Capture for FeedbackFlow
+ * AudioCaptureRenderer.ts - Browser-side Audio Capture for markupr
  *
- * This module runs in the renderer process and handles:
- * - getUserMedia access for microphone
- * - AudioWorklet for low-latency audio processing
- * - Streaming audio chunks to main process via preload API
- *
- * The AudioWorklet approach is preferred over ScriptProcessorNode because:
- * - ScriptProcessorNode is deprecated
- * - AudioWorklet runs on a separate thread, preventing audio glitches
- * - Better latency characteristics
+ * Uses getUserMedia + MediaRecorder to avoid fragile WebAudio graphs in
+ * packaged macOS builds. Chunks are streamed to main process for persistence
+ * and post-session transcription.
  */
 
 interface CaptureConfig {
@@ -25,62 +19,16 @@ interface AudioDeviceInfo {
   isDefault: boolean;
 }
 
-/**
- * AudioWorklet processor code as a string
- * This gets injected into a Blob URL and loaded by the AudioContext
- */
-const AUDIO_WORKLET_PROCESSOR = `
-class AudioChunkProcessor extends AudioWorkletProcessor {
-  constructor(options) {
-    super();
-    this.buffer = [];
-    this.chunkSamples = options.processorOptions?.chunkSamples || 1600;
-  }
-
-  process(inputs, outputs, parameters) {
-    const input = inputs[0];
-    if (!input || !input[0]) return true;
-
-    const samples = input[0];
-
-    // Accumulate samples
-    for (let i = 0; i < samples.length; i++) {
-      this.buffer.push(samples[i]);
-    }
-
-    // When we have enough samples, send a chunk
-    while (this.buffer.length >= this.chunkSamples) {
-      const chunk = this.buffer.splice(0, this.chunkSamples);
-      this.port.postMessage({
-        type: 'chunk',
-        samples: chunk,
-        timestamp: currentTime * 1000, // Convert to ms
-      });
-    }
-
-    return true;
-  }
-}
-
-registerProcessor('audio-chunk-processor', AudioChunkProcessor);
-`;
-
-/**
- * Renderer-side audio capture manager
- * Uses the preload API for secure IPC communication
- */
 class AudioCaptureRenderer {
-  private audioContext: AudioContext | null = null;
   private mediaStream: MediaStream | null = null;
-  private sourceNode: MediaStreamAudioSourceNode | null = null;
-  private workletNode: AudioWorkletNode | null = null;
-  private scriptNode: ScriptProcessorNode | null = null;
-  private capturing: boolean = false;
+  private mediaRecorder: MediaRecorder | null = null;
+  private recorderMimeType = 'audio/webm';
+  private capturing = false;
   private config: CaptureConfig = {
     deviceId: null,
     sampleRate: 16000,
     channels: 1,
-    chunkDurationMs: 100,
+    chunkDurationMs: 250,
   };
   private cleanupFunctions: Array<() => void> = [];
 
@@ -88,9 +36,6 @@ class AudioCaptureRenderer {
     this.setupIPCListeners();
   }
 
-  /**
-   * Set up IPC listeners for commands from main process via preload API
-   */
   private setupIPCListeners(): void {
     const api = window.feedbackflow;
     if (!api?.audio) {
@@ -98,7 +43,6 @@ class AudioCaptureRenderer {
       return;
     }
 
-    // Handle device enumeration request
     const cleanupDevices = api.audio.onRequestDevices(async () => {
       try {
         const devices = await this.getDevices();
@@ -109,7 +53,6 @@ class AudioCaptureRenderer {
     });
     this.cleanupFunctions.push(cleanupDevices);
 
-    // Handle start capture command
     const cleanupStart = api.audio.onStartCapture(async (config) => {
       try {
         this.config = { ...this.config, ...config };
@@ -121,19 +64,16 @@ class AudioCaptureRenderer {
     });
     this.cleanupFunctions.push(cleanupStart);
 
-    // Handle stop capture command
-    const cleanupStop = api.audio.onStopCapture(() => {
-      this.stopCapture();
+    const cleanupStop = api.audio.onStopCapture(async () => {
+      await this.stopCapture();
       api.audio.notifyCaptureStopped();
     });
     this.cleanupFunctions.push(cleanupStop);
 
-    // Handle device change command
     const cleanupDevice = api.audio.onSetDevice(async (deviceId) => {
       this.config.deviceId = deviceId;
       if (this.capturing) {
-        // Restart capture with new device
-        this.stopCapture();
+        await this.stopCapture();
         try {
           await this.startCapture();
           api.audio.notifyCaptureStarted();
@@ -147,25 +87,17 @@ class AudioCaptureRenderer {
     console.log('[AudioCaptureRenderer] IPC listeners initialized');
   }
 
-  /**
-   * Clean up all event listeners
-   */
   destroy(): void {
-    this.stopCapture();
+    void this.stopCapture();
     this.cleanupFunctions.forEach((fn) => fn());
     this.cleanupFunctions = [];
   }
 
-  /**
-   * Get list of available audio input devices
-   */
   async getDevices(): Promise<AudioDeviceInfo[]> {
-    // First, request permission to enumerate devices with labels
     try {
       const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       tempStream.getTracks().forEach((track) => track.stop());
     } catch {
-      // Permission denied or no devices - still try to enumerate
       console.warn('[AudioCaptureRenderer] Could not get permission to enumerate devices');
     }
 
@@ -179,26 +111,17 @@ class AudioCaptureRenderer {
     }));
   }
 
-  /**
-   * Start capturing audio
-   */
   async startCapture(): Promise<void> {
     if (this.capturing) {
       console.log('[AudioCaptureRenderer] Already capturing');
       return;
     }
 
-    // Create AudioContext with target sample rate
-    this.audioContext = new AudioContext({
-      sampleRate: this.config.sampleRate,
-    });
-
-    // Get microphone stream
     const constraints: MediaStreamConstraints = {
       audio: {
         deviceId: this.config.deviceId ? { exact: this.config.deviceId } : undefined,
         sampleRate: { ideal: this.config.sampleRate },
-        channelCount: { exact: this.config.channels },
+        channelCount: { ideal: 1 },
         echoCancellation: { ideal: true },
         noiseSuppression: { ideal: true },
         autoGainControl: { ideal: true },
@@ -212,111 +135,88 @@ class AudioCaptureRenderer {
       throw new Error(`Failed to access microphone: ${(error as Error).message}`);
     }
 
-    // Create source node from media stream
-    this.sourceNode = this.audioContext.createMediaStreamSource(this.mediaStream);
+    this.recorderMimeType = this.resolveRecorderMimeType();
 
-    // Calculate chunk size in samples
-    const chunkSamples = Math.floor(
-      (this.config.sampleRate * this.config.chunkDurationMs) / 1000
-    );
-
-    // Try AudioWorklet first, fall back to ScriptProcessorNode
     try {
-      await this.setupAudioWorklet(chunkSamples);
-      console.log('[AudioCaptureRenderer] Capture started with AudioWorklet');
-    } catch (workletError) {
-      console.warn(
-        '[AudioCaptureRenderer] AudioWorklet failed, using ScriptProcessorNode fallback:',
-        workletError
+      const options: MediaRecorderOptions = this.recorderMimeType
+        ? { mimeType: this.recorderMimeType, audioBitsPerSecond: 128_000 }
+        : { audioBitsPerSecond: 128_000 };
+      this.mediaRecorder = new MediaRecorder(this.mediaStream, options);
+    } catch (error) {
+      await this.stopCapture();
+      throw new Error(`Failed to initialize media recorder: ${(error as Error).message}`);
+    }
+
+    this.mediaRecorder.ondataavailable = (event: BlobEvent) => {
+      if (!this.capturing || !event.data || event.data.size === 0) {
+        return;
+      }
+
+      const timestamp = performance.now();
+      const duration = this.config.chunkDurationMs;
+      const mimeType = event.data.type || this.mediaRecorder?.mimeType || this.recorderMimeType;
+
+      void event.data
+        .arrayBuffer()
+        .then((buffer) => {
+          this.sendEncodedChunkToMain(new Uint8Array(buffer), timestamp, duration, mimeType);
+        })
+        .catch((error) => {
+          const api = window.feedbackflow;
+          api?.audio?.sendCaptureError(`Failed to process audio chunk: ${(error as Error).message}`);
+        });
+    };
+
+    this.mediaRecorder.onerror = (event: Event) => {
+      const recorderError = (event as ErrorEvent).error;
+      const message = recorderError instanceof Error ? recorderError.message : 'Unknown recorder error';
+      const api = window.feedbackflow;
+      api?.audio?.sendCaptureError(`Audio recorder error: ${message}`);
+    };
+
+    try {
+      this.mediaRecorder.start(this.config.chunkDurationMs);
+      this.capturing = true;
+      console.log(
+        `[AudioCaptureRenderer] Capture started with MediaRecorder (${this.mediaRecorder.mimeType || this.recorderMimeType})`
       );
-      this.setupScriptProcessorFallback(chunkSamples);
-      console.log('[AudioCaptureRenderer] Capture started with ScriptProcessorNode');
+    } catch (error) {
+      await this.stopCapture();
+      throw new Error(`Failed to start media recorder: ${(error as Error).message}`);
     }
-
-    this.capturing = true;
   }
 
-  /**
-   * Set up AudioWorklet for audio processing
-   */
-  private async setupAudioWorklet(chunkSamples: number): Promise<void> {
-    if (!this.audioContext || !this.sourceNode) {
-      throw new Error('AudioContext or source node not initialized');
-    }
+  private resolveRecorderMimeType(): string {
+    const candidates = [
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/mp4',
+      'audio/ogg;codecs=opus',
+      '',
+    ];
 
-    // Create Blob URL for the worklet processor
-    const blob = new Blob([AUDIO_WORKLET_PROCESSOR], { type: 'application/javascript' });
-    const url = URL.createObjectURL(blob);
-
-    try {
-      await this.audioContext.audioWorklet.addModule(url);
-    } finally {
-      URL.revokeObjectURL(url);
-    }
-
-    // Create worklet node
-    this.workletNode = new AudioWorkletNode(this.audioContext, 'audio-chunk-processor', {
-      processorOptions: {
-        chunkSamples,
-      },
-    });
-
-    // Handle messages from worklet
-    this.workletNode.port.onmessage = (event) => {
-      if (event.data.type === 'chunk') {
-        this.sendChunkToMain(event.data.samples, event.data.timestamp);
+    for (const candidate of candidates) {
+      if (!candidate) {
+        return '';
       }
-    };
+      if (MediaRecorder.isTypeSupported(candidate)) {
+        return candidate;
+      }
+    }
 
-    // Connect the audio graph (don't connect to destination - we don't want to hear our own voice)
-    this.sourceNode.connect(this.workletNode);
+    return '';
   }
 
-  /**
-   * Fallback using deprecated ScriptProcessorNode
-   * Used when AudioWorklet is not available (older Electron versions)
-   */
-  private setupScriptProcessorFallback(chunkSamples: number): void {
-    if (!this.audioContext || !this.sourceNode) {
-      throw new Error('AudioContext or source node not initialized');
+  private sendEncodedChunkToMain(
+    encodedChunk: Uint8Array,
+    timestamp: number,
+    duration: number,
+    mimeType: string
+  ): void {
+    if (!this.capturing) {
+      return;
     }
 
-    // Buffer size must be power of 2
-    const bufferSize = Math.pow(2, Math.ceil(Math.log2(chunkSamples)));
-
-    // Create script processor (deprecated but still functional)
-    this.scriptNode = this.audioContext.createScriptProcessor(
-      bufferSize,
-      this.config.channels,
-      this.config.channels
-    );
-
-    const accumulatedSamples: number[] = [];
-
-    this.scriptNode.onaudioprocess = (event) => {
-      const inputBuffer = event.inputBuffer.getChannelData(0);
-
-      // Accumulate samples (array is mutated, not reassigned)
-      for (let i = 0; i < inputBuffer.length; i++) {
-        accumulatedSamples.push(inputBuffer[i]);
-      }
-
-      // Send chunks when we have enough
-      while (accumulatedSamples.length >= chunkSamples) {
-        const chunk = accumulatedSamples.splice(0, chunkSamples);
-        this.sendChunkToMain(chunk, performance.now());
-      }
-    };
-
-    // Connect: source -> scriptProcessor -> destination (required for scriptProcessor to work)
-    this.sourceNode.connect(this.scriptNode);
-    this.scriptNode.connect(this.audioContext.destination);
-  }
-
-  /**
-   * Send audio chunk to main process via preload API
-   */
-  private sendChunkToMain(samples: number[], timestamp: number): void {
     const api = window.feedbackflow;
     if (!api?.audio) {
       console.error('[AudioCaptureRenderer] feedbackflow.audio API not available');
@@ -324,57 +224,59 @@ class AudioCaptureRenderer {
     }
 
     api.audio.sendAudioChunk({
-      samples: Array.from(samples),
+      encodedChunk,
       timestamp,
-      duration: this.config.chunkDurationMs,
+      duration,
+      mimeType,
     });
   }
 
-  /**
-   * Stop capturing audio
-   */
-  stopCapture(): void {
-    if (!this.capturing) {
+  async stopCapture(): Promise<void> {
+    if (!this.capturing && !this.mediaStream && !this.mediaRecorder) {
       return;
     }
 
-    // Stop media stream tracks
+    const wasCapturing = this.capturing;
+    this.capturing = false;
+
+    if (this.mediaRecorder) {
+      const recorder = this.mediaRecorder;
+      this.mediaRecorder = null;
+      recorder.onerror = null;
+      recorder.ondataavailable = null;
+
+      if (recorder.state !== 'inactive') {
+        await new Promise<void>((resolve) => {
+          const timeout = setTimeout(resolve, 1000);
+          recorder.onstop = () => {
+            clearTimeout(timeout);
+            resolve();
+          };
+
+          try {
+            recorder.stop();
+          } catch {
+            clearTimeout(timeout);
+            resolve();
+          }
+        });
+      }
+    }
+
     if (this.mediaStream) {
-      this.mediaStream.getTracks().forEach((track) => track.stop());
+      try {
+        this.mediaStream.getTracks().forEach((track) => track.stop());
+      } catch {
+        // Best effort
+      }
       this.mediaStream = null;
     }
 
-    // Disconnect and clean up worklet node
-    if (this.workletNode) {
-      this.workletNode.disconnect();
-      this.workletNode = null;
+    if (wasCapturing) {
+      console.log('[AudioCaptureRenderer] Capture stopped');
     }
-
-    // Clean up script processor fallback
-    if (this.scriptNode) {
-      this.scriptNode.disconnect();
-      this.scriptNode = null;
-    }
-
-    // Disconnect source node
-    if (this.sourceNode) {
-      this.sourceNode.disconnect();
-      this.sourceNode = null;
-    }
-
-    // Close audio context
-    if (this.audioContext) {
-      this.audioContext.close();
-      this.audioContext = null;
-    }
-
-    this.capturing = false;
-    console.log('[AudioCaptureRenderer] Capture stopped');
   }
 
-  /**
-   * Check if currently capturing
-   */
   isCapturing(): boolean {
     return this.capturing;
   }
@@ -386,10 +288,6 @@ class AudioCaptureRenderer {
 
 let audioCaptureRenderer: AudioCaptureRenderer | null = null;
 
-/**
- * Initialize the audio capture renderer
- * Call this once when the renderer process starts
- */
 export function initAudioCapture(): AudioCaptureRenderer {
   if (!audioCaptureRenderer) {
     audioCaptureRenderer = new AudioCaptureRenderer();
@@ -397,16 +295,10 @@ export function initAudioCapture(): AudioCaptureRenderer {
   return audioCaptureRenderer;
 }
 
-/**
- * Get the audio capture renderer instance
- */
 export function getAudioCapture(): AudioCaptureRenderer | null {
   return audioCaptureRenderer;
 }
 
-/**
- * Destroy the audio capture renderer
- */
 export function destroyAudioCapture(): void {
   if (audioCaptureRenderer) {
     audioCaptureRenderer.destroy();

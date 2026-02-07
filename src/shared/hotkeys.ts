@@ -32,8 +32,9 @@ export interface DisplayKey {
  * Works in both main process (process.platform) and renderer (navigator.platform)
  */
 export function isMacOS(): boolean {
-  if (typeof process !== 'undefined' && process.platform) {
-    return process.platform === 'darwin';
+  const nodeProcess = (globalThis as { process?: { platform?: string } }).process;
+  if (nodeProcess?.platform) {
+    return nodeProcess.platform === 'darwin';
   }
   if (typeof navigator !== 'undefined' && navigator.platform) {
     return navigator.platform.toUpperCase().includes('MAC');
@@ -45,8 +46,9 @@ export function isMacOS(): boolean {
  * Detect if running on Windows
  */
 export function isWindows(): boolean {
-  if (typeof process !== 'undefined' && process.platform) {
-    return process.platform === 'win32';
+  const nodeProcess = (globalThis as { process?: { platform?: string } }).process;
+  if (nodeProcess?.platform) {
+    return nodeProcess.platform === 'win32';
   }
   if (typeof navigator !== 'undefined' && navigator.platform) {
     return navigator.platform.toUpperCase().includes('WIN');
@@ -108,37 +110,37 @@ export const HOTKEYS: HotkeyDefinition[] = [
 ];
 
 // ============================================================================
-// Key Symbol Mappings
+// Key Display Mappings
 // ============================================================================
 
 /**
- * macOS key symbols (SF Symbols style)
+ * macOS key display names (plain text for maximum rendering stability)
  */
 const MAC_SYMBOLS: Record<string, string> = {
-  command: '\u2318',     // Command key
-  cmd: '\u2318',
-  control: '\u2303',     // Control key
-  ctrl: '\u2303',
-  option: '\u2325',      // Option/Alt key
-  alt: '\u2325',
-  shift: '\u21E7',       // Shift key
-  enter: '\u21A9',       // Return/Enter key
-  return: '\u21A9',
-  delete: '\u232B',      // Delete/Backspace key
-  backspace: '\u232B',
-  escape: '\u238B',      // Escape key
-  esc: '\u238B',
-  tab: '\u21E5',         // Tab key
-  space: '\u2423',       // Space key
-  up: '\u2191',          // Up arrow
-  down: '\u2193',        // Down arrow
-  left: '\u2190',        // Left arrow
-  right: '\u2192',       // Right arrow
-  pageup: '\u21DE',      // Page Up
-  pagedown: '\u21DF',    // Page Down
-  home: '\u2196',        // Home
-  end: '\u2198',         // End
-  fn: 'fn',              // Function key
+  command: 'Cmd',
+  cmd: 'Cmd',
+  control: 'Ctrl',
+  ctrl: 'Ctrl',
+  option: 'Option',
+  alt: 'Option',
+  shift: 'Shift',
+  enter: 'Enter',
+  return: 'Return',
+  delete: 'Delete',
+  backspace: 'Delete',
+  escape: 'Esc',
+  esc: 'Esc',
+  tab: 'Tab',
+  space: 'Space',
+  up: 'Up',
+  down: 'Down',
+  left: 'Left',
+  right: 'Right',
+  pageup: 'Page Up',
+  pagedown: 'Page Down',
+  home: 'Home',
+  end: 'End',
+  fn: 'Fn',
 };
 
 /**
@@ -254,14 +256,7 @@ export function getDisplayKeysById(hotkeyId: string): string[] {
  */
 export function formatAcceleratorForDisplay(accelerator: string): string {
   const keys = getDisplayKeys(accelerator);
-
-  if (isMacOS()) {
-    // macOS: No separator between symbols
-    return keys.join('');
-  } else {
-    // Windows/Linux: Plus sign separator
-    return keys.join('+');
-  }
+  return keys.join('+');
 }
 
 /**

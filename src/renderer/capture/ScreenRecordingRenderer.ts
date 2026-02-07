@@ -53,8 +53,116 @@ export class ScreenRecordingRenderer {
   private stopping = false;
   private recordingStartTime: number | null = null;
 
+  private getDesktopConstraints(
+    sourceId: string,
+    highQuality: boolean
+  ): MediaStreamConstraints {
+    if (highQuality) {
+      return {
+        audio: false,
+        video: {
+          mandatory: {
+            chromeMediaSource: 'desktop',
+            chromeMediaSourceId: sourceId,
+            minWidth: 1280,
+            minHeight: 720,
+            maxWidth: 3840,
+            maxHeight: 2160,
+            maxFrameRate: 30,
+          },
+        } as DesktopVideoConstraints,
+      };
+    }
+
+    return {
+      audio: false,
+      video: {
+        mandatory: {
+          chromeMediaSource: 'desktop',
+          chromeMediaSourceId: sourceId,
+        },
+      } as DesktopVideoConstraints,
+    };
+  }
+
+  private async getCandidateSourceIds(preferredSourceId: string): Promise<string[]> {
+    const candidates = new Set<string>([preferredSourceId]);
+    const captureApi = window.feedbackflow?.capture;
+    if (!captureApi?.getSources) {
+      return Array.from(candidates);
+    }
+
+    try {
+      const sources = await captureApi.getSources();
+      for (const source of sources) {
+        if (source.type === 'screen') {
+          candidates.add(source.id);
+        }
+      }
+    } catch (error) {
+      console.warn('[ScreenRecordingRenderer] Failed to enumerate capture sources:', error);
+    }
+
+    return Array.from(candidates);
+  }
+
+  private async acquireScreenStream(sourceId: string): Promise<MediaStream> {
+    let lastError: unknown;
+    const candidates = await this.getCandidateSourceIds(sourceId);
+
+    for (const candidateId of candidates) {
+      const highQualityConstraints = this.getDesktopConstraints(candidateId, true);
+      const fallbackConstraints = this.getDesktopConstraints(candidateId, false);
+
+      try {
+        return await navigator.mediaDevices.getUserMedia(highQualityConstraints);
+      } catch (primaryError) {
+        console.warn(
+          `[ScreenRecordingRenderer] High-quality capture failed for ${candidateId}, retrying fallback:`,
+          primaryError
+        );
+        lastError = primaryError;
+      }
+
+      try {
+        return await navigator.mediaDevices.getUserMedia(fallbackConstraints);
+      } catch (fallbackError) {
+        console.warn(
+          `[ScreenRecordingRenderer] Fallback capture failed for ${candidateId}:`,
+          fallbackError
+        );
+        lastError = fallbackError;
+      }
+    }
+
+    if (typeof navigator.mediaDevices.getDisplayMedia === 'function') {
+      try {
+        return await navigator.mediaDevices.getDisplayMedia({
+          audio: false,
+          video: {
+            frameRate: { ideal: 30, max: 30 },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          },
+        });
+      } catch (displayMediaError) {
+        lastError = displayMediaError;
+      }
+    }
+
+    const message =
+      lastError instanceof Error
+        ? lastError.message
+        : 'Unable to acquire a screen capture stream';
+    throw new Error(message);
+  }
+
   isRecording(): boolean {
     return this.mediaRecorder !== null && this.mediaRecorder.state !== 'inactive';
+  }
+
+  isPaused(): boolean {
+    return this.mediaRecorder?.state === 'paused';
   }
 
   getSessionId(): string | null {
@@ -71,42 +179,7 @@ export class ScreenRecordingRenderer {
     }
 
     const mimeType = chooseMimeType();
-
-    const highQualityConstraints: MediaStreamConstraints = {
-      audio: false,
-      video: {
-        mandatory: {
-          chromeMediaSource: 'desktop',
-          chromeMediaSourceId: options.sourceId,
-          minWidth: 1280,
-          minHeight: 720,
-          maxWidth: 3840,
-          maxHeight: 2160,
-          maxFrameRate: 30,
-        },
-      } as DesktopVideoConstraints,
-    };
-
-    const fallbackConstraints: MediaStreamConstraints = {
-      audio: false,
-      video: {
-        mandatory: {
-          chromeMediaSource: 'desktop',
-          chromeMediaSourceId: options.sourceId,
-        },
-      } as DesktopVideoConstraints,
-    };
-
-    let stream: MediaStream;
-    try {
-      stream = await navigator.mediaDevices.getUserMedia(highQualityConstraints);
-    } catch (primaryError) {
-      console.warn(
-        '[ScreenRecordingRenderer] High-quality capture constraints failed, retrying with fallback:',
-        primaryError
-      );
-      stream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
-    }
+    const stream = await this.acquireScreenStream(options.sourceId);
 
     const recordingStartTime = Date.now();
     const startResult = await window.feedbackflow.screenRecording.start(
@@ -208,6 +281,30 @@ export class ScreenRecordingRenderer {
     this.stopping = false;
     this.recordingStartTime = null;
     return result;
+  }
+
+  async pause(): Promise<void> {
+    if (!this.mediaRecorder || this.mediaRecorder.state !== 'recording') {
+      return;
+    }
+
+    try {
+      this.mediaRecorder.pause();
+    } catch (error) {
+      console.warn('[ScreenRecordingRenderer] Failed to pause recording:', error);
+    }
+  }
+
+  async resume(): Promise<void> {
+    if (!this.mediaRecorder || this.mediaRecorder.state !== 'paused') {
+      return;
+    }
+
+    try {
+      this.mediaRecorder.resume();
+    } catch (error) {
+      console.warn('[ScreenRecordingRenderer] Failed to resume recording:', error);
+    }
   }
 
   private cleanupStream(): void {

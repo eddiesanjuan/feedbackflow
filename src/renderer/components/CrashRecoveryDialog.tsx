@@ -143,10 +143,10 @@ export function CrashRecoveryDialog({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-3 overflow-y-auto">
       {/* Dialog Container */}
       <div
-        className="bg-gray-900 border border-gray-700 rounded-2xl p-6 max-w-md w-full shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+        className="bg-gray-900 border border-gray-700 rounded-2xl p-6 max-w-md w-full max-h-[calc(100vh-24px)] overflow-y-auto shadow-2xl animate-in fade-in zoom-in-95 duration-200"
         role="dialog"
         aria-labelledby="recovery-title"
         aria-describedby="recovery-description"
@@ -237,7 +237,7 @@ export function CrashRecoveryDialog({
 
         {/* Expandable Content */}
         {showDetails && (
-          <div className="bg-gray-800/50 rounded-lg p-3 mb-4 text-xs space-y-2 animate-in slide-in-from-top-2 duration-200">
+          <div className="bg-gray-800/50 rounded-lg p-3 mb-4 text-xs space-y-2 animate-in slide-in-from-top-2 duration-200 max-h-48 overflow-y-auto">
             <div className="flex justify-between">
               <span className="text-gray-500">Session ID:</span>
               <span className="text-gray-400 font-mono">{session.id.slice(0, 8)}...</span>
@@ -326,7 +326,7 @@ export function CrashRecoveryDialog({
           >
             {isDiscarding ? (
               <span className="flex items-center justify-center gap-2">
-                <svg className="w-4 h-4 animate-spin\" fill="none\" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                   <circle
                     className="opacity-25"
                     cx="12"

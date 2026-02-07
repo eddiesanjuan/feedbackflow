@@ -12,7 +12,7 @@
  */
 
 import { EventEmitter } from 'events';
-import { join } from 'path';
+import { basename, join } from 'path';
 import { app } from 'electron';
 import { existsSync } from 'fs';
 import * as os from 'os';
@@ -52,6 +52,13 @@ const DEFAULT_CONFIG: WhisperConfig = {
 const CHUNK_DURATION_MS = 3000; // Process 3 seconds at a time
 const MAX_BUFFER_DURATION_MS = 30000; // Max 30 seconds before force-processing
 const MAX_BUFFER_SIZE_BYTES = 500 * 1024; // 500KB cap as per audit
+const MODEL_MEMORY_REQUIREMENTS_BYTES: Record<string, number> = {
+  'ggml-tiny.bin': 450 * 1024 * 1024,
+  'ggml-base.bin': 800 * 1024 * 1024,
+  'ggml-small.bin': 1400 * 1024 * 1024,
+  'ggml-medium.bin': 2800 * 1024 * 1024,
+  'ggml-large-v3.bin': 5200 * 1024 * 1024,
+};
 
 // ============================================================================
 // WhisperService Class
@@ -126,11 +133,11 @@ export class WhisperService extends EventEmitter {
 
   /**
    * Check if system has enough memory for Whisper
-   * Whisper medium model requires ~2GB RAM
+   * Requirement is model-aware (tiny/base/small/medium/large).
    */
   hasEnoughMemory(): boolean {
     const freeMemory = os.freemem();
-    const requiredMemory = 2 * 1024 * 1024 * 1024; // 2GB
+    const requiredMemory = this.getRequiredMemoryBytes();
     return freeMemory >= requiredMemory;
   }
 
@@ -139,10 +146,10 @@ export class WhisperService extends EventEmitter {
    */
   getMemoryInfo(): { freeMemoryMB: number; requiredMemoryMB: number; sufficient: boolean } {
     const freeMemory = os.freemem();
-    const requiredMemory = 2 * 1024 * 1024 * 1024;
+    const requiredMemory = this.getRequiredMemoryBytes();
     return {
       freeMemoryMB: Math.round(freeMemory / 1024 / 1024),
-      requiredMemoryMB: 2048,
+      requiredMemoryMB: Math.round(requiredMemory / 1024 / 1024),
       sufficient: freeMemory >= requiredMemory,
     };
   }
@@ -163,7 +170,7 @@ export class WhisperService extends EventEmitter {
     if (!this.hasEnoughMemory()) {
       const memInfo = this.getMemoryInfo();
       throw new Error(
-        `Insufficient memory for Whisper. Need 2GB free, only ${memInfo.freeMemoryMB}MB available.`
+        `Insufficient memory for Whisper. Need ~${memInfo.requiredMemoryMB}MB free, only ${memInfo.freeMemoryMB}MB available.`
       );
     }
 
@@ -440,6 +447,11 @@ export class WhisperService extends EventEmitter {
     const timestamp = new Date().toISOString();
     const errorStr = error instanceof Error ? error.message : String(error);
     console.error(`[WhisperService ${timestamp}] ERROR: ${message} - ${errorStr}`);
+  }
+
+  private getRequiredMemoryBytes(): number {
+    const modelName = basename(this.config.modelPath);
+    return MODEL_MEMORY_REQUIREMENTS_BYTES[modelName] ?? MODEL_MEMORY_REQUIREMENTS_BYTES['ggml-small.bin'];
   }
 }
 

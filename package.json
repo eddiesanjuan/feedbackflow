@@ -61,6 +61,7 @@
     "test:ui": "vitest --ui",
     "lint": "eslint src --ext .ts,.tsx",
     "lint:fix": "eslint src --ext .ts,.tsx --fix",
+    "setup:markupr": "bash ./scripts/setup-markupr.sh",
     "typecheck": "tsc --noEmit",
     "generate:icons": "node scripts/generate-icons.mjs",
     "generate:tray-icons": "node scripts/generate-tray-icons.mjs",

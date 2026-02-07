@@ -20,6 +20,7 @@
 <p align="center">
   <a href="#features">Features</a> |
   <a href="#quick-start">Quick Start</a> |
+  <a href="#ai-agent-setup">AI Agent Setup</a> |
   <a href="#installation">Installation</a> |
   <a href="#usage">Usage</a> |
   <a href="#keyboard-shortcuts">Shortcuts</a> |
@@ -71,6 +72,16 @@ FeedbackFlow is a desktop application that transforms how developers capture and
 5. **Press** the hotkey again to stop - your feedback is copied to clipboard
 
 **No API key required!** FeedbackFlow uses local AI (Whisper) by default. Add a Deepgram key in Settings for cloud-powered accuracy.
+
+## AI Agent Setup
+
+For coding agents, use the one-liner from repo root:
+
+```bash
+./setup markupr
+```
+
+Detailed agent setup notes are in [`docs/AI_AGENT_QUICKSTART.md`](docs/AI_AGENT_QUICKSTART.md).
 
 ## Installation
 

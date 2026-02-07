@@ -7,7 +7,7 @@
  * 1. Welcome - Animated logo, tagline, Get Started button
  * 2. Microphone - Permission request with audio level preview
  * 3. Screen Recording - Permission request with system settings link
- * 4. Deepgram API Key - Input, test, success/error feedback
+ * 4. OpenAI API Key - Input, test, success/error feedback
  * 5. Success - Confetti celebration, Start Recording button
  */
 
@@ -785,21 +785,21 @@ const ApiKeyStep: React.FC<{
       </div>
 
       {/* Title */}
-      <h2 style={styles.stepTitle}>Deepgram API Key</h2>
+      <h2 style={styles.stepTitle}>OpenAI API Key</h2>
 
       {/* Explanation */}
       <p style={styles.stepDescription}>
-        markupr uses Deepgram for real-time voice transcription. Get a free API key
+        markupr uses OpenAI for post-session narration transcription. Create an API key
         at{' '}
         <a
-          href="https://deepgram.com"
+          href="https://platform.openai.com/api-keys"
           target="_blank"
           rel="noopener noreferrer"
           style={styles.link}
         >
-          deepgram.com
+          platform.openai.com
         </a>{' '}
-        (free tier includes 200 hours/month).
+        (or skip and use a local Whisper model later).
       </p>
 
       {/* API Key Input */}
@@ -807,7 +807,7 @@ const ApiKeyStep: React.FC<{
         <input
           ref={inputRef}
           type="password"
-          placeholder="Enter your Deepgram API key"
+          placeholder="Enter your OpenAI API key"
           value={apiKey.value}
           onChange={(e) => onApiKeyChange(e.target.value)}
           style={{
@@ -1175,16 +1175,16 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, onSkip }) =>
     }
   }, []);
 
-  // Test Deepgram API key
+  // Test OpenAI API key
   const testApiKey = useCallback(async () => {
     setApiKey((prev) => ({ ...prev, testing: true, error: null }));
 
     try {
-      // Test the API key by making a simple request to Deepgram
-      const response = await fetch('https://api.deepgram.com/v1/projects', {
+      // Test the API key by making a lightweight OpenAI request
+      const response = await fetch('https://api.openai.com/v1/models', {
         method: 'GET',
         headers: {
-          Authorization: `Token ${apiKey.value}`,
+          Authorization: `Bearer ${apiKey.value}`,
           'Content-Type': 'application/json',
         },
       });
@@ -1194,7 +1194,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, onSkip }) =>
 
         // Save the API key via IPC (using secure storage)
         try {
-          await window.feedbackflow.settings.setApiKey('deepgram', apiKey.value);
+          await window.feedbackflow.settings.setApiKey('openai', apiKey.value);
         } catch {
           // Settings save failed but key is valid
         }
@@ -1203,17 +1203,17 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, onSkip }) =>
           ...prev,
           testing: false,
           valid: false,
-          error: 'Invalid API key. Please check and try again.',
+          error: 'Invalid OpenAI API key. Please check and try again.',
         }));
       } else {
         setApiKey((prev) => ({
           ...prev,
           testing: false,
           valid: false,
-          error: `API error: ${response.status}. Please try again.`,
+          error: `OpenAI API error: ${response.status}. Please try again.`,
         }));
       }
-    } catch (err) {
+    } catch {
       setApiKey((prev) => ({
         ...prev,
         testing: false,

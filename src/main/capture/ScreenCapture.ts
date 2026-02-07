@@ -417,15 +417,18 @@ class ScreenCaptureServiceImpl implements ScreenCaptureService {
         thumbnailSize: this.getCaptureSize(),
       });
 
-      const source = sources.find((s) => s.id === sourceId);
+      let source = sources.find((s) => s.id === sourceId);
       if (!source) {
-        const sourceError = new Error(`Source not found: ${sourceId}`);
-        errorHandler.log('warn', 'Capture source not found', {
+        errorHandler.log('warn', 'Capture source not found, using fallback source', {
           component: 'ScreenCapture',
           operation: 'capture',
           data: { sourceId, availableSources: sources.length },
         });
-        throw sourceError;
+
+        source = sources.find((s) => s.id.startsWith('screen')) || sources[0];
+        if (!source) {
+          throw new Error(`Source not found: ${sourceId}`);
+        }
       }
 
       // Capture using the thumbnail (high resolution)

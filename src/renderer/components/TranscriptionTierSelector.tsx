@@ -87,7 +87,7 @@ const TIER_INFO: Record<TranscriptionTier, TierInfo> = {
     description: 'On-device AI transcription - works offline, no API key needed',
     accuracy: '90%+ accuracy',
     latency: '1-3s latency',
-    requirements: '~500MB model download, 2GB RAM',
+    requirements: '~75MB model download, low RAM',
     badge: 'Recommended',
     badgeColor: '#10B981',
     icon: (
@@ -167,7 +167,7 @@ export const TranscriptionTierSelector: React.FC<TranscriptionTierSelectorProps>
   const handleDownloadModel = useCallback(async () => {
     setIsDownloading(true);
     try {
-      const result = await window.feedbackflow.transcription.downloadModel('medium');
+      const result = await window.feedbackflow.transcription.downloadModel('tiny');
       if (!result.success) {
         throw new Error(result.error || 'Failed to start model download.');
       }
@@ -179,7 +179,7 @@ export const TranscriptionTierSelector: React.FC<TranscriptionTierSelectorProps>
 
   const handleCancelDownload = useCallback(async () => {
     try {
-      await window.feedbackflow.transcription.cancelDownload('medium');
+      await window.feedbackflow.transcription.cancelDownload('tiny');
     } catch (error) {
       console.error('Cancel failed:', error);
     }
@@ -348,7 +348,7 @@ export const TranscriptionTierSelector: React.FC<TranscriptionTierSelectorProps>
                     <div style={styles.downloadCta}>
                       <div style={styles.downloadInfo}>
                         <DownloadIcon />
-                        <span>Download required (~500MB) for local transcription</span>
+                        <span>Download required (~75MB) for local transcription</span>
                       </div>
                       <button
                         style={styles.downloadButton}

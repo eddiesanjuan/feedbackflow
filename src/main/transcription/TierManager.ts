@@ -22,6 +22,7 @@ import { modelDownloadManager } from './ModelDownloadManager';
 import { getSettingsManager } from '../settings';
 import type {
   TranscriptionTier,
+  WhisperModel,
   TierStatus,
   TierQuality,
   TranscriptEvent,
@@ -50,9 +51,17 @@ const WHISPER_MIN_MEMORY = 2 * 1024 * 1024 * 1024;
 
 // Timer-only screenshot interval
 const TIMER_SCREENSHOT_INTERVAL_MS = 10000;
+const MACOS_FALLBACK_SCREENSHOT_INTERVAL_MS = 12000;
 
 // Max failovers before forcing timer-only
 const MAX_FAILOVERS = 3;
+const MODEL_MEMORY_REQUIREMENT_BYTES: Record<WhisperModel, number> = {
+  tiny: 450 * 1024 * 1024,
+  base: 800 * 1024 * 1024,
+  small: 1400 * 1024 * 1024,
+  medium: 2800 * 1024 * 1024,
+  large: 5200 * 1024 * 1024,
+};
 
 // Cache Deepgram key validation briefly to avoid excessive network calls.
 const DEEPGRAM_VALIDATION_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -162,9 +171,21 @@ export class TierManager extends EventEmitter {
    */
   async hasTranscriptionCapability(): Promise<boolean> {
     const statuses = await this.getTierStatuses();
-    return statuses.some(
+    const hasLiveTier = statuses.some(
       (s) => s.available && this.tierProvidesTranscription(s.tier)
     );
+    if (hasLiveTier) {
+      return true;
+    }
+
+    // Post-session OpenAI transcription is also a valid capability path.
+    try {
+      const settings = getSettingsManager();
+      const openAiKey = await settings.getApiKey('openai');
+      return Boolean(openAiKey?.trim());
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -224,7 +245,7 @@ export class TierManager extends EventEmitter {
     if (tier === 'macos-dictation') {
       this.log('WARNING: macOS Dictation tier is a PLACEHOLDER - it does NOT produce transcriptions!');
       this.log('WARNING: Only pause events (for screenshots) will be emitted.');
-      this.log('WARNING: Consider downloading a Whisper model or configuring Deepgram API key.');
+      this.log('WARNING: Consider adding an OpenAI/Deepgram API key or downloading a Whisper model.');
     } else if (tier === 'timer-only') {
       this.log('WARNING: Timer-only mode - NO transcription will be produced!');
       this.log('WARNING: Only periodic screenshot triggers will be emitted.');
@@ -417,21 +438,22 @@ export class TierManager extends EventEmitter {
   }
 
   private async checkTier2Availability(): Promise<TierStatus> {
-    // Check if model is downloaded
-    const hasModel =
-      modelDownloadManager.isModelDownloaded('medium') || modelDownloadManager.isModelDownloaded('small');
-
-    if (!hasModel) {
+    if (!modelDownloadManager.hasAnyModel()) {
       return { tier: 'whisper', available: false, reason: 'Model not downloaded' };
     }
 
+    const selectedModel = modelDownloadManager.getDefaultModel();
+    const requiredMemory = MODEL_MEMORY_REQUIREMENT_BYTES[selectedModel] ?? WHISPER_MIN_MEMORY;
+
     // Check memory
     const freeMemory = os.freemem();
-    if (freeMemory < WHISPER_MIN_MEMORY) {
+    if (freeMemory < requiredMemory) {
       return {
         tier: 'whisper',
         available: false,
-        reason: `Insufficient memory (${Math.round(freeMemory / 1024 / 1024)}MB free, need 2GB)`,
+        reason:
+          `Insufficient memory for ${selectedModel} model ` +
+          `(${Math.round(freeMemory / 1024 / 1024)}MB free, need ~${Math.round(requiredMemory / 1024 / 1024)}MB)`,
       };
     }
 
@@ -496,15 +518,12 @@ export class TierManager extends EventEmitter {
   }
 
   private async startWhisper(): Promise<void> {
-    // Determine which model to use
-    let modelPath: string;
-    if (modelDownloadManager.isModelDownloaded('medium')) {
-      modelPath = modelDownloadManager.getModelPath('medium');
-    } else if (modelDownloadManager.isModelDownloaded('small')) {
-      modelPath = modelDownloadManager.getModelPath('small');
-    } else {
+    if (!modelDownloadManager.hasAnyModel()) {
       throw new Error('No Whisper model downloaded');
     }
+
+    const selectedModel = modelDownloadManager.getDefaultModel();
+    const modelPath = modelDownloadManager.getModelPath(selectedModel);
 
     whisperService.setModelPath(modelPath);
 
@@ -536,7 +555,7 @@ export class TierManager extends EventEmitter {
 
     silenceDetector.start();
     await whisperService.start();
-    this.log('Whisper tier started');
+    this.log(`Whisper tier started (model: ${selectedModel})`);
   }
 
   private async startMacOSDictation(): Promise<void> {
@@ -551,13 +570,25 @@ export class TierManager extends EventEmitter {
 
     silenceDetector.start();
 
+    // Also emit periodic pause events as a safety net when silence detection
+    // misses transitions (for example during continuous speech).
+    if (this.timerInterval) {
+      clearInterval(this.timerInterval);
+    }
+    this.timerInterval = setInterval(() => {
+      this.emitPause({ timestamp: Date.now() / 1000, tier: 'macos-dictation' });
+    }, MACOS_FALLBACK_SCREENSHOT_INTERVAL_MS);
+
     // IMPORTANT: This is a PLACEHOLDER tier - it does NOT produce actual transcriptions!
     // Full macOS Dictation integration would require NSSpeechRecognizer native bindings.
     // Currently it ONLY emits pause events for screenshot capture.
     this.log('=== macOS Dictation tier started ===');
     this.log('NOTE: This tier is a PLACEHOLDER - NO TRANSCRIPTION will be produced!');
     this.log('NOTE: Only silence detection for screenshot triggers is active.');
-    this.log('NOTE: To get actual transcription, download a Whisper model or configure Deepgram.');
+    this.log(
+      `NOTE: Added periodic screenshot safety trigger (${Math.round(MACOS_FALLBACK_SCREENSHOT_INTERVAL_MS / 1000)}s).`
+    );
+    this.log('NOTE: To get actual transcription, add an OpenAI/Deepgram API key or download a Whisper model.');
   }
 
   private async startTimerOnly(): Promise<void> {
@@ -588,6 +619,10 @@ export class TierManager extends EventEmitter {
       silenceDetector.stop();
     } else if (this.currentTier === 'macos-dictation') {
       silenceDetector.stop();
+      if (this.timerInterval) {
+        clearInterval(this.timerInterval);
+        this.timerInterval = null;
+      }
     } else if (this.currentTier === 'timer-only') {
       if (this.timerInterval) {
         clearInterval(this.timerInterval);

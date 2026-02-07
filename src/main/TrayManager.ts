@@ -11,7 +11,7 @@
  * - Complete state with green checkmark
  */
 
-import { Tray, Menu, nativeImage, app, NativeImage } from 'electron';
+import { Tray, Menu, nativeImage, app, NativeImage, shell } from 'electron';
 import { join } from 'path';
 import type { TrayState } from '../shared/types';
 
@@ -39,11 +39,14 @@ const STATE_TOOLTIPS: Record<TrayState, string> = {
   error: 'markupr - Error (click for details)',
 };
 
+const DONATE_URL = 'https://ko-fi.com/eddiesanjuan';
+
 /**
  * TrayManager implementation
  */
 class TrayManagerImpl implements ITrayManager {
   private tray: Tray | null = null;
+  private contextMenu: Menu | null = null;
   private currentState: TrayState = 'idle';
   private clickCallbacks: Array<() => void> = [];
   private settingsCallbacks: Array<() => void> = [];
@@ -99,6 +102,9 @@ class TrayManagerImpl implements ITrayManager {
     // Resize for menu bar (16x16 on macOS, 16x16 or 32x32 on others)
     const size = process.platform === 'darwin' ? 16 : 16;
     icon = icon.resize({ width: size, height: size });
+    if (process.platform === 'darwin') {
+      icon.setTemplateImage(true);
+    }
 
     this.iconCache.set(cacheKey, icon);
     return icon;
@@ -208,16 +214,21 @@ class TrayManagerImpl implements ITrayManager {
     this.tray.setToolTip(STATE_TOOLTIPS.idle);
     this.updateContextMenu();
 
-    // Handle click (toggle recording)
-    this.tray.on('click', () => {
-      this.clickCallbacks.forEach((cb) => cb());
-    });
-
-    // On Windows/Linux, right-click shows menu automatically
-    // On macOS, we handle both click and right-click
     if (process.platform === 'darwin') {
-      this.tray.on('right-click', () => {
-        this.tray?.popUpContextMenu();
+      // Use mouse-up so we can strictly separate left click (popover) and right click (context menu).
+      // This prevents the "menu + popover both open" behavior seen when macOS emits both click variants.
+      this.tray.on('mouse-up', (event) => {
+        const button = (event as { button?: number }).button;
+        if (button === 2) {
+          this.tray?.popUpContextMenu(this.contextMenu ?? undefined);
+          return;
+        }
+        this.clickCallbacks.forEach((cb) => cb());
+      });
+    } else {
+      // On Windows/Linux, regular click opens/toggles app; right-click menu is handled by setContextMenu.
+      this.tray.on('click', () => {
+        this.clickCallbacks.forEach((cb) => cb());
       });
     }
 
@@ -234,6 +245,13 @@ class TrayManagerImpl implements ITrayManager {
     const isProcessing = this.currentState === 'processing';
 
     const menu = Menu.buildFromTemplate([
+      {
+        label: 'Buy Developer a Coffee',
+        click: () => {
+          void shell.openExternal(DONATE_URL);
+        },
+      },
+      { type: 'separator' },
       {
         label: isRecording ? 'Stop Recording' : 'Start Recording',
         enabled: !isProcessing,
@@ -263,6 +281,15 @@ class TrayManagerImpl implements ITrayManager {
         },
       },
     ]);
+
+    this.contextMenu = menu;
+
+    if (process.platform === 'darwin') {
+      // Keep left-click dedicated to opening the popover.
+      // Showing the menu is explicit via right-click.
+      this.tray.setContextMenu(null);
+      return;
+    }
 
     this.tray.setContextMenu(menu);
   }
@@ -295,7 +322,7 @@ class TrayManagerImpl implements ITrayManager {
     // Start animation based on state
     if (state === 'processing') {
       this.startProcessingAnimation();
-    } else if (state === 'recording') {
+    } else if (state === 'recording' && process.platform !== 'darwin') {
       this.startRecordingAnimation();
     }
 
@@ -330,6 +357,13 @@ class TrayManagerImpl implements ITrayManager {
    */
   private startRecordingAnimation(): void {
     if (!this.tray) return;
+
+    if (process.platform === 'darwin') {
+      // Template icons can disappear/flicker when rapidly swapped on macOS menu bar.
+      // Keep a stable recording icon instead of pulsing.
+      this.tray.setImage(this.loadIcon('recording'));
+      return;
+    }
 
     // Animation: pulse between opacity levels (simulated via icon switching)
     // We use 2 frames: normal (100%) and dimmed (60%)
@@ -372,6 +406,9 @@ class TrayManagerImpl implements ITrayManager {
     const base64 = Buffer.from(svg.trim()).toString('base64');
     const dataUrl = `data:image/svg+xml;base64,${base64}`;
     const icon = nativeImage.createFromDataURL(dataUrl).resize({ width: 16, height: 16 });
+    if (process.platform === 'darwin') {
+      icon.setTemplateImage(true);
+    }
 
     this.iconCache.set(cacheKey, icon);
     return icon;
@@ -419,6 +456,9 @@ class TrayManagerImpl implements ITrayManager {
     const base64 = Buffer.from(svg.trim()).toString('base64');
     const dataUrl = `data:image/svg+xml;base64,${base64}`;
     const icon = nativeImage.createFromDataURL(dataUrl).resize({ width: 16, height: 16 });
+    if (process.platform === 'darwin') {
+      icon.setTemplateImage(true);
+    }
 
     this.iconCache.set(cacheKey, icon);
     return icon;
@@ -483,6 +523,7 @@ class TrayManagerImpl implements ITrayManager {
       this.tray.destroy();
       this.tray = null;
     }
+    this.contextMenu = null;
 
     this.clickCallbacks = [];
     this.settingsCallbacks = [];

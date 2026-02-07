@@ -1,9 +1,7 @@
 /**
  * HotkeyHint - Platform-aware keyboard shortcut display
  *
- * Renders keyboard shortcuts with platform-appropriate styling:
- * - macOS: Uses SF Symbols (Command, Shift, Option, etc.)
- * - Windows/Linux: Uses text labels (Ctrl, Shift, Alt, etc.)
+ * Renders keyboard shortcuts with plain-text key labels for maximum stability.
  *
  * Supports both inline (within buttons) and standalone rendering.
  */
@@ -52,21 +50,21 @@ interface HotkeyHintProps {
 // ============================================================================
 
 const MAC_SYMBOLS: Record<string, string> = {
-  cmd: '\u2318',
-  command: '\u2318',
-  ctrl: '\u2303',
-  control: '\u2303',
-  alt: '\u2325',
-  option: '\u2325',
-  shift: '\u21E7',
-  enter: '\u21A9',
-  return: '\u21A9',
-  delete: '\u232B',
-  backspace: '\u232B',
-  esc: '\u238B',
-  escape: '\u238B',
-  tab: '\u21E5',
-  space: '\u2423',
+  cmd: 'Cmd',
+  command: 'Cmd',
+  ctrl: 'Ctrl',
+  control: 'Ctrl',
+  alt: 'Option',
+  option: 'Option',
+  shift: 'Shift',
+  enter: 'Enter',
+  return: 'Return',
+  delete: 'Delete',
+  backspace: 'Delete',
+  esc: 'Esc',
+  escape: 'Esc',
+  tab: 'Tab',
+  space: 'Space',
 };
 
 const WIN_NAMES: Record<string, string> = {
@@ -179,7 +177,8 @@ export const HotkeyHint: React.FC<HotkeyHintProps> = ({
 
   const separatorStyle: React.CSSProperties = {
     fontSize: sizeStyles.fontSize - 1,
-    color: 'rgba(255, 255, 255, 0.4)',
+    color: 'currentColor',
+    opacity: 0.65,
     marginLeft: 1,
     marginRight: 1,
   };
@@ -189,8 +188,7 @@ export const HotkeyHint: React.FC<HotkeyHintProps> = ({
       {displayKeys.map((key, index) => (
         <React.Fragment key={index}>
           <kbd style={keyStyle}>{key}</kbd>
-          {/* On Windows/Linux, show + separator between keys */}
-          {!mac && index < displayKeys.length - 1 && (
+          {index < displayKeys.length - 1 && (
             <span style={separatorStyle}>+</span>
           )}
         </React.Fragment>
@@ -230,16 +228,31 @@ export const ManualScreenshotHint: React.FC<{ inline?: boolean }> = ({ inline })
 };
 
 /**
+ * Simple hotkey display for pause/resume
+ */
+export const PauseResumeHint: React.FC<{ inline?: boolean }> = ({ inline }) => {
+  const mac = isMacOS();
+  return (
+    <HotkeyHint
+      keys={mac ? ['Cmd', 'Shift', 'P'] : ['Ctrl', 'Shift', 'P']}
+      inline={inline}
+    />
+  );
+};
+
+/**
  * Get platform-aware hotkey text for status/tooltip displays
  */
-export function getHotkeyText(hotkeyId: 'toggleRecording' | 'manualScreenshot'): string {
-  const mac = isMacOS();
-
+export function getHotkeyText(
+  hotkeyId: 'toggleRecording' | 'manualScreenshot' | 'pauseResume'
+): string {
   switch (hotkeyId) {
     case 'toggleRecording':
-      return mac ? '\u2318\u21E7F' : 'Ctrl+Shift+F';
+      return isMacOS() ? 'Cmd+Shift+F' : 'Ctrl+Shift+F';
     case 'manualScreenshot':
-      return mac ? '\u2318\u21E7S' : 'Ctrl+Shift+S';
+      return isMacOS() ? 'Cmd+Shift+S' : 'Ctrl+Shift+S';
+    case 'pauseResume':
+      return isMacOS() ? 'Cmd+Shift+P' : 'Ctrl+Shift+P';
     default:
       return '';
   }

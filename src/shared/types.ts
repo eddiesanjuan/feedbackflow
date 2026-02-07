@@ -67,6 +67,7 @@ export type TrayState = 'idle' | 'recording' | 'processing' | 'complete' | 'erro
 export interface HotkeyConfig {
   toggleRecording: string;
   manualScreenshot: string;
+  pauseResume: string;
 }
 
 /**
@@ -75,13 +76,14 @@ export interface HotkeyConfig {
 export const DEFAULT_HOTKEY_CONFIG: HotkeyConfig = {
   toggleRecording: 'CommandOrControl+Shift+F',
   manualScreenshot: 'CommandOrControl+Shift+S',
+  pauseResume: 'CommandOrControl+Shift+P',
 };
 
 /**
  * Application settings (v2 - expanded schema)
  *
  * Note: API keys are NOT stored in settings.
- * Use SettingsManager.getApiKey('deepgram') for secure storage via keytar.
+ * Use SettingsManager.getApiKey('<service>') for secure storage via keytar.
  */
 export interface AppSettings {
   // General
@@ -102,7 +104,7 @@ export interface AppSettings {
   maxImageWidth: number; // 800-2400
 
   // Transcription
-  transcriptionService: 'deepgram';
+  transcriptionService: 'openai' | 'deepgram';
   language: string;
   enableKeywordTriggers: boolean;
 
@@ -121,7 +123,7 @@ export interface AppSettings {
   keepAudioBackups: boolean;
 
   // Legacy fields (for migration compatibility)
-  /** @deprecated Use SettingsManager.getApiKey('deepgram') for secure storage */
+  /** @deprecated Kept for migration compatibility only */
   deepgramApiKey?: string;
   /** @deprecated Use imageQuality instead */
   screenshotQuality?: number;
@@ -157,7 +159,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   maxImageWidth: 1920,
 
   // Transcription
-  transcriptionService: 'deepgram',
+  transcriptionService: 'openai',
   language: 'en',
   enableKeywordTriggers: false,
 
@@ -190,6 +192,8 @@ export const IPC_CHANNELS = {
   // ---------------------------------------------------------------------------
   SESSION_START: 'feedbackflow:session:start',
   SESSION_STOP: 'feedbackflow:session:stop',
+  SESSION_PAUSE: 'feedbackflow:session:pause',
+  SESSION_RESUME: 'feedbackflow:session:resume',
   SESSION_CANCEL: 'feedbackflow:session:cancel',
   SESSION_GET_STATUS: 'feedbackflow:session:get-status',
   SESSION_GET_CURRENT: 'feedbackflow:session:get-current',
@@ -397,6 +401,7 @@ export interface SessionStatusPayload {
   duration: number;
   feedbackCount: number;
   screenshotCount: number;
+  isPaused: boolean;
 }
 
 /**
@@ -646,7 +651,7 @@ export interface AudioCaptureConfig {
 }
 
 /**
- * Default audio configuration (optimized for Deepgram)
+ * Default audio configuration (optimized for speech transcription)
  */
 export const DEFAULT_AUDIO_CONFIG: AudioCaptureConfig = {
   sampleRate: 16000,
