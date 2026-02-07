@@ -51,6 +51,7 @@ export class ScreenRecordingRenderer {
   private activeSessionId: string | null = null;
   private inFlightWrites: Set<Promise<void>> = new Set();
   private stopping = false;
+  private recordingStartTime: number | null = null;
 
   isRecording(): boolean {
     return this.mediaRecorder !== null && this.mediaRecorder.state !== 'inactive';
@@ -58,6 +59,10 @@ export class ScreenRecordingRenderer {
 
   getSessionId(): string | null {
     return this.activeSessionId;
+  }
+
+  getRecordingStartTime(): number | null {
+    return this.recordingStartTime;
   }
 
   async start(options: StartOptions): Promise<void> {
@@ -103,7 +108,12 @@ export class ScreenRecordingRenderer {
       stream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
     }
 
-    const startResult = await window.feedbackflow.screenRecording.start(options.sessionId, mimeType);
+    const recordingStartTime = Date.now();
+    const startResult = await window.feedbackflow.screenRecording.start(
+      options.sessionId,
+      mimeType,
+      recordingStartTime
+    );
     if (!startResult.success) {
       stream.getTracks().forEach((track) => track.stop());
       throw new Error(startResult.error || 'Unable to start screen recording persistence.');
@@ -149,6 +159,7 @@ export class ScreenRecordingRenderer {
     this.mediaRecorder = recorder;
     this.activeSessionId = options.sessionId;
     this.stopping = false;
+    this.recordingStartTime = recordingStartTime;
 
     // Emit chunks every second for near-real-time persistence.
     try {
@@ -158,6 +169,7 @@ export class ScreenRecordingRenderer {
       this.cleanupStream();
       this.mediaRecorder = null;
       this.activeSessionId = null;
+      this.recordingStartTime = null;
       await window.feedbackflow.screenRecording.stop(options.sessionId).catch(() => {});
       throw error;
     }
@@ -194,6 +206,7 @@ export class ScreenRecordingRenderer {
     this.mediaRecorder = null;
     this.activeSessionId = null;
     this.stopping = false;
+    this.recordingStartTime = null;
     return result;
   }
 

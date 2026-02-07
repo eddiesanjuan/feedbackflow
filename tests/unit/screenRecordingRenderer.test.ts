@@ -144,7 +144,7 @@ describe('ScreenRecordingRenderer', () => {
     it('should call IPC start with sessionId and mimeType', async () => {
       await renderer.start({ sessionId: 'sess-1', sourceId: 'screen:0:0' });
 
-      expect(mockScreenRecordingIPC.start).toHaveBeenCalledWith('sess-1', expect.any(String));
+      expect(mockScreenRecordingIPC.start).toHaveBeenCalledWith('sess-1', expect.any(String), expect.any(Number));
     });
 
     it('should set isRecording to true after start', async () => {
@@ -157,6 +157,17 @@ describe('ScreenRecordingRenderer', () => {
       await renderer.start({ sessionId: 'sess-1', sourceId: 'screen:0:0' });
 
       expect(renderer.getSessionId()).toBe('sess-1');
+    });
+
+    it('should set recordingStartTime after start', async () => {
+      const before = Date.now();
+      await renderer.start({ sessionId: 'sess-1', sourceId: 'screen:0:0' });
+      const after = Date.now();
+
+      const startTime = renderer.getRecordingStartTime();
+      expect(startTime).toBeTypeOf('number');
+      expect(startTime).toBeGreaterThanOrEqual(before);
+      expect(startTime).toBeLessThanOrEqual(after);
     });
 
     it('should start MediaRecorder with 1000ms timeslice', async () => {
@@ -320,7 +331,7 @@ describe('ScreenRecordingRenderer', () => {
 
       await renderer.start({ sessionId: 'sess-1', sourceId: 'screen:0:0' });
 
-      expect(mockScreenRecordingIPC.start).toHaveBeenCalledWith('sess-1', 'video/webm;codecs=vp9');
+      expect(mockScreenRecordingIPC.start).toHaveBeenCalledWith('sess-1', 'video/webm;codecs=vp9', expect.any(Number));
     });
 
     it('should fall back to video/webm when no codecs supported', async () => {
@@ -328,7 +339,7 @@ describe('ScreenRecordingRenderer', () => {
 
       await renderer.start({ sessionId: 'sess-1', sourceId: 'screen:0:0' });
 
-      expect(mockScreenRecordingIPC.start).toHaveBeenCalledWith('sess-1', 'video/webm');
+      expect(mockScreenRecordingIPC.start).toHaveBeenCalledWith('sess-1', 'video/webm', expect.any(Number));
     });
   });
 });

@@ -64,6 +64,7 @@ import { sessionController, type Session, type SessionState } from './SessionCon
 import { trayManager } from './TrayManager';
 import { SettingsManager } from './settings';
 import { fileManager, outputManager, clipboardService, generateDocumentForFileManager, adaptSessionForMarkdown } from './output';
+import { processSession as aiProcessSession } from './ai';
 import { modelDownloadManager } from './transcription/ModelDownloadManager';
 import { tierManager } from './transcription/TierManager';
 import type { WhisperModel } from './transcription/types';
@@ -114,6 +115,7 @@ interface RecordingArtifact {
   mimeType: string;
   bytesWritten: number;
   writeChain: Promise<void>;
+  startTime?: number;
 }
 
 const activeScreenRecordings = new Map<string, RecordingArtifact>();
@@ -531,6 +533,7 @@ async function finalizeScreenRecording(sessionId: string): Promise<{
   tempPath: string;
   mimeType: string;
   bytesWritten: number;
+  startTime?: number;
 } | null> {
   const active = activeScreenRecordings.get(sessionId);
   if (active) {
@@ -545,6 +548,7 @@ async function finalizeScreenRecording(sessionId: string): Promise<{
       tempPath: active.tempPath,
       mimeType: active.mimeType,
       bytesWritten: active.bytesWritten,
+      startTime: active.startTime,
     });
   }
 
@@ -555,7 +559,7 @@ async function attachRecordingToSessionOutput(
   sessionId: string,
   sessionDir: string,
   markdownPath: string
-): Promise<{ path: string; mimeType: string; bytesWritten: number } | undefined> {
+): Promise<{ path: string; mimeType: string; bytesWritten: number; startTime?: number } | undefined> {
   const artifact = await finalizeScreenRecording(sessionId);
   if (!artifact || artifact.bytesWritten <= 0) {
     return undefined;
@@ -578,6 +582,7 @@ async function attachRecordingToSessionOutput(
       path: finalPath,
       mimeType: artifact.mimeType,
       bytesWritten: artifact.bytesWritten,
+      startTime: artifact.startTime,
     };
   } catch (error) {
     console.warn('[Main] Failed to attach session recording to output:', error);
@@ -729,11 +734,20 @@ async function stopSession(): Promise<{
     // Update progress: generating document (33%)
     windowsTaskbar?.setProgress(0.33);
 
-    // Generate output document using adapter for type compatibility
-    const document = generateDocumentForFileManager(session, {
-      projectName: session.metadata?.sourceName || 'Feedback Session',
-      screenshotDir: './screenshots',
-    });
+    // Generate output document — uses AI pipeline if an Anthropic key is configured,
+    // otherwise falls back to the free-tier rule-based generator.
+    const { document } = settingsManager
+      ? await aiProcessSession(session, {
+          settingsManager,
+          projectName: session.metadata?.sourceName || 'Feedback Session',
+          screenshotDir: './screenshots',
+        })
+      : {
+          document: generateDocumentForFileManager(session, {
+            projectName: session.metadata?.sourceName || 'Feedback Session',
+            screenshotDir: './screenshots',
+          }),
+        };
 
     // Update progress: saving to file system (66%)
     windowsTaskbar?.setProgress(0.66);
@@ -794,6 +808,7 @@ async function stopSession(): Promise<{
       reportPath: saveResult.markdownPath,
       sessionDir: saveResult.sessionDir,
       recordingPath: recordingArtifact?.path,
+      videoStartTime: recordingArtifact?.startTime,
       reviewSession,
     });
 
@@ -1044,7 +1059,7 @@ function setupIPC(): void {
   // Start persisted screen recording for the active session
   ipcMain.handle(
     IPC_CHANNELS.SCREEN_RECORDING_START,
-    async (_, sessionId: string, mimeType: string): Promise<{ success: boolean; path?: string; error?: string }> => {
+    async (_, sessionId: string, mimeType: string, startTime?: number): Promise<{ success: boolean; path?: string; error?: string }> => {
       try {
         const currentSession = sessionController.getSession();
         if (!currentSession || currentSession.id !== sessionId) {
@@ -1063,6 +1078,7 @@ function setupIPC(): void {
           mimeType: mimeType || 'video/webm',
           bytesWritten: 0,
           writeChain: Promise.resolve(),
+          startTime,
         });
 
         return { success: true, path: tempPath };
@@ -1393,10 +1409,18 @@ function setupIPC(): void {
         return { success: false, error: 'No session to save' };
       }
 
-      const document = generateDocumentForFileManager(session, {
-        projectName: session.metadata?.sourceName || 'Feedback Session',
-        screenshotDir: './screenshots',
-      });
+      const { document } = settingsManager
+        ? await aiProcessSession(session, {
+            settingsManager,
+            projectName: session.metadata?.sourceName || 'Feedback Session',
+            screenshotDir: './screenshots',
+          })
+        : {
+            document: generateDocumentForFileManager(session, {
+              projectName: session.metadata?.sourceName || 'Feedback Session',
+              screenshotDir: './screenshots',
+            }),
+          };
 
       const result = await fileManager.saveSession(session, document);
       return {

@@ -488,6 +488,8 @@ export interface ReviewSessionMetadata {
   os?: string;
   sourceName?: string;
   sourceType?: 'screen' | 'window';
+  /** Epoch ms when video recording started, for computing video offsets */
+  videoStartTime?: number;
 }
 
 /**
@@ -511,6 +513,8 @@ export interface OutputReadyPayload {
   reportPath?: string;
   sessionDir?: string;
   recordingPath?: string;
+  /** Epoch ms when video recording started, for computing video offsets from transcript timestamps */
+  videoStartTime?: number;
   /** The full review session for SessionReview component */
   reviewSession?: ReviewSession;
 }
@@ -707,6 +711,8 @@ export interface SessionMetadata {
   recordingPath?: string;
   recordingMimeType?: string;
   recordingBytes?: number;
+  /** Epoch ms when video recording started, for computing video offsets from transcript timestamps */
+  videoStartTime?: number;
 }
 
 /**

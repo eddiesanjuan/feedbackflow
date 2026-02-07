@@ -90,7 +90,11 @@ interface AudioAPI {
  * Screen recording persistence API
  */
 interface ScreenRecordingAPI {
-  start: (sessionId: string, mimeType: string) => Promise<{ success: boolean; path?: string; error?: string }>;
+  start: (
+    sessionId: string,
+    mimeType: string,
+    startTime?: number
+  ) => Promise<{ success: boolean; path?: string; error?: string }>;
   appendChunk: (sessionId: string, chunk: Uint8Array) => Promise<{ success: boolean; error?: string }>;
   stop: (
     sessionId: string

@@ -295,9 +295,10 @@ const feedbackflow = {
      */
     start: (
       sessionId: string,
-      mimeType: string
+      mimeType: string,
+      startTime?: number
     ): Promise<{ success: boolean; path?: string; error?: string }> => {
-      return ipcRenderer.invoke(IPC_CHANNELS.SCREEN_RECORDING_START, sessionId, mimeType);
+      return ipcRenderer.invoke(IPC_CHANNELS.SCREEN_RECORDING_START, sessionId, mimeType, startTime);
     },
 
     /**
