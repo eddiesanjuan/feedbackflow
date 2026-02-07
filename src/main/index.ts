@@ -2006,6 +2006,7 @@ app.whenReady().then(async () => {
 
     const popoverWindow = popover.create();
     mainWindow = popoverWindow; // Assign to mainWindow for compatibility
+    sessionController.setMainWindow(popoverWindow);
 
     // Load renderer
     if (process.env.NODE_ENV === 'development') {
