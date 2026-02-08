@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to FeedbackFlow will be documented in this file.
+All notable changes to markupr will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -10,12 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0] - 2026-02-04
 
 ### Highlights
-**FeedbackFlow Initial Public Release** - Voice-to-AI feedback for developers. Free and open source.
+**markupr Initial Public Release** - Voice-to-AI feedback for developers. Free and open source.
 
 ### Added
 - **Bulletproof State Machine**: 7-state finite state machine with watchdog timer - can never get stuck
 - **Menu Bar Native**: Runs entirely from the menu bar (no dock icon)
-- **Three-Tier Transcription**: Deepgram (premium) -> Whisper (default) -> Timer fallback
+- **Three-Tier Transcription**: OpenAI (premium) -> Whisper (default) -> Timer fallback
 - **Crash Recovery**: 5-second auto-save ensures no work is lost
 - **Offline Mode**: Local Whisper transcription works without internet
 - **Platform-Aware Hotkeys**: Cmd on Mac, Ctrl on Windows - just works
@@ -71,14 +71,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Theme System**: Dark, light, and system theme options
 
 ### Changed
-- Improved Deepgram integration with better error handling
+- Improved OpenAI integration with better error handling
 - Enhanced Markdown output format for AI consumption
 - Better screenshot compression
 
 ### Fixed
 - Fixed audio capture on Windows
 - Fixed window selector thumbnail generation
-- Fixed crash when Deepgram connection drops
+- Fixed crash when OpenAI connection drops
 
 ## [0.2.0] - 2026-01-01
 
@@ -100,7 +100,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Initial release
-- Voice narration capture with Deepgram transcription
+- Voice narration capture with OpenAI transcription
 - Automatic screenshot capture on voice pauses
 - Markdown document generation
 - Global hotkey to start/stop recording (`Cmd+Shift+F`)
@@ -119,9 +119,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 | 0.2.0 | 2026-01-01 | Window selector, manual screenshots |
 | 0.1.0 | 2025-12-15 | Initial scaffold |
 
-[Unreleased]: https://github.com/eddiesanjuan/feedbackflow/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/eddiesanjuan/feedbackflow/compare/v0.4.0...v1.0.0
-[0.4.0]: https://github.com/eddiesanjuan/feedbackflow/compare/v0.3.0...v0.4.0
-[0.3.0]: https://github.com/eddiesanjuan/feedbackflow/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/eddiesanjuan/feedbackflow/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/eddiesanjuan/feedbackflow/releases/tag/v0.1.0
+[Unreleased]: https://github.com/eddiesanjuan/markupr/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/eddiesanjuan/markupr/compare/v0.4.0...v1.0.0
+[0.4.0]: https://github.com/eddiesanjuan/markupr/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/eddiesanjuan/markupr/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/eddiesanjuan/markupr/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/eddiesanjuan/markupr/releases/tag/v0.1.0

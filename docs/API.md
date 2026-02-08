@@ -1,6 +1,6 @@
 # API Reference
 
-FeedbackFlow uses Electron's IPC (Inter-Process Communication) for all communication between the main process and renderer. This document covers the internal API for developers.
+markupr uses Electron's IPC (Inter-Process Communication) for all communication between the main process and renderer. This document covers the internal API for developers.
 
 ## Table of Contents
 
@@ -24,7 +24,7 @@ FeedbackFlow uses Electron's IPC (Inter-Process Communication) for all communica
 │  │       │            │            │                   │   │
 │  │       └────────────┴────────────┘                   │   │
 │  │                     │                                │   │
-│  │              window.feedbackflow                     │   │
+│  │              window.markupr                     │   │
 │  └─────────────────────┬───────────────────────────────┘   │
 │                        │                                     │
 ├────────────────────────┼─────────────────────────────────────┤
@@ -61,21 +61,21 @@ All IPC channels are defined in `src/shared/types.ts` with the `IPC_CHANNELS` co
 
 | Channel | Method | Description | Returns |
 |---------|--------|-------------|---------|
-| `feedbackflow:session:start` | invoke | Start recording | `{success, sessionId?, error?}` |
-| `feedbackflow:session:stop` | invoke | Stop recording | `{success, session?, error?}` |
-| `feedbackflow:session:cancel` | invoke | Cancel without saving | `{success}` |
-| `feedbackflow:session:get-status` | invoke | Get current status | `SessionStatusPayload` |
-| `feedbackflow:session:get-current` | invoke | Get session data | `SessionPayload | null` |
+| `markupr:session:start` | invoke | Start recording | `{success, sessionId?, error?}` |
+| `markupr:session:stop` | invoke | Stop recording | `{success, session?, error?}` |
+| `markupr:session:cancel` | invoke | Cancel without saving | `{success}` |
+| `markupr:session:get-status` | invoke | Get current status | `SessionStatusPayload` |
+| `markupr:session:get-current` | invoke | Get session data | `SessionPayload | null` |
 
 #### Main to Renderer
 
 | Channel | Description | Payload |
 |---------|-------------|---------|
-| `feedbackflow:session:state-changed` | State transition | `{state, session}` |
-| `feedbackflow:session:status-update` | Periodic status | `SessionStatusPayload` |
-| `feedbackflow:session:complete` | Session finished | `SessionPayload` |
-| `feedbackflow:session:feedback-item` | New item captured | `FeedbackItemPayload` |
-| `feedbackflow:session:error` | Error occurred | `{message}` |
+| `markupr:session:state-changed` | State transition | `{state, session}` |
+| `markupr:session:status-update` | Periodic status | `SessionStatusPayload` |
+| `markupr:session:complete` | Session finished | `SessionPayload` |
+| `markupr:session:feedback-item` | New item captured | `FeedbackItemPayload` |
+| `markupr:session:error` | Error occurred | `{message}` |
 
 ### Capture Channels
 
@@ -83,15 +83,15 @@ All IPC channels are defined in `src/shared/types.ts` with the `IPC_CHANNELS` co
 
 | Channel | Method | Description | Returns |
 |---------|--------|-------------|---------|
-| `feedbackflow:capture:get-sources` | invoke | List sources | `CaptureSource[]` |
-| `feedbackflow:capture:manual-screenshot` | invoke | Take screenshot | `{success}` |
+| `markupr:capture:get-sources` | invoke | List sources | `CaptureSource[]` |
+| `markupr:capture:manual-screenshot` | invoke | Take screenshot | `{success}` |
 
 #### Main to Renderer
 
 | Channel | Description | Payload |
 |---------|-------------|---------|
-| `feedbackflow:capture:screenshot-taken` | Screenshot captured | `ScreenshotCapturedPayload` |
-| `feedbackflow:capture:manual-triggered` | Manual hotkey used | `{timestamp}` |
+| `markupr:capture:screenshot-taken` | Screenshot captured | `ScreenshotCapturedPayload` |
+| `markupr:capture:manual-triggered` | Manual hotkey used | `{timestamp}` |
 
 ### Audio Channels
 
@@ -117,65 +117,65 @@ Main Process                    Renderer Process
 
 | Channel | Method | Description | Returns |
 |---------|--------|-------------|---------|
-| `feedbackflow:settings:get` | invoke | Get single setting | `AppSettings[K]` |
-| `feedbackflow:settings:get-all` | invoke | Get all settings | `AppSettings` |
-| `feedbackflow:settings:set` | invoke | Set single setting | `AppSettings` |
-| `feedbackflow:settings:get-api-key` | invoke | Get API key (secure) | `string | null` |
-| `feedbackflow:settings:set-api-key` | invoke | Set API key (secure) | `boolean` |
+| `markupr:settings:get` | invoke | Get single setting | `AppSettings[K]` |
+| `markupr:settings:get-all` | invoke | Get all settings | `AppSettings` |
+| `markupr:settings:set` | invoke | Set single setting | `AppSettings` |
+| `markupr:settings:get-api-key` | invoke | Get API key (secure) | `string | null` |
+| `markupr:settings:set-api-key` | invoke | Set API key (secure) | `boolean` |
 
 ### Update Channels
 
 | Channel | Method | Description | Returns |
 |---------|--------|-------------|---------|
-| `feedbackflow:update:check` | invoke | Check for updates | `UpdateInfo` |
-| `feedbackflow:update:download` | invoke | Download update | `void` |
-| `feedbackflow:update:install` | invoke | Install and restart | `void` |
+| `markupr:update:check` | invoke | Check for updates | `UpdateInfo` |
+| `markupr:update:download` | invoke | Download update | `void` |
+| `markupr:update:install` | invoke | Install and restart | `void` |
 
 #### Main to Renderer
 
 | Channel | Description | Payload |
 |---------|-------------|---------|
-| `feedbackflow:update:status` | Update status change | `UpdateStatusPayload` |
+| `markupr:update:status` | Update status change | `UpdateStatusPayload` |
 
 ## Preload API
 
-The preload script (`src/preload/index.ts`) exposes a safe API to the renderer via `window.feedbackflow`.
+The preload script (`src/preload/index.ts`) exposes a safe API to the renderer via `window.markupr`.
 
 ### Session API
 
 ```typescript
 // Start a recording session
-const result = await window.feedbackflow.session.start(sourceId);
+const result = await window.markupr.session.start(sourceId);
 // Returns: { success: boolean; sessionId?: string; error?: string }
 
 // Stop the current session
-const result = await window.feedbackflow.session.stop();
+const result = await window.markupr.session.stop();
 // Returns: { success: boolean; session?: SessionPayload; error?: string }
 
 // Cancel without saving
-const result = await window.feedbackflow.session.cancel();
+const result = await window.markupr.session.cancel();
 // Returns: { success: boolean }
 
 // Get current status
-const status = await window.feedbackflow.session.getStatus();
+const status = await window.markupr.session.getStatus();
 // Returns: SessionStatusPayload
 
 // Get current session data
-const session = await window.feedbackflow.session.getCurrent();
+const session = await window.markupr.session.getCurrent();
 // Returns: SessionPayload | null
 
 // Subscribe to state changes
-const unsubscribe = window.feedbackflow.session.onStateChange(({ state, session }) => {
+const unsubscribe = window.markupr.session.onStateChange(({ state, session }) => {
   console.log('State:', state);
 });
 
 // Subscribe to new feedback items
-const unsubscribe = window.feedbackflow.session.onFeedbackItem((item) => {
+const unsubscribe = window.markupr.session.onFeedbackItem((item) => {
   console.log('New item:', item);
 });
 
 // Subscribe to errors
-const unsubscribe = window.feedbackflow.session.onError(({ message }) => {
+const unsubscribe = window.markupr.session.onError(({ message }) => {
   console.error('Error:', message);
 });
 ```
@@ -184,14 +184,14 @@ const unsubscribe = window.feedbackflow.session.onError(({ message }) => {
 
 ```typescript
 // Get available capture sources
-const sources = await window.feedbackflow.capture.getSources();
+const sources = await window.markupr.capture.getSources();
 // Returns: CaptureSource[]
 
 // Trigger manual screenshot
-await window.feedbackflow.capture.manualScreenshot();
+await window.markupr.capture.manualScreenshot();
 
 // Subscribe to screenshots
-const unsubscribe = window.feedbackflow.capture.onScreenshot((data) => {
+const unsubscribe = window.markupr.capture.onScreenshot((data) => {
   console.log('Screenshot:', data.id, data.count);
 });
 ```
@@ -200,18 +200,18 @@ const unsubscribe = window.feedbackflow.capture.onScreenshot((data) => {
 
 ```typescript
 // Get available devices (enumeration happens in renderer)
-const devices = await window.feedbackflow.audio.getDevices();
+const devices = await window.markupr.audio.getDevices();
 
 // Set preferred device
-await window.feedbackflow.audio.setDevice(deviceId);
+await window.markupr.audio.setDevice(deviceId);
 
 // Subscribe to audio level (for visualization)
-const unsubscribe = window.feedbackflow.audio.onLevel((level) => {
+const unsubscribe = window.markupr.audio.onLevel((level) => {
   // level is 0-1 normalized amplitude
 });
 
 // Subscribe to voice activity
-const unsubscribe = window.feedbackflow.audio.onVoiceActivity((isActive) => {
+const unsubscribe = window.markupr.audio.onVoiceActivity((isActive) => {
   // isActive is boolean
 });
 ```
@@ -220,36 +220,36 @@ const unsubscribe = window.feedbackflow.audio.onVoiceActivity((isActive) => {
 
 ```typescript
 // Get a single setting
-const theme = await window.feedbackflow.settings.get('theme');
+const theme = await window.markupr.settings.get('theme');
 
 // Get all settings
-const settings = await window.feedbackflow.settings.getAll();
+const settings = await window.markupr.settings.getAll();
 
 // Set a setting
-const updated = await window.feedbackflow.settings.set('theme', 'dark');
+const updated = await window.markupr.settings.set('theme', 'dark');
 
 // Get API key from secure storage
-const apiKey = await window.feedbackflow.settings.getApiKey('deepgram');
+const apiKey = await window.markupr.settings.getApiKey('openai');
 
 // Set API key in secure storage
-const success = await window.feedbackflow.settings.setApiKey('deepgram', 'your-key');
+const success = await window.markupr.settings.setApiKey('openai', 'your-key');
 ```
 
 ### Hotkeys API
 
 ```typescript
 // Get current configuration
-const config = await window.feedbackflow.hotkeys.getConfig();
+const config = await window.markupr.hotkeys.getConfig();
 // Returns: HotkeyConfig
 
 // Update configuration
-const result = await window.feedbackflow.hotkeys.updateConfig({
+const result = await window.markupr.hotkeys.updateConfig({
   toggleRecording: 'CommandOrControl+Shift+G'
 });
 // Returns: { config: HotkeyConfig; results: RegistrationResult[] }
 
 // Subscribe to hotkey triggers
-const unsubscribe = window.feedbackflow.hotkeys.onTriggered(({ action, accelerator }) => {
+const unsubscribe = window.markupr.hotkeys.onTriggered(({ action, accelerator }) => {
   console.log('Hotkey:', action);
 });
 ```
@@ -258,42 +258,42 @@ const unsubscribe = window.feedbackflow.hotkeys.onTriggered(({ action, accelerat
 
 ```typescript
 // Save current session
-const result = await window.feedbackflow.output.save();
+const result = await window.markupr.output.save();
 // Returns: SaveResult
 
 // Copy to clipboard
-const success = await window.feedbackflow.output.copyClipboard();
+const success = await window.markupr.output.copyClipboard();
 
 // Open output folder
-await window.feedbackflow.output.openFolder();
+await window.markupr.output.openFolder();
 
 // List saved sessions
-const sessions = await window.feedbackflow.output.listSessions();
+const sessions = await window.markupr.output.listSessions();
 
 // Delete a session
-await window.feedbackflow.output.deleteSession(sessionId);
+await window.markupr.output.deleteSession(sessionId);
 
 // Export a session
-await window.feedbackflow.output.exportSession(sessionId, 'pdf');
+await window.markupr.output.exportSession(sessionId, 'pdf');
 ```
 
 ### Crash Recovery API
 
 ```typescript
 // Check for incomplete sessions
-const { hasIncomplete, session } = await window.feedbackflow.crashRecovery.check();
+const { hasIncomplete, session } = await window.markupr.crashRecovery.check();
 
 // Recover an incomplete session
-const result = await window.feedbackflow.crashRecovery.recover(sessionId);
+const result = await window.markupr.crashRecovery.recover(sessionId);
 
 // Discard incomplete session
-await window.feedbackflow.crashRecovery.discard();
+await window.markupr.crashRecovery.discard();
 
 // Get crash logs
-const logs = await window.feedbackflow.crashRecovery.getLogs(10);
+const logs = await window.markupr.crashRecovery.getLogs(10);
 
 // Subscribe to found incomplete sessions (on startup)
-const unsubscribe = window.feedbackflow.crashRecovery.onIncompleteFound(({ session }) => {
+const unsubscribe = window.markupr.crashRecovery.onIncompleteFound(({ session }) => {
   // Show recovery dialog
 });
 ```
@@ -302,16 +302,16 @@ const unsubscribe = window.feedbackflow.crashRecovery.onIncompleteFound(({ sessi
 
 ```typescript
 // Check for updates
-await window.feedbackflow.updates.check();
+await window.markupr.updates.check();
 
 // Download available update
-await window.feedbackflow.updates.download();
+await window.markupr.updates.download();
 
 // Install and restart
-await window.feedbackflow.updates.install();
+await window.markupr.updates.install();
 
 // Subscribe to update status
-const unsubscribe = window.feedbackflow.updates.onStatus((status) => {
+const unsubscribe = window.markupr.updates.onStatus((status) => {
   console.log('Update status:', status.status);
   if (status.percent) {
     console.log('Progress:', status.percent);
@@ -327,7 +327,7 @@ All event subscriptions return an unsubscribe function:
 
 ```typescript
 // Subscribe
-const unsubscribe = window.feedbackflow.session.onStateChange((data) => {
+const unsubscribe = window.markupr.session.onStateChange((data) => {
   // Handle event
 });
 
@@ -344,7 +344,7 @@ function useSessionState() {
   const [state, setState] = useState<SessionState>('idle');
 
   useEffect(() => {
-    const unsubscribe = window.feedbackflow.session.onStateChange(({ state }) => {
+    const unsubscribe = window.markupr.session.onStateChange(({ state }) => {
       setState(state);
     });
 
@@ -357,19 +357,19 @@ function useSessionState() {
 
 ## Plugin Architecture
 
-FeedbackFlow is designed to support plugins in future versions.
+markupr is designed to support plugins in future versions.
 
 ### Planned Plugin Types
 
 1. **Output Formatters**: Add new export formats
-2. **Transcription Services**: Alternative to Deepgram
+2. **Transcription Services**: Alternative to OpenAI
 3. **Integrations**: Connect to external services
 4. **Annotation Tools**: Custom drawing tools
 
 ### Plugin Interface (Draft)
 
 ```typescript
-interface FeedbackFlowPlugin {
+interface markuprPlugin {
   name: string;
   version: string;
   type: 'formatter' | 'transcription' | 'integration' | 'annotation';
@@ -383,7 +383,7 @@ interface FeedbackFlowPlugin {
 }
 
 // Example: Custom formatter plugin
-interface FormatterPlugin extends FeedbackFlowPlugin {
+interface FormatterPlugin extends markuprPlugin {
   type: 'formatter';
 
   format(session: Session): Promise<{

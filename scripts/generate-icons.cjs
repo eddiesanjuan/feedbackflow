@@ -162,7 +162,7 @@ function createPlaceholderBackground() {
   execSync(
     `convert -size 660x400 -define gradient:angle=135 gradient:'#1E1E2E'-'#2D2D3F' \\
      -fill '#94a3b8' -gravity center -pointsize 14 -font Helvetica \\
-     -annotate +0+80 "Drag FeedbackFlow to Applications" \\
+     -annotate +0+80 "Drag markupr to Applications" \\
      "${outputPath}"`,
     { stdio: 'pipe' }
   );
@@ -171,7 +171,7 @@ function createPlaceholderBackground() {
 
 // Main execution
 console.log('========================================');
-console.log('FeedbackFlow Icon Generator');
+console.log('markupr Icon Generator');
 console.log('========================================\n');
 
 generateIconset();

@@ -1,4 +1,4 @@
-# FeedbackFlow Product Vision
+# markupr Product Vision
 
 **Version 1.2** | February 2026
 **Author**: Eddie San Juan
@@ -24,9 +24,9 @@ Bug reporting tools assume something is *broken*. Development feedback captures 
 
 ---
 
-## What FeedbackFlow Does
+## What markupr Does
 
-FeedbackFlow is a menu bar app that lets you talk through what you see in any application and produces an organized, AI-ready document with screenshots/recordings placed exactly where they belong.
+markupr is a menu bar app that lets you talk through what you see in any application and produces an organized, AI-ready document with screenshots/recordings placed exactly where they belong.
 
 One hotkey to start. One hotkey to stop. A markdown file with your words, your screenshots, and AI-generated structure -- ready to paste into whatever tool you use next.
 
@@ -48,7 +48,7 @@ You talk naturally:
 
 *"This button is way too small on mobile. And it's competing with the header -- look, they're practically overlapping."*
 
-You pause for a beat. FeedbackFlow detects the silence -- about 1.2 seconds of quiet -- and captures a screenshot of exactly what you're looking at.
+You pause for a beat. markupr detects the silence -- about 1.2 seconds of quiet -- and captures a screenshot of exactly what you're looking at.
 
 You scroll down.
 
@@ -75,7 +75,7 @@ Press `Cmd+Shift+F` again. The menu bar icon spins briefly while the session pro
 Everything is saved to an organized folder on your machine:
 
 ```
-~/FeedbackFlow/sessions/2026-02-05_14-23-41/
+~/markupr/sessions/2026-02-05_14-23-41/
   feedback.md
   screenshots/
     fb-001.png
@@ -122,12 +122,12 @@ The common thread: these are people who think faster than they type, test their 
 
 ### Free Tier (Open Source, MIT License)
 
-FeedbackFlow is free and fully functional with no feature gates:
+markupr is free and fully functional with no feature gates:
 
 - **Local Whisper transcription** runs entirely on your machine. No API key. No internet required after the initial model download (~500MB).
-- **BYOK (Bring Your Own Key)** for AI analysis. Plug in any API key you want -- Anthropic, Deepgram, whatever you prefer.
+- **BYOK (Bring Your Own Key)** for AI analysis. Plug in any API key you want -- Anthropic, OpenAI, whatever you prefer.
 - **All features unlocked.** Screenshots, transcription, markdown output, crash recovery, silence detection, manual capture -- everything works.
-- **Offline capable.** Once the Whisper model is downloaded, FeedbackFlow works without a network connection.
+- **Offline capable.** Once the Whisper model is downloaded, markupr works without a network connection.
 
 A donate button rotates through messages like "Buy Eddie a Taco" and "Fund Eddie's Caffeine Addiction" -- a single link to Ko-fi. It never blocks your workflow. It never nags. It's there if you feel like it.
 
@@ -148,13 +148,13 @@ This is not an OpenAI integration. The analysis is powered by Anthropic's Claude
 
 ## Design Principles
 
-**Zero-config first run.** FeedbackFlow works the moment you open it. No API keys. No account creation. No onboarding wizard with seven steps. You click the menu bar icon, press the hotkey, and start talking.
+**Zero-config first run.** markupr works the moment you open it. No API keys. No account creation. No onboarding wizard with seven steps. You click the menu bar icon, press the hotkey, and start talking.
 
-**Menu bar native.** No dock icon. No window chrome. FeedbackFlow lives in your menu bar like a system utility. It's there when you need it and invisible when you don't. Inspired by how the Claude Status app behaves -- minimal, professional, out of the way.
+**Menu bar native.** No dock icon. No window chrome. markupr lives in your menu bar like a system utility. It's there when you need it and invisible when you don't. Inspired by how the Claude Status app behaves -- minimal, professional, out of the way.
 
 **Never lose work.** Session state is written to disk every 5 seconds. If the app crashes, your data is recovered on restart. If your clipboard gets overwritten, the file is still on disk. If processing hangs, a watchdog timer forces recovery within 10 seconds. You will never lose a feedback session.
 
-**AI is the luxury, not the baseline.** The free tier is a complete, production-quality tool. AI analysis makes the output smarter and more structured, but FeedbackFlow is useful without it. This is not a demo that upsells you.
+**AI is the luxury, not the baseline.** The free tier is a complete, production-quality tool. AI analysis makes the output smarter and more structured, but markupr is useful without it. This is not a demo that upsells you.
 
 **Open source first.** MIT license. Fork it, improve it, ship it. Contributions welcome. The codebase is designed to be readable and well-documented. Community-driven development, not SaaS-driven.
 
@@ -164,7 +164,7 @@ This is not an OpenAI integration. The analysis is powered by Anthropic's Claude
 
 ## How It Works Under the Hood
 
-FeedbackFlow is an Electron app with a React frontend. The recording session is governed by a 7-state finite state machine:
+markupr is an Electron app with a React frontend. The recording session is governed by a 7-state finite state machine:
 
 **idle** -- ready to record
 **starting** -- initializing microphone and transcription (5-second timeout)
@@ -180,15 +180,15 @@ Every state has a maximum duration. A watchdog timer monitors state age in the b
 
 Transcription degrades gracefully:
 
-1. **Deepgram** (optional, best quality) -- cloud-based, 95%+ accuracy, ~300ms latency. Requires an API key and internet.
+1. **OpenAI** (optional, best quality) -- cloud-based, 95%+ accuracy, ~300ms latency. Requires an API key and internet.
 2. **Local Whisper** (default) -- runs on your machine, 90%+ accuracy, 1-2 second latency. No API key. No internet.
 3. **macOS Dictation** (emergency fallback) -- real-time, ~85% accuracy. Uses the system's built-in speech recognition.
 
-If Deepgram fails mid-session, FeedbackFlow falls back to Whisper. If Whisper isn't available, it falls back to macOS Dictation. If nothing works, it continues capturing screenshots on a timer and saves whatever audio it has.
+If OpenAI fails mid-session, markupr falls back to Whisper. If Whisper isn't available, it falls back to macOS Dictation. If nothing works, it continues capturing screenshots on a timer and saves whatever audio it has.
 
 ### Intelligent Screenshot Timing
 
-Screenshots are triggered by silence detection. FeedbackFlow monitors audio input using RMS (root mean square) amplitude analysis. When you stop talking for approximately 1.2 seconds, it captures what's on your screen. This means screenshots naturally correspond to the things you just described.
+Screenshots are triggered by silence detection. markupr monitors audio input using RMS (root mean square) amplitude analysis. When you stop talking for approximately 1.2 seconds, it captures what's on your screen. This means screenshots naturally correspond to the things you just described.
 
 You can also trigger a manual screenshot at any time with `Cmd+Shift+S`, with a 500ms debounce to prevent rapid-fire captures.
 
@@ -196,7 +196,7 @@ You can also trigger a manual screenshot at any time with `Cmd+Shift+S`, with a 
 
 Session state persists to disk every 5 seconds. If the app is force-quit or crashes during a recording:
 
-1. On next launch, FeedbackFlow detects the incomplete session.
+1. On next launch, markupr detects the incomplete session.
 2. It presents a recovery dialog with the partial data.
 3. You can resume or discard the session.
 
@@ -204,9 +204,9 @@ This means even a power failure mid-session doesn't lose your work.
 
 ---
 
-## What Makes FeedbackFlow Different
+## What Makes markupr Different
 
-| | FeedbackFlow | Loom | Jam.dev | Screenshots + Notes |
+| | markupr | Loom | Jam.dev | Screenshots + Notes |
 |---|---|---|---|---|
 | Voice + Screenshots | Yes | Video only | Browser only | Manual |
 | AI-Ready Output | Structured markdown | No | Partial | No |
@@ -217,7 +217,7 @@ This means even a power failure mid-session doesn't lose your work.
 | Open Source | MIT | No | No | N/A |
 | Output format | Markdown + images | MP4 | Web report | Scattered files |
 
-The core differentiator is this: FeedbackFlow produces structured text and images that AI tools can read and act on immediately. Video files can't do that. Browser-only tools miss everything outside the browser. Manual note-taking breaks your flow.
+The core differentiator is this: markupr produces structured text and images that AI tools can read and act on immediately. Video files can't do that. Browser-only tools miss everything outside the browser. Manual note-taking breaks your flow.
 
 ---
 
@@ -227,7 +227,7 @@ The core differentiator is this: FeedbackFlow produces structured text and image
 
 - Bulletproof state machine with watchdog timer
 - Menu bar native interface (no dock icon)
-- Three-tier transcription (Deepgram, Whisper, macOS Dictation)
+- Three-tier transcription (OpenAI, Whisper, macOS Dictation)
 - Silence-triggered screenshot capture
 - Crash recovery with 5-second auto-save
 - Multiple export formats (Markdown, PDF, HTML, JSON)
@@ -259,10 +259,10 @@ The core differentiator is this: FeedbackFlow produces structured text and image
 
 ## The Vision in One Sentence
 
-FeedbackFlow turns the way you naturally think about software -- talking through what you see -- into structured documents that humans and AI tools can act on immediately.
+markupr turns the way you naturally think about software -- talking through what you see -- into structured documents that humans and AI tools can act on immediately.
 
 ---
 
 *Built by Eddie San Juan. Open source. MIT licensed.*
-*[github.com/eddiesanjuan/feedbackflow](https://github.com/eddiesanjuan/feedbackflow)*
+*[github.com/eddiesanjuan/markupr](https://github.com/eddiesanjuan/markupr)*
 *[ko-fi.com/eddiesanjuan](https://ko-fi.com/eddiesanjuan)*

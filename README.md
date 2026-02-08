@@ -1,18 +1,18 @@
 <p align="center">
-  <img src="src/renderer/assets/logo.svg" alt="FeedbackFlow Logo" width="120" height="120">
+  <img src="src/renderer/assets/logo.svg" alt="markupr Logo" width="120" height="120">
 </p>
 
-<h1 align="center">FeedbackFlow</h1>
+<h1 align="center">markupr</h1>
 
 <p align="center">
   <strong>Capture developer feedback with voice narration and intelligent screenshots</strong>
 </p>
 
 <p align="center">
-  <a href="https://github.com/eddiesanjuan/feedbackflow/actions/workflows/ci.yml"><img src="https://github.com/eddiesanjuan/feedbackflow/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="https://github.com/eddiesanjuan/feedbackflow/actions/workflows/release.yml"><img src="https://github.com/eddiesanjuan/feedbackflow/actions/workflows/release.yml/badge.svg" alt="Release"></a>
-  <a href="https://github.com/eddiesanjuan/feedbackflow/releases"><img src="https://img.shields.io/github/v/release/eddiesanjuan/feedbackflow?style=flat-square" alt="Latest Release"></a>
-  <a href="https://github.com/eddiesanjuan/feedbackflow/releases"><img src="https://img.shields.io/github/downloads/eddiesanjuan/feedbackflow/total?style=flat-square" alt="Downloads"></a>
+  <a href="https://github.com/eddiesanjuan/markupr/actions/workflows/ci.yml"><img src="https://github.com/eddiesanjuan/markupr/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/eddiesanjuan/markupr/actions/workflows/release.yml"><img src="https://github.com/eddiesanjuan/markupr/actions/workflows/release.yml/badge.svg" alt="Release"></a>
+  <a href="https://github.com/eddiesanjuan/markupr/releases"><img src="https://img.shields.io/github/v/release/eddiesanjuan/markupr?style=flat-square" alt="Latest Release"></a>
+  <a href="https://github.com/eddiesanjuan/markupr/releases"><img src="https://img.shields.io/github/downloads/eddiesanjuan/markupr/total?style=flat-square" alt="Downloads"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" alt="License"></a>
   <a href="https://ko-fi.com/eddiesanjuan"><img src="https://img.shields.io/badge/Support-Ko--fi-FF5E5B?style=flat-square&logo=ko-fi" alt="Ko-fi"></a>
 </p>
@@ -30,12 +30,12 @@
 
 ---
 
-FeedbackFlow is a desktop application that transforms how developers capture and communicate feedback. Simply press a hotkey, narrate what you see, and FeedbackFlow automatically captures intelligent screenshots synchronized with your voice. The result is an AI-ready Markdown document perfect for Claude, ChatGPT, Cursor, or any coding assistant.
+markupr is a desktop application that transforms how developers capture and communicate feedback. Simply press a hotkey, narrate what you see, and markupr automatically captures intelligent screenshots synchronized with your voice. The result is an AI-ready Markdown document perfect for Claude, ChatGPT, Cursor, or any coding assistant.
 
 ## Features
 
 ### Voice-Driven Capture
-- **Real-time transcription** powered by Deepgram's Nova-2 model
+- **Real-time transcription** powered by OpenAI Whisper-1 model
 - **Intelligent screenshot timing** - captures automatically during voice pauses
 - **Audio waveform visualization** for real-time feedback
 
@@ -68,17 +68,17 @@ FeedbackFlow is a desktop application that transforms how developers capture and
 1. **Download** the latest release for your platform
 2. **Install** the application (DMG for macOS, installer for Windows)
 3. **Press** `Cmd+Shift+F` (macOS) or `Ctrl+Shift+F` (Windows) to start recording
-4. **Narrate** your feedback while FeedbackFlow captures screenshots
+4. **Narrate** your feedback while markupr captures screenshots
 5. **Press** the hotkey again to stop - your feedback is copied to clipboard
 
-**No API key required!** FeedbackFlow uses local AI (Whisper) by default. Add a Deepgram key in Settings for cloud-powered accuracy.
+**No API key required!** markupr uses local AI (Whisper) by default. Add your OpenAI API key in Settings for cloud post-session transcription.
 
 ## AI Agent Setup
 
 For coding agents, use the one-liner from repo root:
 
 ```bash
-./setup markupr
+npm run setup:markupr
 ```
 
 Detailed agent setup notes are in [`docs/AI_AGENT_QUICKSTART.md`](docs/AI_AGENT_QUICKSTART.md).
@@ -87,55 +87,55 @@ Detailed agent setup notes are in [`docs/AI_AGENT_QUICKSTART.md`](docs/AI_AGENT_
 
 ### macOS
 
-Download the `.dmg` file from the [releases page](https://github.com/eddiesanjuan/feedbackflow/releases).
+Download the `.dmg` file from the [releases page](https://github.com/eddiesanjuan/markupr/releases).
 
 1. Open the DMG file
-2. Drag FeedbackFlow to your Applications folder
-3. Launch FeedbackFlow from Applications
+2. Drag markupr to your Applications folder
+3. Launch markupr from Applications
 4. Grant required permissions (Microphone, Screen Recording)
 
 ### Windows
 
-Download the `.exe` installer from the [releases page](https://github.com/eddiesanjuan/feedbackflow/releases).
+Download the `.exe` installer from the [releases page](https://github.com/eddiesanjuan/markupr/releases).
 
 1. Run the installer
 2. Follow the installation wizard
-3. Launch FeedbackFlow from the Start menu
+3. Launch markupr from the Start menu
 
 ### Linux
 
-Download the `.AppImage` or `.deb` file from the [releases page](https://github.com/eddiesanjuan/feedbackflow/releases).
+Download the `.AppImage` or `.deb` file from the [releases page](https://github.com/eddiesanjuan/markupr/releases).
 
 ```bash
 # AppImage
-chmod +x FeedbackFlow-*.AppImage
-./FeedbackFlow-*.AppImage
+chmod +x markupr-*.AppImage
+./markupr-*.AppImage
 
 # Debian/Ubuntu
-sudo dpkg -i feedbackflow_*.deb
+sudo dpkg -i markupr_*.deb
 ```
 
 ## Configuration
 
 ### Transcription Options
 
-FeedbackFlow works out of the box with **local Whisper** transcription - no API key needed.
+markupr works out of the box with **local Whisper** transcription - no API key needed.
 
-For improved accuracy, optionally add [Deepgram](https://deepgram.com):
+For cloud post-session transcription, add your OpenAI API key:
 
-1. Sign up at [console.deepgram.com](https://console.deepgram.com)
+1. Sign up at [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
 2. Create an API key with "Usage" permissions
 3. Open Settings > Advanced > Transcription Service
-4. Select "Deepgram" and enter your API key
+4. Enter your OpenAI API key
 
-Deepgram offers 200 free hours/month.
+OpenAI usage is billed to your own API account.
 
 ### Settings Overview
 
 | Category | Setting | Description |
 |----------|---------|-------------|
 | **General** | Output Directory | Where sessions are saved |
-| | Launch at Login | Start FeedbackFlow on system boot |
+| | Launch at Login | Start markupr on system boot |
 | **Recording** | Countdown | 0, 3, or 5 second countdown before recording |
 | | Transcription Preview | Show live transcription overlay |
 | | Audio Waveform | Visual audio level feedback |
@@ -162,7 +162,7 @@ See [docs/CONFIGURATION.md](docs/CONFIGURATION.md) for complete settings documen
 
 ### Recording Tips
 
-- **Speak naturally** - FeedbackFlow detects pauses to time screenshots
+- **Speak naturally** - markupr detects pauses to time screenshots
 - **Pause briefly** when you want a screenshot captured
 - **Use manual capture** (`Cmd+Shift+S`) for precise timing
 - **Review before export** to remove unwanted items
@@ -311,8 +311,8 @@ See [docs/EXPORT_FORMATS.md](docs/EXPORT_FORMATS.md) for complete schema documen
 
 ```bash
 # Clone the repository
-git clone https://github.com/eddiesanjuan/feedbackflow.git
-cd feedbackflow
+git clone https://github.com/eddiesanjuan/markupr.git
+cd markupr
 
 # Install dependencies
 npm install
@@ -339,13 +339,13 @@ npm run dev
 ### Project Structure
 
 ```
-feedbackflow/
+markupr/
 ├── src/
 │   ├── main/              # Electron main process
 │   │   ├── index.ts       # Entry point, orchestration
 │   │   ├── capture/       # Screen capture services
 │   │   ├── audio/         # Audio capture
-│   │   ├── transcription/ # Deepgram integration
+│   │   ├── transcription/ # Whisper + fallback tiers
 │   │   ├── output/        # Document generation
 │   │   ├── analysis/      # AI categorization
 │   │   └── settings/      # Settings management
@@ -382,16 +382,16 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 
 **Microphone not detected**
 - Check System Preferences > Security & Privacy > Microphone
-- Grant FeedbackFlow microphone access
+- Grant markupr microphone access
 
 **Screen recording permission denied**
 - macOS: System Preferences > Security & Privacy > Screen Recording
-- Restart FeedbackFlow after granting permission
+- Restart markupr after granting permission
 
-**Deepgram connection failed**
+**OpenAI API connection failed**
 - Verify your API key is correct
 - Check your internet connection
-- Ensure your Deepgram account has available credits
+- Ensure your OpenAI project has billing enabled and API access
 
 **Hotkeys not working**
 - Check for conflicts with other applications
@@ -405,7 +405,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## Acknowledgments
 
-- [Deepgram](https://deepgram.com) for real-time speech recognition
+- [OpenAI](https://platform.openai.com/api-keys) for post-session transcription
 - [Electron](https://electronjs.org) for cross-platform desktop framework
 - [React](https://reactjs.org) for the UI framework
 - [Vite](https://vitejs.dev) for blazing fast builds
@@ -414,5 +414,5 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 <p align="center">
   Made with care by <a href="https://github.com/eddiesanjuan">Eddie San Juan</a><br>
-  <a href="https://ko-fi.com/eddiesanjuan">Support FeedbackFlow on Ko-fi</a>
+  <a href="https://ko-fi.com/eddiesanjuan">Support markupr on Ko-fi</a>
 </p>

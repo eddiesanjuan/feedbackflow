@@ -1,6 +1,6 @@
-# Contributing to FeedbackFlow
+# Contributing to markupr
 
-Thank you for your interest in contributing to FeedbackFlow! This document provides guidelines and information about contributing.
+Thank you for your interest in contributing to markupr! This document provides guidelines and information about contributing.
 
 ## Table of Contents
 
@@ -36,13 +36,13 @@ By participating in this project, you agree to maintain a respectful and inclusi
 
 2. **Clone your fork**:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/feedbackflow.git
-   cd feedbackflow
+   git clone https://github.com/YOUR_USERNAME/markupr.git
+   cd markupr
    ```
 
 3. **Add upstream remote**:
    ```bash
-   git remote add upstream https://github.com/eddiesanjuan/feedbackflow.git
+   git remote add upstream https://github.com/eddiesanjuan/markupr.git
    ```
 
 4. **Install dependencies**:
@@ -73,8 +73,8 @@ We welcome many types of contributions:
 
 ### Finding Issues to Work On
 
-- Check [issues labeled "good first issue"](https://github.com/eddiesanjuan/feedbackflow/labels/good%20first%20issue) for beginner-friendly tasks
-- Check [issues labeled "help wanted"](https://github.com/eddiesanjuan/feedbackflow/labels/help%20wanted) for tasks where we need help
+- Check [issues labeled "good first issue"](https://github.com/eddiesanjuan/markupr/labels/good%20first%20issue) for beginner-friendly tasks
+- Check [issues labeled "help wanted"](https://github.com/eddiesanjuan/markupr/labels/help%20wanted) for tasks where we need help
 - Feel free to propose your own ideas by opening an issue first
 
 ### Before Starting Work
@@ -324,7 +324,7 @@ src/
 2. **Try latest version** - issue may be fixed
 3. **Collect information**:
    - OS and version
-   - FeedbackFlow version
+   - markupr version
    - Steps to reproduce
    - Error messages/logs
 
@@ -347,7 +347,7 @@ What actually happens.
 
 ## Environment
 - OS: macOS 14.0
-- FeedbackFlow: 0.4.0
+- markupr: 0.4.0
 - Node: 18.19.0
 
 ## Screenshots/Logs
@@ -375,8 +375,8 @@ Mockups, examples, or references.
 
 ## Questions?
 
-- Open a [discussion](https://github.com/eddiesanjuan/feedbackflow/discussions)
+- Open a [discussion](https://github.com/eddiesanjuan/markupr/discussions)
 - Check [documentation](docs/)
-- Review existing [issues](https://github.com/eddiesanjuan/feedbackflow/issues)
+- Review existing [issues](https://github.com/eddiesanjuan/markupr/issues)
 
-Thank you for contributing to FeedbackFlow!
+Thank you for contributing to markupr!

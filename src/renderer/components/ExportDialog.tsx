@@ -1,5 +1,5 @@
 /**
- * ExportDialog - Premium Export Experience for FeedbackFlow
+ * ExportDialog - Premium Export Experience for markupr
  *
  * A beautiful modal dialog for selecting export format and options.
  *

@@ -1,5 +1,5 @@
 /**
- * Window management for FeedbackFlow
+ * Window management for markupr
  *
  * Exports:
  * - PopoverManager: NSPopover-like menu bar window

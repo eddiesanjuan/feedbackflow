@@ -34,7 +34,7 @@ vi.mock('electron', () => ({
   })),
   app: {
     getPath: vi.fn(() => '/tmp'),
-    getName: vi.fn(() => 'FeedbackFlow'),
+    getName: vi.fn(() => 'markupr'),
     getVersion: vi.fn(() => '0.4.0'),
   },
   clipboard: {

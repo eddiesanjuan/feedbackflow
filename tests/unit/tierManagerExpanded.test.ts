@@ -18,7 +18,6 @@ function makeStatuses(
   overrides: Partial<Record<TierStatus['tier'], Partial<TierStatus>>>
 ): TierStatus[] {
   const defaults: TierStatus[] = [
-    { tier: 'deepgram', available: false, reason: 'No API key configured' },
     { tier: 'whisper', available: false, reason: 'Model not downloaded' },
     { tier: 'macos-dictation', available: true },
     { tier: 'timer-only', available: true },
@@ -43,11 +42,10 @@ describe('TierManager failover chain', () => {
     expect(selected).toBe('timer-only');
   });
 
-  it('falls back to macos-dictation when deepgram and whisper unavailable', async () => {
+  it('falls back to macos-dictation when whisper is unavailable', async () => {
     const manager = new TierManager();
     vi.spyOn(manager, 'getTierStatuses').mockResolvedValue(
       makeStatuses({
-        deepgram: { tier: 'deepgram', available: false },
         whisper: { tier: 'whisper', available: false },
         'macos-dictation': { tier: 'macos-dictation', available: true },
       })
@@ -57,25 +55,23 @@ describe('TierManager failover chain', () => {
     expect(selected).toBe('macos-dictation');
   });
 
-  it('prefers Deepgram over Whisper in auto mode', async () => {
+  it('prefers Whisper in auto mode when available', async () => {
     const manager = new TierManager();
     vi.spyOn(manager, 'getTierStatuses').mockResolvedValue(
       makeStatuses({
-        deepgram: { tier: 'deepgram', available: true },
         whisper: { tier: 'whisper', available: true },
         'macos-dictation': { tier: 'macos-dictation', available: true },
       })
     );
 
     const selected = await manager.selectBestTier();
-    expect(selected).toBe('deepgram');
+    expect(selected).toBe('whisper');
   });
 
-  it('selects Whisper when only Whisper is available (no Deepgram)', async () => {
+  it('selects Whisper when only Whisper is available', async () => {
     const manager = new TierManager();
     vi.spyOn(manager, 'getTierStatuses').mockResolvedValue(
       makeStatuses({
-        deepgram: { tier: 'deepgram', available: false },
         whisper: { tier: 'whisper', available: true },
       })
     );
@@ -98,11 +94,6 @@ describe('TierManager preference edge cases', () => {
     expect(() => manager.setPreferredTier('auto')).not.toThrow();
   });
 
-  it('accepts deepgram as preferred tier', () => {
-    const manager = new TierManager();
-    expect(() => manager.setPreferredTier('deepgram')).not.toThrow();
-  });
-
   it('accepts whisper as preferred tier', () => {
     const manager = new TierManager();
     expect(() => manager.setPreferredTier('whisper')).not.toThrow();
@@ -110,18 +101,6 @@ describe('TierManager preference edge cases', () => {
 });
 
 describe('TierManager hasTranscriptionCapability', () => {
-  it('returns true when Deepgram is available', async () => {
-    const manager = new TierManager();
-    vi.spyOn(manager, 'getTierStatuses').mockResolvedValue(
-      makeStatuses({
-        deepgram: { tier: 'deepgram', available: true },
-      })
-    );
-
-    const hasCap = await manager.hasTranscriptionCapability();
-    expect(hasCap).toBe(true);
-  });
-
   it('returns true when Whisper is available', async () => {
     const manager = new TierManager();
     vi.spyOn(manager, 'getTierStatuses').mockResolvedValue(
@@ -138,7 +117,6 @@ describe('TierManager hasTranscriptionCapability', () => {
     const manager = new TierManager();
     vi.spyOn(manager, 'getTierStatuses').mockResolvedValue(
       makeStatuses({
-        deepgram: { tier: 'deepgram', available: false },
         whisper: { tier: 'whisper', available: false },
         'macos-dictation': { tier: 'macos-dictation', available: true },
         'timer-only': { tier: 'timer-only', available: true },
@@ -151,17 +129,16 @@ describe('TierManager hasTranscriptionCapability', () => {
 });
 
 describe('TierManager status reporting', () => {
-  it('returns all 4 tier statuses', async () => {
+  it('returns all 3 tier statuses', async () => {
     const manager = new TierManager();
     vi.spyOn(manager, 'getTierStatuses').mockResolvedValue(
       makeStatuses({})
     );
 
     const statuses = await manager.getTierStatuses();
-    expect(statuses).toHaveLength(4);
+    expect(statuses).toHaveLength(3);
 
     const tiers = statuses.map((s) => s.tier);
-    expect(tiers).toContain('deepgram');
     expect(tiers).toContain('whisper');
     expect(tiers).toContain('macos-dictation');
     expect(tiers).toContain('timer-only');
@@ -171,13 +148,13 @@ describe('TierManager status reporting', () => {
     const manager = new TierManager();
     vi.spyOn(manager, 'getTierStatuses').mockResolvedValue(
       makeStatuses({
-        deepgram: { tier: 'deepgram', available: false, reason: 'No API key' },
+        whisper: { tier: 'whisper', available: false, reason: 'Model not downloaded' },
       })
     );
 
     const statuses = await manager.getTierStatuses();
-    const deepgram = statuses.find((s) => s.tier === 'deepgram');
-    expect(deepgram?.available).toBe(false);
-    expect(deepgram?.reason).toBe('No API key');
+    const whisper = statuses.find((s) => s.tier === 'whisper');
+    expect(whisper?.available).toBe(false);
+    expect(whisper?.reason).toBe('Model not downloaded');
   });
 });

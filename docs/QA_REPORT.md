@@ -1,4 +1,4 @@
-# FeedbackFlow QA Report
+# markupr QA Report
 
 **Version:** 0.4.0
 **Test Date:** 2026-02-02
@@ -6,7 +6,7 @@
 
 ## Executive Summary
 
-FeedbackFlow has been tested end-to-end with all 157 automated tests passing. A **critical blocker** was discovered and fixed during testing: the app failed to launch due to ESM/CommonJS module compatibility issues.
+markupr has been tested end-to-end with all 157 automated tests passing. A **critical blocker** was discovered and fixed during testing: the app failed to launch due to ESM/CommonJS module compatibility issues.
 
 **Overall Status:** PASS (after fix)
 
@@ -46,11 +46,11 @@ Error [ERR_REQUIRE_ESM]: require() of ES Module .../node_modules/electron-store/
    - `src/main/windows/TaskbarIntegration.ts`: Fixed `electron-log` import
 
 **Files Modified:**
-- `/Users/eddiesanjuan/Projects/feedbackflow/electron.vite.config.ts`
-- `/Users/eddiesanjuan/Projects/feedbackflow/package.json`
-- `/Users/eddiesanjuan/Projects/feedbackflow/src/main/index.ts`
-- `/Users/eddiesanjuan/Projects/feedbackflow/src/main/AutoUpdater.ts`
-- `/Users/eddiesanjuan/Projects/feedbackflow/src/main/windows/TaskbarIntegration.ts`
+- `/Users/eddiesanjuan/Projects/markupr/electron.vite.config.ts`
+- `/Users/eddiesanjuan/Projects/markupr/package.json`
+- `/Users/eddiesanjuan/Projects/markupr/src/main/index.ts`
+- `/Users/eddiesanjuan/Projects/markupr/src/main/AutoUpdater.ts`
+- `/Users/eddiesanjuan/Projects/markupr/src/main/windows/TaskbarIntegration.ts`
 
 ---
 
@@ -98,7 +98,7 @@ Error [ERR_REQUIRE_ESM]: require() of ES Module .../node_modules/electron-store/
 [MenuManager] Initialized with main window
 [HotkeyManager] Registered CommandOrControl+Shift+F for toggleRecording
 [HotkeyManager] Registered CommandOrControl+Shift+S for manualScreenshot
-[Main] FeedbackFlow initialization complete
+[Main] markupr initialization complete
 [Main] Window ready to show
 ```
 
@@ -124,7 +124,7 @@ Error [ERR_REQUIRE_ESM]: require() of ES Module .../node_modules/electron-store/
 | Feature | Status | Notes |
 |---------|--------|-------|
 | Start/stop recording | PASS | Session state machine working |
-| Voice transcription | PASS | Deepgram integration tested |
+| Voice transcription | PASS | OpenAI integration tested |
 | Automatic screenshot on pause | PASS | Intelligent capture debouncing |
 | Manual screenshot capture | PASS | Hotkey trigger working |
 | Session state persistence | PASS | electron-store integration |
@@ -155,7 +155,7 @@ Error [ERR_REQUIRE_ESM]: require() of ES Module .../node_modules/electron-store/
 ### Immediate (Pre-Release)
 
 1. **Version bump:** Consider bumping to 0.4.1 to reflect the ESM fix
-2. **Smoke test:** Manual verification of recording flow with real Deepgram API key
+2. **Smoke test:** Manual verification of recording flow with real OpenAI API key
 3. **Package test:** Run `npm run package:mac` to verify distribution build
 
 ### Future Improvements
@@ -178,7 +178,7 @@ Error [ERR_REQUIRE_ESM]: require() of ES Module .../node_modules/electron-store/
 
 ## Conclusion
 
-FeedbackFlow is **ready for testing** after the critical ESM compatibility fix. All automated tests pass and the app launches successfully. A real user could now download and use FeedbackFlow to capture feedback, provided they have a Deepgram API key configured.
+markupr is **ready for testing** after the critical ESM compatibility fix. All automated tests pass and the app launches successfully. A real user could now download and use markupr to capture feedback, provided they have a OpenAI API key configured.
 
 **Next Steps:**
 1. Manual smoke test with real API key

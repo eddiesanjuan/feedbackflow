@@ -1,5 +1,5 @@
 /**
- * ErrorBoundary - React Error Boundary for FeedbackFlow
+ * ErrorBoundary - React Error Boundary for markupr
  *
  * Catches JavaScript errors in child components, logs them,
  * and displays a fallback UI instead of crashing the entire app.

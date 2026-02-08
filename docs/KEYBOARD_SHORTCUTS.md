@@ -1,6 +1,6 @@
 # Keyboard Shortcuts Reference
 
-FeedbackFlow uses keyboard shortcuts for efficient workflows. This guide covers all available shortcuts and how to customize them.
+markupr uses keyboard shortcuts for efficient workflows. This guide covers all available shortcuts and how to customize them.
 
 ## Table of Contents
 
@@ -96,12 +96,12 @@ Closes the current dialog, panel, or modal:
 ### Minimize Window
 **Shortcut**: `Cmd+M` (macOS)
 
-Minimizes the FeedbackFlow window to the dock.
+Minimizes the markupr window to the dock.
 
 ### Quit Application
 **Shortcut**: `Cmd+Q` (macOS) / `Alt+F4` (Windows)
 
-Completely quits FeedbackFlow:
+Completely quits markupr:
 - Stops any active recording
 - Saves session state for crash recovery
 - Removes tray icon
@@ -185,7 +185,7 @@ Minimizes to the dock.
 ### Hide Application
 **Shortcut**: `Cmd+H` (macOS)
 
-Hides all FeedbackFlow windows (app stays running in tray).
+Hides all markupr windows (app stays running in tray).
 
 ### Close Window
 **Shortcut**: `Cmd+W` (macOS) / `Ctrl+W` (Windows)
@@ -212,8 +212,8 @@ When the shortcut field is active:
 
 ### Conflict Detection
 
-FeedbackFlow automatically detects conflicts:
-- **Internal conflicts**: Another FeedbackFlow shortcut uses the same keys
+markupr automatically detects conflicts:
+- **Internal conflicts**: Another markupr shortcut uses the same keys
 - **System conflicts**: Known system shortcuts (may not catch all)
 
 If a conflict is detected:
@@ -276,13 +276,13 @@ Uses text labels instead of symbols:
 
 **Check global shortcut registration**:
 1. Look for the tray icon indicator
-2. If no icon, FeedbackFlow may not have registered hotkeys
-3. Restart FeedbackFlow
+2. If no icon, markupr may not have registered hotkeys
+3. Restart markupr
 
 **Check permissions (macOS)**:
 1. System Preferences > Security & Privacy > Accessibility
-2. Ensure FeedbackFlow is checked
-3. Restart FeedbackFlow if you made changes
+2. Ensure markupr is checked
+3. Restart markupr if you made changes
 
 **Check for conflicts**:
 1. Another app may be capturing the shortcut first

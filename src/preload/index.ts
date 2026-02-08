@@ -1,5 +1,5 @@
 /**
- * FeedbackFlow - Preload Script
+ * markupr - Preload Script
  *
  * Exposes a safe API to the renderer process via contextBridge.
  * This is the ONLY way the renderer can communicate with the main process.
@@ -56,10 +56,10 @@ function createEventSubscriber<T>(channel: string) {
 }
 
 // =============================================================================
-// FeedbackFlow API
+// markupr API
 // =============================================================================
 
-const feedbackflow = {
+const markuprApi = {
   // ===========================================================================
   // Session API
   // ===========================================================================
@@ -886,7 +886,7 @@ const feedbackflow = {
   // App Version
   // ===========================================================================
   version: (): Promise<string> => {
-    return ipcRenderer.invoke('feedbackflow:app:version');
+    return ipcRenderer.invoke('markupr:app:version');
   },
 
   // ===========================================================================
@@ -928,10 +928,10 @@ const feedbackflow = {
   // Popover controls
   popover: {
     resize: (width: number, height: number): Promise<{ success: boolean }> => {
-      return ipcRenderer.invoke('feedbackflow:popover:resize', width, height);
+      return ipcRenderer.invoke('markupr:popover:resize', width, height);
     },
     resizeToState: (state: string): Promise<{ success: boolean }> => {
-      return ipcRenderer.invoke('feedbackflow:popover:resize-to-state', state);
+      return ipcRenderer.invoke('markupr:popover:resize-to-state', state);
     },
   },
 
@@ -941,33 +941,33 @@ const feedbackflow = {
   navigation: {
     onShowSettings: (callback: () => void): Unsubscribe => {
       const handler = () => callback();
-      ipcRenderer.on('feedbackflow:show-settings', handler);
-      return () => ipcRenderer.removeListener('feedbackflow:show-settings', handler);
+      ipcRenderer.on('markupr:show-settings', handler);
+      return () => ipcRenderer.removeListener('markupr:show-settings', handler);
     },
     onShowHistory: (callback: () => void): Unsubscribe => {
       const handler = () => callback();
-      ipcRenderer.on('feedbackflow:show-history', handler);
-      return () => ipcRenderer.removeListener('feedbackflow:show-history', handler);
+      ipcRenderer.on('markupr:show-history', handler);
+      return () => ipcRenderer.removeListener('markupr:show-history', handler);
     },
     onShowShortcuts: (callback: () => void): Unsubscribe => {
       const handler = () => callback();
-      ipcRenderer.on('feedbackflow:show-shortcuts', handler);
-      return () => ipcRenderer.removeListener('feedbackflow:show-shortcuts', handler);
+      ipcRenderer.on('markupr:show-shortcuts', handler);
+      return () => ipcRenderer.removeListener('markupr:show-shortcuts', handler);
     },
     onShowOnboarding: (callback: () => void): Unsubscribe => {
       const handler = () => callback();
-      ipcRenderer.on('feedbackflow:show-onboarding', handler);
-      return () => ipcRenderer.removeListener('feedbackflow:show-onboarding', handler);
+      ipcRenderer.on('markupr:show-onboarding', handler);
+      return () => ipcRenderer.removeListener('markupr:show-onboarding', handler);
     },
     onShowExport: (callback: () => void): Unsubscribe => {
       const handler = () => callback();
-      ipcRenderer.on('feedbackflow:show-export', handler);
-      return () => ipcRenderer.removeListener('feedbackflow:show-export', handler);
+      ipcRenderer.on('markupr:show-export', handler);
+      return () => ipcRenderer.removeListener('markupr:show-export', handler);
     },
     onShowWindowSelector: (callback: () => void): Unsubscribe => {
       const handler = () => callback();
-      ipcRenderer.on('feedbackflow:show-window-selector', handler);
-      return () => ipcRenderer.removeListener('feedbackflow:show-window-selector', handler);
+      ipcRenderer.on('markupr:show-window-selector', handler);
+      return () => ipcRenderer.removeListener('markupr:show-window-selector', handler);
     },
   },
 
@@ -1014,16 +1014,19 @@ const feedbackflow = {
 // Expose API to Renderer
 // =============================================================================
 
-contextBridge.exposeInMainWorld('feedbackflow', feedbackflow);
+contextBridge.exposeInMainWorld('markupr', markuprApi);
+// Backward compatibility alias for legacy renderer builds.
+contextBridge.exposeInMainWorld('feedbackflow', markuprApi);
 
 // =============================================================================
 // Type Exports
 // =============================================================================
 
-export type FeedbackFlowAPI = typeof feedbackflow;
+export type MarkuprAPI = typeof markuprApi;
 
 declare global {
   interface Window {
-    feedbackflow: FeedbackFlowAPI;
+    markupr: MarkuprAPI;
+    feedbackflow: MarkuprAPI;
   }
 }

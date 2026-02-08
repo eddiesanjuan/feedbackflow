@@ -155,7 +155,7 @@ const App: React.FC = () => {
     let mounted = true;
     const loadInitialSettings = async () => {
       try {
-        const loadedSettings = await window.feedbackflow.settings.getAll();
+        const loadedSettings = await window.markupr.settings.getAll();
         if (mounted) {
           setSettings(loadedSettings);
         }
@@ -165,8 +165,8 @@ const App: React.FC = () => {
 
       try {
         const [hasOpenAiKey, hasAnthropicKey] = await Promise.all([
-          window.feedbackflow.settings.hasApiKey('openai'),
-          window.feedbackflow.settings.hasApiKey('anthropic'),
+          window.markupr.settings.hasApiKey('openai'),
+          window.markupr.settings.hasApiKey('anthropic'),
         ]);
         if (mounted) {
           setHasRequiredByokKeys(hasOpenAiKey && hasAnthropicKey);
@@ -190,11 +190,11 @@ const App: React.FC = () => {
   // ---------------------------------------------------------------------------
   const loadRecentSessions = useCallback(async () => {
     try {
-      if (!window.feedbackflow?.output?.listSessions) {
+      if (!window.markupr?.output?.listSessions) {
         setRecentSessions([]);
         return;
       }
-      const sessions = await window.feedbackflow.output.listSessions();
+      const sessions = await window.markupr.output.listSessions();
       setRecentSessions(sessions.slice(0, 5));
     } catch (error) {
       console.error('[App] Failed to load recent sessions:', error);
@@ -210,7 +210,7 @@ const App: React.FC = () => {
   // Transcription capability check (existing)
   // ---------------------------------------------------------------------------
   useEffect(() => {
-    window.feedbackflow.whisper
+    window.markupr.whisper
       .hasTranscriptionCapability()
       .then((ready) => {
         setHasTranscriptionCapability(ready);
@@ -232,7 +232,7 @@ const App: React.FC = () => {
           let activeSession = session;
           if (!activeSession) {
             for (let attempt = 0; attempt < 4; attempt += 1) {
-              activeSession = await window.feedbackflow.session.getCurrent();
+              activeSession = await window.markupr.session.getCurrent();
               if (activeSession) {
                 break;
               }
@@ -256,7 +256,7 @@ const App: React.FC = () => {
             console.warn('[App] Continuous screen recording failed to start with primary source:', error);
 
             try {
-              const sources = await window.feedbackflow.capture.getSources();
+              const sources = await window.markupr.capture.getSources();
               const fallbackSource = sources.find((source) => source.type === 'screen');
 
               if (!fallbackSource || fallbackSource.id === activeSession.sourceId) {
@@ -303,7 +303,7 @@ const App: React.FC = () => {
     let mounted = true;
     const recorder = screenRecorderRef.current;
 
-    window.feedbackflow.session
+    window.markupr.session
       .getStatus()
       .then((status) => {
         if (!mounted) return;
@@ -317,7 +317,7 @@ const App: React.FC = () => {
         console.error('[App] Failed to load initial status:', error);
       });
 
-    const unsubState = window.feedbackflow.session.onStateChange(({ state: nextState, session }) => {
+    const unsubState = window.markupr.session.onStateChange(({ state: nextState, session }) => {
       setState(nextState);
       void syncScreenRecording(nextState, session, false);
       if (nextState === 'recording') {
@@ -342,7 +342,7 @@ const App: React.FC = () => {
       }
     });
 
-    const unsubStatus = window.feedbackflow.session.onStatusUpdate((status) => {
+    const unsubStatus = window.markupr.session.onStatusUpdate((status) => {
       setDuration(status.duration);
       setScreenshotCount(status.screenshotCount);
       setState(status.state);
@@ -350,7 +350,7 @@ const App: React.FC = () => {
       void syncScreenRecording(status.state, null, status.isPaused);
     });
 
-    const unsubScreenshot = window.feedbackflow.capture.onScreenshot((payload) => {
+    const unsubScreenshot = window.markupr.capture.onScreenshot((payload) => {
       setScreenshotCount(payload.count);
       setLastCapture({
         trigger: payload.trigger,
@@ -358,7 +358,7 @@ const App: React.FC = () => {
       });
     });
 
-    const unsubReady = window.feedbackflow.output.onReady((payload) => {
+    const unsubReady = window.markupr.output.onReady((payload) => {
       setState('complete');
       setErrorMessage(null);
       setReportPath(payload.path || payload.reportPath || null);
@@ -371,12 +371,12 @@ const App: React.FC = () => {
       loadRecentSessions();
     });
 
-    const unsubSessionError = window.feedbackflow.session.onError((payload) => {
+    const unsubSessionError = window.markupr.session.onError((payload) => {
       setState('error');
       setErrorMessage(payload.message);
     });
 
-    const unsubOutputError = window.feedbackflow.output.onError((payload) => {
+    const unsubOutputError = window.markupr.output.onError((payload) => {
       setState('error');
       setErrorMessage(payload.message);
     });
@@ -400,16 +400,16 @@ const App: React.FC = () => {
   // Audio level + voice activity listeners (for CompactAudioIndicator)
   // ---------------------------------------------------------------------------
   useEffect(() => {
-    const unsubLevel = window.feedbackflow.audio.onLevel((level) => {
+    const unsubLevel = window.markupr.audio.onLevel((level) => {
       setAudioLevel(level);
     });
-    const unsubVoice = window.feedbackflow.audio.onVoiceActivity((active) => {
+    const unsubVoice = window.markupr.audio.onVoiceActivity((active) => {
       setIsVoiceActive(active);
     });
-    const unsubSessionVoice = window.feedbackflow.session.onVoiceActivity(({ active }) => {
+    const unsubSessionVoice = window.markupr.session.onVoiceActivity(({ active }) => {
       setIsVoiceActive(active);
     });
-    const unsubTranscript = window.feedbackflow.transcript.onChunk((payload) => {
+    const unsubTranscript = window.markupr.transcript.onChunk((payload) => {
       const text = payload.text.trim();
       if (!text) {
         return;
@@ -444,7 +444,7 @@ const App: React.FC = () => {
   // Navigation event listeners (new - from main process menu/tray)
   // ---------------------------------------------------------------------------
   useEffect(() => {
-    const nav = window.feedbackflow.navigation;
+    const nav = window.markupr.navigation;
     if (!nav) return;
 
     const unsubSettings = nav.onShowSettings(() => {
@@ -478,13 +478,13 @@ const App: React.FC = () => {
   useEffect(() => {
     if (currentView !== 'main') {
       const { width, height } = mapOverlaySize(currentView);
-      window.feedbackflow.popover.resize(width, height).catch(() => {
+      window.markupr.popover.resize(width, height).catch(() => {
         // Popover controls are optional in non-popover mode.
       });
       return;
     }
 
-    window.feedbackflow.popover.resizeToState(mapPopoverState(state)).catch(() => {
+    window.markupr.popover.resizeToState(mapPopoverState(state)).catch(() => {
       // Popover controls are optional in non-popover mode.
     });
   }, [state, currentView]);
@@ -558,7 +558,7 @@ const App: React.FC = () => {
     setIsMutating(true);
     try {
       if (state === 'recording') {
-        const result = await window.feedbackflow.session.stop();
+        const result = await window.markupr.session.stop();
         if (!result.success) {
           setState('error');
           setErrorMessage(result.error || 'Unable to stop session.');
@@ -572,18 +572,18 @@ const App: React.FC = () => {
       setAudioPath(null);
       setErrorMessage(null);
 
-      const result = await window.feedbackflow.session.start();
+      const result = await window.markupr.session.start();
       if (!result.success) {
         setState('error');
         setErrorMessage(result.error || 'Unable to start session.');
-        window.feedbackflow.whisper
+        window.markupr.whisper
           .hasTranscriptionCapability()
           .then((ready) => setHasTranscriptionCapability(ready))
           .catch(() => {
             // Keep previous badge state when status refresh fails.
           });
       } else {
-        const activeSession = await window.feedbackflow.session.getCurrent();
+        const activeSession = await window.markupr.session.getCurrent();
         if (activeSession) {
           await syncScreenRecording('recording', activeSession, false);
         }
@@ -606,12 +606,12 @@ const App: React.FC = () => {
       setAudioPath(null);
       setErrorMessage(null);
 
-      const result = await window.feedbackflow.session.start();
+      const result = await window.markupr.session.start();
       if (!result.success) {
         setState('error');
         setErrorMessage(result.error || 'Unable to start session.');
       } else {
-        const activeSession = await window.feedbackflow.session.getCurrent();
+        const activeSession = await window.markupr.session.getCurrent();
         if (activeSession) {
           await syncScreenRecording('recording', activeSession, false);
         }
@@ -630,7 +630,7 @@ const App: React.FC = () => {
     setIsMutating(true);
     try {
       if (isPaused) {
-        const result = await window.feedbackflow.session.resume();
+        const result = await window.markupr.session.resume();
         if (!result.success) {
           setErrorMessage(result.error || 'Unable to resume session.');
           return;
@@ -640,7 +640,7 @@ const App: React.FC = () => {
         return;
       }
 
-      const result = await window.feedbackflow.session.pause();
+      const result = await window.markupr.session.pause();
       if (!result.success) {
         setErrorMessage(result.error || 'Unable to pause session.');
         return;
@@ -661,7 +661,7 @@ const App: React.FC = () => {
 
   const handleManualCapture = useCallback(async () => {
     if (manualCaptureDisabled) return;
-    const result = await window.feedbackflow.capture.manualScreenshot();
+    const result = await window.markupr.capture.manualScreenshot();
     if (!result.success) {
       setErrorMessage('Manual capture failed.');
     }
@@ -669,35 +669,35 @@ const App: React.FC = () => {
 
   const handleCopyReportPath = useCallback(async () => {
     if (!reportPath) return;
-    await window.feedbackflow.copyToClipboard(reportPath);
+    await window.markupr.copyToClipboard(reportPath);
   }, [reportPath]);
 
   const handleOpenReportFolder = useCallback(async () => {
     if (sessionDir) {
-      await window.feedbackflow.output.openFolder(sessionDir);
+      await window.markupr.output.openFolder(sessionDir);
       return;
     }
     if (reportPath) {
-      await window.feedbackflow.output.openFolder(reportPath);
+      await window.markupr.output.openFolder(reportPath);
     }
   }, [sessionDir, reportPath]);
 
   const handleCopyRecordingPath = useCallback(async () => {
     if (!recordingPath) return;
-    await window.feedbackflow.copyToClipboard(recordingPath);
+    await window.markupr.copyToClipboard(recordingPath);
   }, [recordingPath]);
 
   const handleCopyAudioPath = useCallback(async () => {
     if (!audioPath) return;
-    await window.feedbackflow.copyToClipboard(audioPath);
+    await window.markupr.copyToClipboard(audioPath);
   }, [audioPath]);
 
   const handleOpenRecent = useCallback(async (session: RecentSession) => {
-    await window.feedbackflow.output.openFolder(session.folder);
+    await window.markupr.output.openFolder(session.folder);
   }, []);
 
   const handleCopyRecentPath = useCallback(async (session: RecentSession) => {
-    await window.feedbackflow.copyToClipboard(`${session.folder}/feedback-report.md`);
+    await window.markupr.copyToClipboard(`${session.folder}/feedback-report.md`);
   }, []);
 
   const handleRecoverSession = useCallback(() => {
@@ -720,7 +720,7 @@ const App: React.FC = () => {
   const handleOnboardingComplete = useCallback(() => {
     setShowOnboarding(false);
     // Refresh transcription capability after onboarding
-    window.feedbackflow.whisper
+    window.markupr.whisper
       .hasTranscriptionCapability()
       .then((ready) => setHasTranscriptionCapability(ready))
       .catch(() => {});
@@ -731,7 +731,7 @@ const App: React.FC = () => {
   }, []);
 
   const handleOpenSession = useCallback(async (session: { folder: string }) => {
-    await window.feedbackflow.output.openFolder(session.folder);
+    await window.markupr.output.openFolder(session.folder);
   }, []);
 
   const handleExport = useCallback(async () => {
@@ -742,7 +742,7 @@ const App: React.FC = () => {
   const handleReviewSave = useCallback(async (_session: ReviewSession) => {
     // Save edited session back to main process
     try {
-      await window.feedbackflow.output.save();
+      await window.markupr.output.save();
     } catch {
       // Save failure is non-fatal in review mode
     }
@@ -857,7 +857,7 @@ const App: React.FC = () => {
             </button>
             <button
               className="ff-shell__quiet-btn"
-              onClick={() => window.feedbackflow.window.hide()}
+              onClick={() => window.markupr.window.hide()}
               type="button"
             >
               Hide

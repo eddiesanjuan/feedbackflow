@@ -766,7 +766,7 @@ const SessionReview: React.FC<SessionReviewProps> = ({
       {/* Global Styles */}
       <style>
         {`
-          @keyframes feedbackflow-toast-enter {
+          @keyframes markupr-toast-enter {
             from {
               transform: translateY(100%);
               opacity: 0;
@@ -777,7 +777,7 @@ const SessionReview: React.FC<SessionReviewProps> = ({
             }
           }
 
-          @keyframes feedbackflow-lightbox-enter {
+          @keyframes markupr-lightbox-enter {
             from {
               opacity: 0;
             }
@@ -786,7 +786,7 @@ const SessionReview: React.FC<SessionReviewProps> = ({
             }
           }
 
-          @keyframes feedbackflow-pulse-border {
+          @keyframes markupr-pulse-border {
             0%, 100% {
               border-color: rgba(59, 130, 246, 0.5);
             }
@@ -795,21 +795,21 @@ const SessionReview: React.FC<SessionReviewProps> = ({
             }
           }
 
-          .feedbackflow-scrollbar::-webkit-scrollbar {
+          .markupr-scrollbar::-webkit-scrollbar {
             width: 8px;
           }
 
-          .feedbackflow-scrollbar::-webkit-scrollbar-track {
+          .markupr-scrollbar::-webkit-scrollbar-track {
             background: rgba(31, 41, 55, 0.3);
             border-radius: 4px;
           }
 
-          .feedbackflow-scrollbar::-webkit-scrollbar-thumb {
+          .markupr-scrollbar::-webkit-scrollbar-thumb {
             background: rgba(107, 114, 128, 0.5);
             border-radius: 4px;
           }
 
-          .feedbackflow-scrollbar::-webkit-scrollbar-thumb:hover {
+          .markupr-scrollbar::-webkit-scrollbar-thumb:hover {
             background: rgba(107, 114, 128, 0.7);
           }
         `}
@@ -828,7 +828,7 @@ const SessionReview: React.FC<SessionReviewProps> = ({
       {/* Main Content */}
       <div style={styles.mainContent}>
         {/* Items List (60%) */}
-        <div style={styles.itemsPane} className="feedbackflow-scrollbar">
+        <div style={styles.itemsPane} className="markupr-scrollbar">
           {items.length === 0 ? (
             <div style={styles.emptyState}>
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="1.5">
@@ -1136,7 +1136,7 @@ const styles: Record<string, ExtendedCSSProperties> = {
     resize: 'vertical',
     outline: 'none',
     fontFamily: 'inherit',
-    animation: 'feedbackflow-pulse-border 1.5s ease-in-out infinite',
+    animation: 'markupr-pulse-border 1.5s ease-in-out infinite',
   },
   thumbnailRow: {
     display: 'flex',
@@ -1219,7 +1219,7 @@ const styles: Record<string, ExtendedCSSProperties> = {
     padding: 0,
     overflow: 'hidden',
     boxShadow: '0 20px 40px -10px rgba(0, 0, 0, 0.5)',
-    animation: 'feedbackflow-toast-enter 0.3s ease-out',
+    animation: 'markupr-toast-enter 0.3s ease-out',
     minWidth: 240,
   },
   toastContent: {
@@ -1263,7 +1263,7 @@ const styles: Record<string, ExtendedCSSProperties> = {
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 2000,
-    animation: 'feedbackflow-lightbox-enter 0.2s ease-out',
+    animation: 'markupr-lightbox-enter 0.2s ease-out',
     cursor: 'zoom-out',
   },
   lightboxClose: {

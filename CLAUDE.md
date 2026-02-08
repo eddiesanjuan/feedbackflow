@@ -1,8 +1,8 @@
-# CLAUDE.md - FeedbackFlow
+# CLAUDE.md - markupr
 
 ## Project Overview
 
-FeedbackFlow is a standalone Electron desktop app that captures developer feedback through voice narration and intelligent screenshots, generating AI-ready Markdown documents.
+markupr is a standalone Electron desktop app that captures developer feedback through voice narration and intelligent screenshots, generating AI-ready Markdown documents.
 
 **Version:** 0.1.0 (MVP in development)
 
@@ -10,7 +10,7 @@ FeedbackFlow is a standalone Electron desktop app that captures developer feedba
 
 - **Framework:** Electron + React + TypeScript
 - **Build:** electron-vite + Vite
-- **Transcription:** Deepgram WebSocket API (Nova-2 model)
+- **Transcription:** OpenAI WebSocket API (Nova-2 model)
 - **Testing:** Vitest
 - **Package:** electron-builder
 
@@ -22,7 +22,7 @@ src/
 │   ├── index.ts    # Entry point, window management, IPC
 │   ├── capture/    # Screen capture via desktopCapturer
 │   ├── audio/      # Microphone capture, VAD
-│   ├── transcription/  # Deepgram integration
+│   ├── transcription/  # OpenAI integration
 │   ├── output/     # Markdown generation
 │   └── settings/   # Persistent settings
 ├── renderer/       # React UI
@@ -51,7 +51,7 @@ All main/renderer communication goes through the preload script. See `src/shared
 
 1. Global hotkey (Cmd+Shift+F) to start/stop
 2. Voice capture via browser MediaRecorder
-3. Real-time transcription via Deepgram
+3. Real-time transcription via OpenAI
 4. Screenshot on voice pause (1.5s threshold)
 5. Markdown output to clipboard
 

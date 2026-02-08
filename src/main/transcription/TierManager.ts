@@ -1,11 +1,10 @@
 /**
  * TierManager.ts - Transcription Tier Selection and Failover
  *
- * Manages the three-tier transcription system:
- * - Tier 1: Deepgram (optional, best quality)
- * - Tier 2: Local Whisper (DEFAULT)
- * - Tier 3: macOS Dictation (fallback)
- * - Tier 4: Timer-only (emergency)
+ * Manages the transcription fallback system:
+ * - Tier 1: Local Whisper (default)
+ * - Tier 2: macOS Dictation (fallback)
+ * - Tier 3: Timer-only (emergency)
  *
  * Handles:
  * - Automatic tier selection based on availability
@@ -15,7 +14,6 @@
 
 import { EventEmitter } from 'events';
 import * as os from 'os';
-import { transcriptionService as deepgramService } from './TranscriptionService';
 import { whisperService } from './WhisperService';
 import { silenceDetector } from './SilenceDetector';
 import { modelDownloadManager } from './ModelDownloadManager';
@@ -37,10 +35,9 @@ import type {
 // Constants
 // ============================================================================
 
-const TIER_PRIORITY: TranscriptionTier[] = ['deepgram', 'whisper', 'macos-dictation', 'timer-only'];
+const TIER_PRIORITY: TranscriptionTier[] = ['whisper', 'macos-dictation', 'timer-only'];
 
 const TIER_QUALITY: Record<TranscriptionTier, TierQuality> = {
-  deepgram: { accuracy: '95%+', latency: '~300ms' },
   whisper: { accuracy: '90%+', latency: '1-3s' },
   'macos-dictation': { accuracy: '85%', latency: 'Real-time' },
   'timer-only': { accuracy: 'N/A', latency: 'N/A' },
@@ -63,8 +60,6 @@ const MODEL_MEMORY_REQUIREMENT_BYTES: Record<WhisperModel, number> = {
   large: 5200 * 1024 * 1024,
 };
 
-// Cache Deepgram key validation briefly to avoid excessive network calls.
-const DEEPGRAM_VALIDATION_CACHE_TTL_MS = 5 * 60 * 1000;
 type PreferredTier = 'auto' | TranscriptionTier;
 
 // ============================================================================
@@ -83,14 +78,6 @@ export class TierManager extends EventEmitter {
   // Timer-only mode
   private timerInterval: ReturnType<typeof setInterval> | null = null;
 
-  // Deepgram API key validation cache
-  private deepgramValidationCache: {
-    fingerprint: string;
-    checkedAt: number;
-    available: boolean;
-    reason?: string;
-  } | null = null;
-
   // Callbacks
   private transcriptCallbacks: TranscriptCallback[] = [];
   private pauseCallbacks: PauseCallback[] = [];
@@ -105,14 +92,13 @@ export class TierManager extends EventEmitter {
    * Get the status of all tiers
    */
   async getTierStatuses(): Promise<TierStatus[]> {
-    const [tier1, tier2, tier3, tier4] = await Promise.all([
+    const [tier1, tier2, tier3] = await Promise.all([
       this.checkTier1Availability(),
       this.checkTier2Availability(),
       this.checkTier3Availability(),
-      this.checkTier4Availability(),
     ]);
 
-    return [tier1, tier2, tier3, tier4];
+    return [tier1, tier2, tier3];
   }
 
   /**
@@ -136,7 +122,7 @@ export class TierManager extends EventEmitter {
   setPreferredTier(tier: PreferredTier): void {
     if (tier !== 'auto' && !this.tierProvidesTranscription(tier)) {
       throw new Error(
-        'This tier does not provide transcription. Select Deepgram, Whisper, or Auto.'
+        'This tier does not provide transcription. Select Whisper or Auto.'
       );
     }
 
@@ -163,7 +149,7 @@ export class TierManager extends EventEmitter {
    * macos-dictation is a placeholder and timer-only never transcribes
    */
   tierProvidesTranscription(tier: TranscriptionTier): boolean {
-    return tier === 'deepgram' || tier === 'whisper';
+    return tier === 'whisper';
   }
 
   /**
@@ -197,7 +183,7 @@ export class TierManager extends EventEmitter {
 
   /**
    * Select the best available tier
-   * Respects user preference if Deepgram API key is configured
+   * Respects user preference when available
    */
   async selectBestTier(): Promise<TranscriptionTier> {
     const statuses = await this.getTierStatuses();
@@ -245,7 +231,7 @@ export class TierManager extends EventEmitter {
     if (tier === 'macos-dictation') {
       this.log('WARNING: macOS Dictation tier is a PLACEHOLDER - it does NOT produce transcriptions!');
       this.log('WARNING: Only pause events (for screenshots) will be emitted.');
-      this.log('WARNING: Consider adding an OpenAI/Deepgram API key or downloading a Whisper model.');
+      this.log('WARNING: Consider adding an OpenAI API key or downloading a Whisper model.');
     } else if (tier === 'timer-only') {
       this.log('WARNING: Timer-only mode - NO transcription will be produced!');
       this.log('WARNING: Only periodic screenshot triggers will be emitted.');
@@ -276,9 +262,6 @@ export class TierManager extends EventEmitter {
 
     try {
       switch (tier) {
-        case 'deepgram':
-          await this.startDeepgram();
-          break;
         case 'whisper':
           await this.startWhisper();
           break;
@@ -333,13 +316,6 @@ export class TierManager extends EventEmitter {
     }
 
     switch (this.currentTier) {
-      case 'deepgram': {
-        // Deepgram expects Buffer
-        const buffer = Buffer.isBuffer(samples) ? samples : Buffer.from(samples.buffer);
-        deepgramService.sendAudio({ data: buffer, timestamp });
-        break;
-      }
-
       case 'whisper': {
         // Whisper expects Float32Array - use correct conversion
         const float32 = samples instanceof Float32Array ? samples : this.bufferToFloat32Array(samples);
@@ -413,31 +389,7 @@ export class TierManager extends EventEmitter {
   // ============================================================================
 
   private async checkTier1Availability(): Promise<TierStatus> {
-    try {
-      const settings = getSettingsManager();
-      const apiKey = await settings.getApiKey('deepgram');
-
-      if (!apiKey) {
-        return { tier: 'deepgram', available: false, reason: 'No API key configured' };
-      }
-
-      const normalizedKey = apiKey.trim();
-      const validation = await this.validateDeepgramAvailability(normalizedKey);
-      if (!validation.available) {
-        return {
-          tier: 'deepgram',
-          available: false,
-          reason: validation.reason ?? 'Deepgram API key validation failed',
-        };
-      }
-
-      return { tier: 'deepgram', available: true };
-    } catch (error) {
-      return { tier: 'deepgram', available: false, reason: (error as Error).message };
-    }
-  }
-
-  private async checkTier2Availability(): Promise<TierStatus> {
+    // Whisper availability
     if (!modelDownloadManager.hasAnyModel()) {
       return { tier: 'whisper', available: false, reason: 'Model not downloaded' };
     }
@@ -460,7 +412,7 @@ export class TierManager extends EventEmitter {
     return { tier: 'whisper', available: true };
   }
 
-  private async checkTier3Availability(): Promise<TierStatus> {
+  private async checkTier2Availability(): Promise<TierStatus> {
     // macOS only
     if (process.platform !== 'darwin') {
       return { tier: 'macos-dictation', available: false, reason: 'macOS only' };
@@ -471,7 +423,7 @@ export class TierManager extends EventEmitter {
     return { tier: 'macos-dictation', available: true };
   }
 
-  private async checkTier4Availability(): Promise<TierStatus> {
+  private async checkTier3Availability(): Promise<TierStatus> {
     // Timer-only is always available
     return { tier: 'timer-only', available: true };
   }
@@ -479,43 +431,6 @@ export class TierManager extends EventEmitter {
   // ============================================================================
   // Tier Start/Stop Methods
   // ============================================================================
-
-  private async startDeepgram(): Promise<void> {
-    const settings = getSettingsManager();
-    const apiKey = await settings.getApiKey('deepgram');
-
-    if (!apiKey) {
-      throw new Error('Deepgram API key not configured');
-    }
-
-    // Configure Deepgram service
-    deepgramService.configure(apiKey);
-
-    // Subscribe to events
-    const unsubTranscript = deepgramService.onTranscript((result) => {
-      this.emitTranscript({
-        text: result.text,
-        isFinal: result.isFinal,
-        confidence: result.confidence,
-        timestamp: result.timestamp,
-        tier: 'deepgram',
-      });
-    });
-    this.cleanupFunctions.push(unsubTranscript);
-
-    const unsubUtterance = deepgramService.onUtteranceEnd((timestamp) => {
-      this.emitPause({ timestamp, tier: 'deepgram' });
-    });
-    this.cleanupFunctions.push(unsubUtterance);
-
-    const unsubError = deepgramService.onError((error) => {
-      this.handleTierFailure('deepgram', error);
-    });
-    this.cleanupFunctions.push(unsubError);
-
-    await deepgramService.start();
-    this.log('Deepgram tier started');
-  }
 
   private async startWhisper(): Promise<void> {
     if (!modelDownloadManager.hasAnyModel()) {
@@ -588,7 +503,7 @@ export class TierManager extends EventEmitter {
     this.log(
       `NOTE: Added periodic screenshot safety trigger (${Math.round(MACOS_FALLBACK_SCREENSHOT_INTERVAL_MS / 1000)}s).`
     );
-    this.log('NOTE: To get actual transcription, add an OpenAI/Deepgram API key or download a Whisper model.');
+    this.log('NOTE: To get actual transcription, add an OpenAI API key or download a Whisper model.');
   }
 
   private async startTimerOnly(): Promise<void> {
@@ -612,9 +527,7 @@ export class TierManager extends EventEmitter {
     this.cleanupFunctions = [];
 
     // Stop services based on current tier
-    if (this.currentTier === 'deepgram') {
-      deepgramService.stop();
-    } else if (this.currentTier === 'whisper') {
+    if (this.currentTier === 'whisper') {
       await whisperService.stop();
       silenceDetector.stop();
     } else if (this.currentTier === 'macos-dictation') {
@@ -631,47 +544,6 @@ export class TierManager extends EventEmitter {
     }
 
     this.log(`Stopped tier: ${this.currentTier}`);
-  }
-
-  private getKeyFingerprint(apiKey: string): string {
-    const normalized = apiKey.trim();
-    if (!normalized) {
-      return 'empty';
-    }
-    return `${normalized.length}:${normalized.slice(0, 4)}:${normalized.slice(-4)}`;
-  }
-
-  private async validateDeepgramAvailability(apiKey: string): Promise<{ available: boolean; reason?: string }> {
-    const normalized = apiKey.trim();
-    if (!normalized) {
-      return { available: false, reason: 'No API key configured' };
-    }
-
-    const fingerprint = this.getKeyFingerprint(normalized);
-    const now = Date.now();
-    if (
-      this.deepgramValidationCache &&
-      this.deepgramValidationCache.fingerprint === fingerprint &&
-      now - this.deepgramValidationCache.checkedAt < DEEPGRAM_VALIDATION_CACHE_TTL_MS
-    ) {
-      return {
-        available: this.deepgramValidationCache.available,
-        reason: this.deepgramValidationCache.reason,
-      };
-    }
-
-    const validation = await deepgramService.validateApiKey(normalized, 5000);
-    this.deepgramValidationCache = {
-      fingerprint,
-      checkedAt: now,
-      available: validation.valid,
-      reason: validation.reason,
-    };
-
-    return {
-      available: validation.valid,
-      reason: validation.reason,
-    };
   }
 
   // ============================================================================

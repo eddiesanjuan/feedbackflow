@@ -1,6 +1,6 @@
 # Configuration Guide
 
-This guide covers all FeedbackFlow settings and how to customize them for your workflow.
+This guide covers all markupr settings and how to customize them for your workflow.
 
 ## Table of Contents
 
@@ -18,7 +18,7 @@ This guide covers all FeedbackFlow settings and how to customize them for your w
 
 Open the Settings panel using:
 - **Keyboard**: `Cmd+,` (macOS) or `Ctrl+,` (Windows/Linux)
-- **Menu**: FeedbackFlow > Preferences (macOS) or File > Settings (Windows)
+- **Menu**: markupr > Preferences (macOS) or File > Settings (Windows)
 - **Tray Icon**: Right-click > Settings
 
 Settings are saved automatically when changed.
@@ -27,9 +27,9 @@ Settings are saved automatically when changed.
 
 ### Output Directory
 
-**Default**: `~/Documents/FeedbackFlow`
+**Default**: `~/Documents/markupr`
 
-Where FeedbackFlow saves your recording sessions. Each session creates a folder with:
+Where markupr saves your recording sessions. Each session creates a folder with:
 - `feedback.md` - The Markdown document
 - `screenshots/` - Captured screenshots
 - `metadata.json` - Session metadata
@@ -47,9 +47,9 @@ To change:
 
 **Default**: Off
 
-When enabled, FeedbackFlow starts automatically when you log in to your computer.
+When enabled, markupr starts automatically when you log in to your computer.
 
-**macOS**: Adds FeedbackFlow to Login Items
+**macOS**: Adds markupr to Login Items
 **Windows**: Creates a startup registry entry
 **Linux**: Creates a `.desktop` autostart file
 
@@ -57,7 +57,7 @@ When enabled, FeedbackFlow starts automatically when you log in to your computer
 
 **Default**: On
 
-When enabled, FeedbackFlow checks for updates on launch and notifies you when a new version is available.
+When enabled, markupr checks for updates on launch and notifies you when a new version is available.
 
 Updates are never installed automatically - you always have control.
 
@@ -80,7 +80,7 @@ Set to 0 for immediate recording.
 **Default**: On
 
 Displays a live transcription overlay during recording, showing:
-- What FeedbackFlow hears
+- What markupr hears
 - Confidence indicators
 - Last 100 characters of transcription
 
@@ -102,7 +102,7 @@ Displays a visual audio level indicator during recording, helping you:
 **Default**: 1500ms (1.5 seconds)
 **Range**: 500ms - 3000ms
 
-How long you must pause speaking before FeedbackFlow captures a screenshot.
+How long you must pause speaking before markupr captures a screenshot.
 
 **Lower values (500-1000ms)**:
 - More screenshots captured
@@ -214,20 +214,20 @@ Capture a screenshot immediately, regardless of voice activity.
 **Tips**:
 - Avoid common system shortcuts
 - Test hotkeys in different applications
-- Some applications may capture hotkeys before FeedbackFlow
+- Some applications may capture hotkeys before markupr
 
 ### Hotkey Conflicts
 
 If a hotkey conflicts with another application or system shortcut:
-1. FeedbackFlow shows a warning
+1. markupr shows a warning
 2. Try a different combination
 3. Consider disabling the conflicting shortcut in the other app
 
 ## Advanced Settings
 
-### Deepgram API Key
+### OpenAI API Key
 
-Your Deepgram API key for transcription. See [Getting Started](GETTING_STARTED.md) for setup instructions.
+Your OpenAI API key for transcription. See [Getting Started](GETTING_STARTED.md) for setup instructions.
 
 **Security**: The API key is stored securely using:
 - macOS: Keychain
@@ -249,24 +249,24 @@ Useful for troubleshooting. Disable for normal use.
 
 **Default**: Off
 
-When enabled, FeedbackFlow saves the raw audio from each session:
+When enabled, markupr saves the raw audio from each session:
 - Stored as `.wav` files in the session folder
 - Useful if transcription needs correction
 - Increases storage usage
 
 ## Configuration File
 
-FeedbackFlow stores settings in a JSON file:
+markupr stores settings in a JSON file:
 
-**macOS**: `~/Library/Application Support/feedbackflow/config.json`
-**Windows**: `%APPDATA%\feedbackflow\config.json`
-**Linux**: `~/.config/feedbackflow/config.json`
+**macOS**: `~/Library/Application Support/markupr/config.json`
+**Windows**: `%APPDATA%\markupr\config.json`
+**Linux**: `~/.config/markupr/config.json`
 
 ### Example Configuration
 
 ```json
 {
-  "outputDirectory": "/Users/you/Documents/FeedbackFlow",
+  "outputDirectory": "/Users/you/Documents/markupr",
   "launchAtLogin": false,
   "checkForUpdates": true,
   "defaultCountdown": 3,
@@ -309,14 +309,14 @@ This resets all settings but:
 
 ### Complete Reset
 
-To completely reset FeedbackFlow:
+To completely reset markupr:
 
-1. Quit FeedbackFlow
+1. Quit markupr
 2. Delete the config directory:
-   - macOS: `rm -rf ~/Library/Application\ Support/feedbackflow`
-   - Windows: Delete `%APPDATA%\feedbackflow`
-   - Linux: `rm -rf ~/.config/feedbackflow`
-3. Relaunch FeedbackFlow
+   - macOS: `rm -rf ~/Library/Application\ Support/markupr`
+   - Windows: Delete `%APPDATA%\markupr`
+   - Linux: `rm -rf ~/.config/markupr`
+3. Relaunch markupr
 
 ## Import/Export Settings
 
@@ -324,7 +324,7 @@ To completely reset FeedbackFlow:
 
 1. Go to Settings > Advanced > Settings Management
 2. Click **Export**
-3. Choose a location to save `feedbackflow-settings.json`
+3. Choose a location to save `markupr-settings.json`
 
 ### Import Settings
 

@@ -1,7 +1,7 @@
 /**
  * Skeleton Loading Components
  *
- * Premium shimmer-effect loading placeholders that match the FeedbackFlow design system.
+ * Premium shimmer-effect loading placeholders that match the markupr design system.
  * Use these to indicate loading states while maintaining visual hierarchy.
  */
 
@@ -221,7 +221,7 @@ export const SkeletonListItem: React.FC<{
 };
 
 // ============================================================================
-// Skeleton Feedback Item (FeedbackFlow specific)
+// Skeleton Feedback Item (markupr specific)
 // ============================================================================
 
 export const SkeletonFeedbackItem: React.FC<{

@@ -1,4 +1,4 @@
-# FeedbackFlow Bulletproof Design Specification
+# markupr Bulletproof Design Specification
 
 > **Mission**: Create a macOS menu bar app for developers to capture voice feedback while testing apps. It must work perfectly for EVERYONE, EVERYWHERE, with ZERO friction.
 
@@ -24,7 +24,7 @@
 ## 1. Executive Summary
 
 ### Vision
-FeedbackFlow is a **free, open-source** macOS menu bar app that transforms how developers capture feedback. Press a hotkey, speak naturally, and get AI-ready Markdown with auto-captured screenshots.
+markupr is a **free, open-source** macOS menu bar app that transforms how developers capture feedback. Press a hotkey, speak naturally, and get AI-ready Markdown with auto-captured screenshots.
 
 ### Key Principles
 
@@ -40,7 +40,7 @@ FeedbackFlow is a **free, open-source** macOS menu bar app that transforms how d
 | Aspect | Current | Target |
 |--------|---------|--------|
 | Window Type | Floating window app | Menu bar native |
-| API Requirement | Deepgram required (friction) | Local Whisper default, Deepgram optional |
+| API Requirement | OpenAI required (friction) | Local Whisper default, OpenAI optional |
 | State Handling | Can get stuck on "Processing" | Bulletproof state machine with timeouts |
 | Distribution | Manual builds | Automated CI/CD with notarization |
 | Sustainability | None | Donate button with rotating messages |
@@ -66,11 +66,11 @@ this.transition('complete');  // Never reached if above hangs
 **Impact**: Users must force-quit the app. Data may be lost.
 **Fix**: Add timeout wrapper around processing with fallback to complete state.
 
-#### CRITICAL-002: Deepgram API Key Required
+#### CRITICAL-002: OpenAI API Key Required
 **Location**: `src/main/TranscriptionService.ts`, lines 122-137
 **Root Cause**: `configure()` throws if no API key. No fallback transcription.
 
-**Impact**: Users can't use app without signing up for Deepgram.
+**Impact**: Users can't use app without signing up for OpenAI.
 **Fix**: Implement local Whisper fallback as default mode.
 
 #### CRITICAL-003: Window-Based App, Not Menu Bar Native
@@ -95,7 +95,7 @@ this.transition('complete');  // Never reached if above hangs
 
 #### HIGH-004: No Graceful Transcription Degradation
 **Location**: `src/main/TranscriptionService.ts`
-**Issue**: If Deepgram fails, entire transcription fails. Should fall back to local options.
+**Issue**: If OpenAI fails, entire transcription fails. Should fall back to local options.
 
 ### 2.3 Medium Priority Issues
 
@@ -223,14 +223,14 @@ await withTimeout(
 
 ### 3.2 Graceful Degradation System
 
-FeedbackFlow works **without any API keys** using a three-tier transcription system.
+markupr works **without any API keys** using a three-tier transcription system.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                      TRANSCRIPTION TIER SYSTEM                          │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
-│  TIER 1: Deepgram Nova-3 (Optional - Best Quality)                      │
+│  TIER 1: OpenAI Nova-3 (Optional - Best Quality)                      │
 │  ├── Latency: ~300ms                                                     │
 │  ├── Accuracy: 95%+                                                      │
 │  ├── Requires: API key, internet                                         │
@@ -260,8 +260,8 @@ FeedbackFlow works **without any API keys** using a three-tier transcription sys
 ```typescript
 async function selectTranscriptionTier(): Promise<TranscriptionTier> {
   // Check Tier 1 availability
-  if (await hasDeepgramKey() && await hasInternetConnection()) {
-    return 'deepgram';
+  if (await hasOpenAIKey() && await hasInternetConnection()) {
+    return 'openai';
   }
 
   // Check Tier 2 availability
@@ -289,7 +289,7 @@ Show users which tier is active and why:
 │  ◉ Quality: High (90% accuracy)        │
 │  ◉ Speed: Good (1-2s delay)            │
 │                                        │
-│  [Upgrade to Deepgram for best quality]│
+│  [Upgrade to OpenAI for best quality]│
 └────────────────────────────────────────┘
 ```
 
@@ -335,7 +335,7 @@ Show users which tier is active and why:
 │   TRANSCRIPTION LAYER   │ │ AUDIO LAYER   │ │   CAPTURE LAYER         │
 │                         │ │               │ │                         │
 │ ┌─────────────────────┐ │ │ ┌───────────┐ │ │ ┌─────────────────────┐ │
-│ │ Tier 1: Deepgram    │ │ │ │ Microphone│ │ │ │ Screen Capture      │ │
+│ │ Tier 1: OpenAI    │ │ │ │ Microphone│ │ │ │ Screen Capture      │ │
 │ │ (Optional)          │ │ │ │ (Web Audio│ │ │ │ (desktopCapturer)   │ │
 │ └─────────────────────┘ │ │ │  API)     │ │ │ └─────────────────────┘ │
 │           │             │ │ └───────────┘ │ │           │             │
@@ -401,7 +401,7 @@ Orange warning             Green check (2s)
 
 ```
 ┌────────────────────────────────────────┐
-│ FeedbackFlow                           │  ← Header with subtle logo
+│ markupr                           │  ← Header with subtle logo
 ├────────────────────────────────────────┤
 │ ◉ Ready to Record                      │  ← Status line
 │   Using: Local Whisper                 │  ← Transcription tier
@@ -414,7 +414,7 @@ Orange warning             Green check (2s)
 ├────────────────────────────────────────┤
 │   ☕ Buy Eddie a Coffee                │  ← Donate with rotating message
 ├────────────────────────────────────────┤
-│   Quit FeedbackFlow  ⌘Q               │
+│   Quit markupr  ⌘Q               │
 └────────────────────────────────────────┘
 ```
 
@@ -459,7 +459,7 @@ Orange warning             Green check (2s)
 ├────────────────────────────────────────┤
 │                                        │
 │   ✓ Copied to clipboard                │
-│   📁 Saved to ~/FeedbackFlow/...       │
+│   📁 Saved to ~/markupr/...       │
 │                                        │
 │   Session: 2 min 34 sec                │
 │   Items: 5 feedback points             │
@@ -482,9 +482,9 @@ Orange warning             Green check (2s)
 │ │ ○ Local Whisper (Default - No API key needed)              ││
 │ │   Uses on-device AI for transcription                       ││
 │ │                                                              ││
-│ │ ○ Deepgram (Best Quality)                                   ││
+│ │ ○ OpenAI (Best Quality)                                   ││
 │ │   API Key: [____________________________] [Test]            ││
-│ │   Get key: console.deepgram.com (free tier: 200 hrs/mo)     ││
+│ │   Get key: platform.openai.com/api-keys (free tier: 200 hrs/mo)     ││
 │ └─────────────────────────────────────────────────────────────┘│
 │                                                                 │
 │ CAPTURE                                                         │
@@ -496,7 +496,7 @@ Orange warning             Green check (2s)
 │   Manual Screenshot: [⌘⇧S] [Edit]                              │
 │                                                                 │
 │ OUTPUT                                                          │
-│   Save Location: ~/FeedbackFlow [Change]                        │
+│   Save Location: ~/markupr [Change]                        │
 │   [✓] Auto-copy to clipboard                                    │
 │   [✓] Launch at login                                           │
 │                                                                 │
@@ -606,7 +606,7 @@ function openDonateLink(): void {
 ### 6.1 Repository Structure
 
 ```
-feedbackflow/
+markupr/
 ├── .github/
 │   ├── ISSUE_TEMPLATE/
 │   │   ├── bug_report.md
@@ -660,7 +660,7 @@ feedbackflow/
 ```markdown
 <p align="center">
   <img src="assets/logo.svg" width="128">
-  <h1 align="center">FeedbackFlow</h1>
+  <h1 align="center">markupr</h1>
   <p align="center">
     Capture voice feedback with AI-ready screenshots. Free and open source.
   </p>
@@ -672,9 +672,9 @@ feedbackflow/
   <a href="...">Contributing</a>
 </p>
 
-## Why FeedbackFlow?
+## Why markupr?
 
-| Feature | FeedbackFlow | Screen Recording | Notes App |
+| Feature | markupr | Screen Recording | Notes App |
 |---------|--------------|------------------|-----------|
 | Voice + Screenshots | ✓ | ✓ | ✗ |
 | AI-Ready Output | ✓ | ✗ | ✗ |
@@ -707,13 +707,13 @@ feedbackflow/
 ### 6.3 CONTRIBUTING.md Highlights
 
 ```markdown
-# Contributing to FeedbackFlow
+# Contributing to markupr
 
 ## Quick Setup
 
 ```bash
-git clone https://github.com/eddiesanjuan/feedbackflow
-cd feedbackflow
+git clone https://github.com/eddiesanjuan/markupr
+cd markupr
 npm install
 npm run dev
 ```
@@ -828,7 +828,7 @@ jobs:
 
 ## Reporting a Vulnerability
 
-Please report security vulnerabilities to: security@feedbackflow.dev
+Please report security vulnerabilities to: security@markupr.com
 
 Do NOT create a public GitHub issue for security vulnerabilities.
 
@@ -882,7 +882,7 @@ We will not take legal action against security researchers who:
 
 **Acceptance Criteria**:
 - [ ] Fresh install with no API key -> works with local Whisper
-- [ ] Deepgram fails mid-session -> falls back to Whisper
+- [ ] OpenAI fails mid-session -> falls back to Whisper
 - [ ] Whisper model not downloaded -> prompts download or uses macOS dictation
 
 ### 7.3 Phase 3: Menu Bar Native (Week 2)
@@ -949,7 +949,7 @@ describe('SessionController', () => {
 // TranscriptionService tests
 describe('TranscriptionService', () => {
   describe('tier selection', () => {
-    it('should select Deepgram when API key present', async () => { });
+    it('should select OpenAI when API key present', async () => { });
     it('should fall back to Whisper when no API key', async () => { });
     it('should fall back to macOS dictation when Whisper unavailable', async () => { });
   });
@@ -977,11 +977,11 @@ describe('Recording Flow', () => {
   });
 
   it('should handle network disconnect during recording', async () => {
-    // Start recording with Deepgram
+    // Start recording with OpenAI
     // Disconnect network
     // Verify fallback to Whisper
     // Reconnect network
-    // Verify Deepgram resumes
+    // Verify OpenAI resumes
   });
 });
 ```
@@ -1049,7 +1049,7 @@ describe('E2E: Real User Scenarios', () => {
 |------|-------------|----------|
 | `E001` | Microphone permission denied | Show system preferences |
 | `E002` | Screen recording permission denied | Show system preferences |
-| `E003` | Deepgram API key invalid | Fall back to Whisper |
+| `E003` | OpenAI API key invalid | Fall back to Whisper |
 | `E004` | Network connection lost | Buffer locally, retry |
 | `E005` | Whisper model not found | Prompt download |
 | `E006` | Session timeout | Force complete with partial data |
@@ -1112,4 +1112,4 @@ describe('E2E: Real User Scenarios', () => {
 
 **END OF DOCUMENT**
 
-*This specification represents the complete design for a bulletproof FeedbackFlow. Any developer should be able to implement this exactly as described. No ambiguity, no gaps, no excuses.*
+*This specification represents the complete design for a bulletproof markupr. Any developer should be able to implement this exactly as described. No ambiguity, no gaps, no excuses.*

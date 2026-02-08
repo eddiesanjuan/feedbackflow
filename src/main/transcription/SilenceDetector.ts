@@ -1,8 +1,8 @@
 /**
- * SilenceDetector.ts - Audio Silence Detection for Non-Deepgram Tiers
+ * SilenceDetector.ts - Audio Silence Detection for fallback tiers
  *
- * When not using Deepgram (which provides utterance_end events), we need
- * to detect pauses in speech ourselves to trigger screenshots.
+ * When not using streamed word-boundary events, we detect pauses in speech
+ * ourselves to trigger screenshots.
  *
  * Algorithm:
  * - Calculate RMS energy of audio chunks
@@ -20,7 +20,7 @@ import type { SilenceDetectorConfig, SilenceCallback } from './types';
 
 const DEFAULT_CONFIG: SilenceDetectorConfig = {
   silenceThreshold: 0.015, // Slightly above noise floor
-  silenceDurationMs: 1200, // Match Deepgram's utterance_end_ms default
+  silenceDurationMs: 1200, // Natural speech pause threshold
   debounceDurationMs: 500, // Prevent rapid events
   sampleRate: 16000,
 };

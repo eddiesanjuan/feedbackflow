@@ -425,7 +425,7 @@ export function useCrashRecovery(): UseCrashRecoveryReturn {
     const checkForIncompleteSession = async () => {
       try {
         // Listen for crash recovery notification from main process
-        unsubscribe = window.feedbackflow?.crashRecovery.onIncompleteFound(
+        unsubscribe = window.markupr?.crashRecovery.onIncompleteFound(
           (data) => {
             if (data.session) {
               // Map from IPC type to local type
@@ -450,7 +450,7 @@ export function useCrashRecovery(): UseCrashRecoveryReturn {
         );
 
         // Request check from main process
-        const result = await window.feedbackflow?.crashRecovery.check();
+        const result = await window.markupr?.crashRecovery.check();
 
         if (result?.session) {
           // Map from IPC type to local type
@@ -490,13 +490,13 @@ export function useCrashRecovery(): UseCrashRecoveryReturn {
 
   const recoverSession = async () => {
     if (incompleteSession) {
-      await window.feedbackflow?.crashRecovery.recover(incompleteSession.id);
+      await window.markupr?.crashRecovery.recover(incompleteSession.id);
       setIncompleteSession(null);
     }
   };
 
   const discardSession = async () => {
-    await window.feedbackflow?.crashRecovery.discard();
+    await window.markupr?.crashRecovery.discard();
     setIncompleteSession(null);
   };
 

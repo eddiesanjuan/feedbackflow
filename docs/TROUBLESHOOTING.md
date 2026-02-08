@@ -1,6 +1,6 @@
 # Troubleshooting Guide
 
-This guide helps resolve common issues with FeedbackFlow.
+This guide helps resolve common issues with markupr.
 
 ## Table of Contents
 
@@ -16,7 +16,7 @@ This guide helps resolve common issues with FeedbackFlow.
 
 ## Installation Issues
 
-### macOS: "FeedbackFlow" cannot be opened because it is from an unidentified developer
+### macOS: "markupr" cannot be opened because it is from an unidentified developer
 
 **Solution**:
 1. Right-click (or Control-click) the app in Applications
@@ -29,17 +29,17 @@ Or via System Preferences:
 2. Click "Open Anyway" next to the blocked app message
 3. Click "Open" in the confirmation dialog
 
-### macOS: "FeedbackFlow" is damaged and can't be opened
+### macOS: "markupr" is damaged and can't be opened
 
 This usually means the app's code signature was invalidated.
 
 **Solution**:
 ```bash
 # Remove quarantine attribute
-xattr -cr /Applications/FeedbackFlow.app
+xattr -cr /Applications/markupr.app
 
 # Then try opening again
-open /Applications/FeedbackFlow.app
+open /Applications/markupr.app
 ```
 
 ### Windows: SmartScreen Warning
@@ -71,13 +71,13 @@ open /Applications/FeedbackFlow.app
 **Solution**:
 1. Open System Preferences > Security & Privacy > Privacy
 2. Click Microphone in the sidebar
-3. Find FeedbackFlow and check the box
-4. Restart FeedbackFlow
+3. Find markupr and check the box
+4. Restart markupr
 
-**If FeedbackFlow isn't listed**:
+**If markupr isn't listed**:
 1. Click the lock icon and authenticate
 2. Click the "+" button
-3. Navigate to /Applications and select FeedbackFlow
+3. Navigate to /Applications and select markupr
 4. Click Open
 
 ### macOS: Screen Recording Permission
@@ -87,14 +87,14 @@ open /Applications/FeedbackFlow.app
 **Solution**:
 1. Open System Preferences > Security & Privacy > Privacy
 2. Click Screen Recording in the sidebar
-3. Find FeedbackFlow and check the box
-4. **Restart FeedbackFlow** (required for screen recording)
+3. Find markupr and check the box
+4. **Restart markupr** (required for screen recording)
 
 **If permission was previously granted but not working**:
-1. Uncheck FeedbackFlow
-2. Quit FeedbackFlow completely
-3. Re-check FeedbackFlow
-4. Restart FeedbackFlow
+1. Uncheck markupr
+2. Quit markupr completely
+3. Re-check markupr
+4. Restart markupr
 
 ### macOS: Accessibility Permission
 
@@ -103,7 +103,7 @@ open /Applications/FeedbackFlow.app
 **Solution**:
 1. Open System Preferences > Security & Privacy > Privacy
 2. Click Accessibility in the sidebar
-3. Find FeedbackFlow and check the box
+3. Find markupr and check the box
 
 ### Windows: Microphone Access
 
@@ -112,7 +112,7 @@ open /Applications/FeedbackFlow.app
 **Solution**:
 1. Open Settings > Privacy > Microphone
 2. Ensure "Allow apps to access your microphone" is On
-3. Scroll down and ensure FeedbackFlow has access
+3. Scroll down and ensure markupr has access
 
 ## Audio Issues
 
@@ -139,7 +139,7 @@ open /Applications/FeedbackFlow.app
 ### Wrong Microphone Selected
 
 **Solution**:
-1. Open FeedbackFlow Settings (`Cmd+,` or `Ctrl+,`)
+1. Open markupr Settings (`Cmd+,` or `Ctrl+,`)
 2. Go to Recording tab
 3. Select correct microphone from dropdown
 4. Test by speaking - waveform should respond
@@ -167,7 +167,7 @@ open /Applications/FeedbackFlow.app
 
 ## Transcription Issues
 
-### Deepgram Connection Failed
+### OpenAI Connection Failed
 
 **Symptom**: "Connection failed", "API error", no transcription
 
@@ -178,9 +178,9 @@ open /Applications/FeedbackFlow.app
    - Test with "Test Connection" button
 2. **Check internet connection**:
    - Test other websites
-   - Check firewall isn't blocking Deepgram
-3. **Check Deepgram account**:
-   - Log in to console.deepgram.com
+   - Check firewall isn't blocking OpenAI
+3. **Check OpenAI account**:
+   - Log in to platform.openai.com/api-keys
    - Verify account has available credits
    - Check API key permissions
 
@@ -212,12 +212,12 @@ open /Applications/FeedbackFlow.app
 **Solutions**:
 1. Check internet speed
 2. Close other applications
-3. Restart FeedbackFlow
+3. Restart markupr
 
 ### API Key "Invalid" Error
 
 **Solutions**:
-1. Generate a new API key at console.deepgram.com
+1. Generate a new API key at platform.openai.com/api-keys
 2. Ensure key has "Usage" permission
 3. Copy key carefully (no extra characters)
 4. Paste in Settings > Advanced > API Key
@@ -285,7 +285,7 @@ open /Applications/FeedbackFlow.app
    - Another app using same hotkey
    - System shortcut conflict
 3. **Try different hotkey**: Settings > Hotkeys
-4. **Restart FeedbackFlow**
+4. **Restart markupr**
 
 ### Hotkey Works in Some Apps Only
 
@@ -294,7 +294,7 @@ open /Applications/FeedbackFlow.app
 - App has same hotkey defined
 
 **Solutions**:
-1. Change FeedbackFlow hotkey
+1. Change markupr hotkey
 2. Check app's shortcut settings
 3. Exit full-screen mode
 
@@ -305,7 +305,7 @@ open /Applications/FeedbackFlow.app
 **Solutions**:
 1. Close background applications
 2. Check CPU usage
-3. Restart FeedbackFlow
+3. Restart markupr
 
 ## Export Issues
 
@@ -352,7 +352,7 @@ open /Applications/FeedbackFlow.app
 1. Close other applications
 2. Disable audio waveform: Settings > Recording
 3. Increase pause threshold (fewer screenshots)
-4. Restart FeedbackFlow periodically
+4. Restart markupr periodically
 
 ### High Memory Usage
 
@@ -360,7 +360,7 @@ open /Applications/FeedbackFlow.app
 
 **Solutions**:
 1. Keep sessions under 10 minutes
-2. Restart FeedbackFlow between sessions
+2. Restart markupr between sessions
 3. Close other memory-intensive apps
 
 ### Slow Export
@@ -379,11 +379,11 @@ open /Applications/FeedbackFlow.app
 1. Enable debug mode: Settings > Advanced > Debug Mode
 2. Reproduce the issue
 3. Collect logs:
-   - macOS: `~/Library/Logs/FeedbackFlow/`
-   - Windows: `%APPDATA%\FeedbackFlow\logs\`
+   - macOS: `~/Library/Logs/markupr/`
+   - Windows: `%APPDATA%\markupr\logs\`
 4. Include system info:
    - OS version
-   - FeedbackFlow version (Settings footer)
+   - markupr version (Settings footer)
    - Hardware specs
 
 ### Reporting Issues
@@ -401,7 +401,7 @@ When reporting an issue on GitHub:
 
 ### Contact
 
-- **GitHub Issues**: [github.com/eddiesanjuan/feedbackflow/issues](https://github.com/eddiesanjuan/feedbackflow/issues)
+- **GitHub Issues**: [github.com/eddiesanjuan/markupr/issues](https://github.com/eddiesanjuan/markupr/issues)
 - **Documentation**: This documentation
 - **Release Notes**: Check for known issues in release notes
 
@@ -409,7 +409,7 @@ When reporting an issue on GitHub:
 
 Before seeking help, verify:
 
-- [ ] FeedbackFlow is up to date
+- [ ] markupr is up to date
 - [ ] System meets requirements
 - [ ] Permissions are granted
 - [ ] API key is valid

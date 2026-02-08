@@ -1,5 +1,5 @@
 /**
- * FeedbackFlow Theme Hook
+ * markupr Theme Hook
  *
  * Provides theme state management and utilities for components.
  * Must be used within a ThemeProvider.
@@ -204,8 +204,8 @@ export function buildTheme(options: ThemeBuilderOptions) {
 // ============================================================================
 
 export const THEME_STORAGE_KEYS = {
-  mode: 'feedbackflow-theme-mode',
-  accent: 'feedbackflow-theme-accent',
+  mode: 'markupr-theme-mode',
+  accent: 'markupr-theme-accent',
 } as const;
 
 // ============================================================================

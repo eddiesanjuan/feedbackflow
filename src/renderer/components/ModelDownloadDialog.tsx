@@ -78,16 +78,16 @@ function useModelDownload(): UseModelDownloadResult {
 
   useEffect(() => {
     // Subscribe to download events
-    const unsubProgress = window.feedbackflow.whisper.onDownloadProgress((p) => {
+    const unsubProgress = window.markupr.whisper.onDownloadProgress((p) => {
       setProgress(p);
     });
 
-    const unsubComplete = window.feedbackflow.whisper.onDownloadComplete(() => {
+    const unsubComplete = window.markupr.whisper.onDownloadComplete(() => {
       setIsDownloading(false);
       setProgress(null);
     });
 
-    const unsubError = window.feedbackflow.whisper.onDownloadError(({ error: err }) => {
+    const unsubError = window.markupr.whisper.onDownloadError(({ error: err }) => {
       setIsDownloading(false);
       setError(err);
     });
@@ -104,7 +104,7 @@ function useModelDownload(): UseModelDownloadResult {
     setError(null);
     setProgress(null);
 
-    const result = await window.feedbackflow.whisper.downloadModel(model);
+    const result = await window.markupr.whisper.downloadModel(model);
     if (!result.success && result.error) {
       setError(result.error);
       setIsDownloading(false);
@@ -112,7 +112,7 @@ function useModelDownload(): UseModelDownloadResult {
   }, []);
 
   const cancelDownload = useCallback((model: string) => {
-    window.feedbackflow.whisper.cancelDownload(model);
+    window.markupr.whisper.cancelDownload(model);
     setIsDownloading(false);
     setProgress(null);
   }, []);
@@ -144,7 +144,7 @@ export const ModelDownloadDialog: React.FC<ModelDownloadDialogProps> = ({
   // Load available models on mount
   useEffect(() => {
     const loadModels = async () => {
-      const availableModels = await window.feedbackflow.whisper.getAvailableModels();
+      const availableModels = await window.markupr.whisper.getAvailableModels();
       setModels(availableModels);
     };
     loadModels();
@@ -161,7 +161,7 @@ export const ModelDownloadDialog: React.FC<ModelDownloadDialogProps> = ({
 
   // Listen for download complete to transition state
   useEffect(() => {
-    const unsubComplete = window.feedbackflow.whisper.onDownloadComplete(() => {
+    const unsubComplete = window.markupr.whisper.onDownloadComplete(() => {
       setState('complete');
     });
     return unsubComplete;
@@ -494,7 +494,7 @@ export function useModelCheck(): ModelCheckResult {
       try {
         // Check if we have any transcription capability (OpenAI or Whisper)
         const hasCapability = await withTimeout(
-          window.feedbackflow.whisper.hasTranscriptionCapability(),
+          window.markupr.whisper.hasTranscriptionCapability(),
           4000,
           false
         );
@@ -504,7 +504,7 @@ export function useModelCheck(): ModelCheckResult {
         if (!hasCapability) {
           // Check specifically if we have a Whisper model
           const modelCheck = await withTimeout(
-            window.feedbackflow.whisper.checkModel(),
+            window.markupr.whisper.checkModel(),
             4000,
             {
               hasAnyModel: false,

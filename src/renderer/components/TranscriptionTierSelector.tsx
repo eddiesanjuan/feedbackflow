@@ -2,14 +2,12 @@
  * TranscriptionTierSelector - UI for selecting transcription tier
  *
  * Displays available transcription tiers with their status:
- * - Tier 1: Deepgram Nova-3 (optional, best quality, requires API key)
- * - Tier 2: Local Whisper (default, good quality, requires model download)
- * - Tier 3: macOS Dictation (fallback, macOS only)
- * - Tier 4: Timer Only (emergency, no transcription)
+ * - Tier 1: Local Whisper (default, good quality, requires model download)
+ * - Tier 2: macOS Dictation (fallback, macOS only)
+ * - Tier 3: Timer Only (emergency, no transcription)
  *
  * Key UX principles:
  * - Local Whisper is the DEFAULT tier (no API key needed)
- * - Deepgram is OPTIONAL for users who want best quality
  * - Clear visual hierarchy showing availability and quality
  * - Model download progress for Whisper
  */
@@ -62,26 +60,6 @@ interface TranscriptionTierSelectorProps {
 // ============================================================================
 
 const TIER_INFO: Record<TranscriptionTier, TierInfo> = {
-  deepgram: {
-    name: 'Deepgram Nova-3',
-    description: 'Best quality cloud transcription with real-time streaming',
-    accuracy: '95%+ accuracy',
-    latency: '~300ms latency',
-    requirements: 'Requires API key + internet',
-    badge: 'Premium',
-    badgeColor: '#8B5CF6',
-    icon: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-        <path
-          d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    ),
-  },
   whisper: {
     name: 'Local Whisper',
     description: 'On-device AI transcription - works offline, no API key needed',
@@ -151,7 +129,7 @@ export const TranscriptionTierSelector: React.FC<TranscriptionTierSelectorProps>
   const loadTierStatuses = useCallback(async () => {
     setLoading(true);
     try {
-      const statuses = await window.feedbackflow.transcription.getTierStatuses();
+      const statuses = await window.markupr.transcription.getTierStatuses();
       setTierStatuses(statuses);
     } catch (error) {
       console.error('Failed to load tier statuses:', error);
@@ -167,7 +145,7 @@ export const TranscriptionTierSelector: React.FC<TranscriptionTierSelectorProps>
   const handleDownloadModel = useCallback(async () => {
     setIsDownloading(true);
     try {
-      const result = await window.feedbackflow.transcription.downloadModel('tiny');
+      const result = await window.markupr.transcription.downloadModel('tiny');
       if (!result.success) {
         throw new Error(result.error || 'Failed to start model download.');
       }
@@ -179,7 +157,7 @@ export const TranscriptionTierSelector: React.FC<TranscriptionTierSelectorProps>
 
   const handleCancelDownload = useCallback(async () => {
     try {
-      await window.feedbackflow.transcription.cancelDownload('tiny');
+      await window.markupr.transcription.cancelDownload('tiny');
     } catch (error) {
       console.error('Cancel failed:', error);
     }
@@ -192,7 +170,7 @@ export const TranscriptionTierSelector: React.FC<TranscriptionTierSelectorProps>
     loadTierStatuses();
 
     // Subscribe to model download progress
-    const unsubscribe = window.feedbackflow.transcription.onModelProgress((progress: DownloadProgress) => {
+    const unsubscribe = window.markupr.transcription.onModelProgress((progress: DownloadProgress) => {
       setDownloadProgress(progress);
       if (progress.percent >= 100) {
         setIsDownloading(false);
@@ -236,8 +214,8 @@ export const TranscriptionTierSelector: React.FC<TranscriptionTierSelectorProps>
     );
   }
 
-  // Order: Whisper (recommended default), Deepgram (premium), macOS, Timer
-  const orderedTiers: TranscriptionTier[] = ['whisper', 'deepgram', 'macos-dictation', 'timer-only'];
+  // Order: Whisper (recommended default), macOS fallback, Timer fallback
+  const orderedTiers: TranscriptionTier[] = ['whisper', 'macos-dictation', 'timer-only'];
   const visibleTiers = orderedTiers.filter(tier =>
     tierStatuses.some(s => s.tier === tier)
   );
@@ -373,7 +351,7 @@ export const TranscriptionTierSelector: React.FC<TranscriptionTierSelectorProps>
         <InfoIcon />
         <span>
           Local Whisper is the default - it works offline with no API key.
-          Add a Deepgram API key in Advanced settings for best quality.
+          Add an OpenAI API key in Advanced settings for reliable post-session transcription.
         </span>
       </div>
     </div>

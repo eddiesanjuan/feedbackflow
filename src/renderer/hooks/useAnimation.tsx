@@ -1,5 +1,5 @@
 /**
- * FeedbackFlow - Animation Hooks
+ * markupr - Animation Hooks
  *
  * Programmatic animation utilities for React components.
  * Provides hooks for staggered animations, spring physics,

@@ -1,7 +1,7 @@
 /**
  * End-to-End Critical Path Tests
  *
- * Tests the most critical user journeys through FeedbackFlow:
+ * Tests the most critical user journeys through markupr:
  * - Recording session lifecycle
  * - Output generation flow
  * - Clipboard summary flow
@@ -19,7 +19,7 @@ import { EventEmitter } from 'events';
 vi.mock('electron', () => ({
   app: {
     getPath: vi.fn(() => '/tmp'),
-    getName: vi.fn(() => 'FeedbackFlow'),
+    getName: vi.fn(() => 'markupr'),
     getVersion: vi.fn(() => '0.4.0'),
   },
   clipboard: {
@@ -73,9 +73,9 @@ interface SimulatedSession {
 }
 
 /**
- * Simulates the complete FeedbackFlow application for E2E testing
+ * Simulates the complete markupr application for E2E testing
  */
-class FeedbackFlowSimulator {
+class markuprSimulator {
   private state: 'idle' | 'recording' | 'processing' | 'complete' = 'idle';
   private currentSession: SimulatedSession | null = null;
   private events = new EventEmitter();
@@ -343,10 +343,10 @@ ${this.currentSession.feedbackItems.map((item, i) => `
 // =============================================================================
 
 describe('E2E: Critical User Paths', () => {
-  let app: FeedbackFlowSimulator;
+  let app: markuprSimulator;
 
   beforeEach(() => {
-    app = new FeedbackFlowSimulator();
+    app = new markuprSimulator();
   });
 
   afterEach(() => {
@@ -542,7 +542,7 @@ describe('E2E: Critical User Paths', () => {
 
   describe('Real-World Scenario: Bug Report Session', () => {
     it('should handle a realistic bug reporting session', async () => {
-      // User discovers a bug and starts FeedbackFlow
+      // User discovers a bug and starts markupr
       await app.userStartsRecording('Acme Dashboard');
 
       // User describes the bug

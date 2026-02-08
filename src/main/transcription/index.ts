@@ -1,11 +1,10 @@
 /**
  * Transcription Module
  *
- * Three-Tier Transcription System:
- * - Tier 1: Deepgram (cloud, optional, best quality)
- * - Tier 2: Local Whisper (default)
- * - Tier 3: macOS Dictation (fallback)
- * - Tier 4: Timer-only (emergency)
+ * Transcription Fallback System:
+ * - Tier 1: Local Whisper (default)
+ * - Tier 2: macOS Dictation (fallback)
+ * - Tier 3: Timer-only (emergency)
  *
  * The TierManager orchestrates tier selection and failover.
  * App works WITHOUT any API keys using local Whisper.
@@ -20,21 +19,10 @@ export { TierManager, tierManager } from './TierManager';
 // ============================================================================
 // Supporting Services
 // ============================================================================
-
-// Deepgram (Tier 1)
-export {
-  TranscriptionService,
-  transcriptionService,
-  type AudioChunk,
-  type TranscriptResult,
-  type TranscriptWord,
-  type TranscriptionServiceConfig,
-} from './TranscriptionService';
-
-// Whisper (Tier 2)
+// Whisper (Tier 1)
 export { WhisperService, whisperService } from './WhisperService';
 
-// Silence Detection (for non-Deepgram tiers)
+// Silence Detection (for non-Whisper fallback tiers)
 export { SilenceDetector, silenceDetector } from './SilenceDetector';
 
 // Model Management

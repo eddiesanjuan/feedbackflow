@@ -4,7 +4,7 @@
 
 **DO NOT create public GitHub issues for security vulnerabilities.**
 
-Email: **security@feedbackflow.app**
+Email: **security@markupr.app**
 
 Alternatively, use GitHub's private vulnerability reporting feature.
 

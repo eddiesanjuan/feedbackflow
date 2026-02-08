@@ -1,5 +1,5 @@
 /**
- * FeedbackFlow - Renderer Entry Point
+ * markupr - Renderer Entry Point
  */
 
 import React from 'react';

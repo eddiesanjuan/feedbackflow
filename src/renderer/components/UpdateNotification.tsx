@@ -40,7 +40,7 @@ export function UpdateNotification(): React.ReactElement | null {
 
     const init = async (): Promise<void> => {
       try {
-        const checkForUpdates = await window.feedbackflow.settings.get('checkForUpdates');
+        const checkForUpdates = await window.markupr.settings.get('checkForUpdates');
         if (!checkForUpdates || !isMounted) {
           setIsDismissed(true);
           return;
@@ -49,7 +49,7 @@ export function UpdateNotification(): React.ReactElement | null {
         // If settings can't be read, keep default behavior.
       }
 
-      unsubscribe = window.feedbackflow.updates.onStatus((status: UpdateStatusPayload) => {
+      unsubscribe = window.markupr.updates.onStatus((status: UpdateStatusPayload) => {
         // Local/manual builds may not ship updater metadata; suppress that noisy non-actionable state.
         if (
           status.status === 'error' &&
@@ -76,7 +76,7 @@ export function UpdateNotification(): React.ReactElement | null {
         }
       });
 
-      window.feedbackflow.updates.check();
+      window.markupr.updates.check();
     };
 
     void init();
@@ -89,12 +89,12 @@ export function UpdateNotification(): React.ReactElement | null {
 
   // Handle download button click
   const handleDownload = useCallback(() => {
-    window.feedbackflow.updates.download();
+    window.markupr.updates.download();
   }, []);
 
   // Handle install/restart button click
   const handleInstall = useCallback(() => {
-    window.feedbackflow.updates.install();
+    window.markupr.updates.install();
   }, []);
 
   // Handle dismiss (Later button)
@@ -314,7 +314,7 @@ export function UpdateNotification(): React.ReactElement | null {
 
           <div className="flex gap-2 mt-3">
             <button
-              onClick={() => window.feedbackflow.updates.check()}
+              onClick={() => window.markupr.updates.check()}
               className="flex-1 bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg font-medium text-sm transition-colors"
             >
               Try Again

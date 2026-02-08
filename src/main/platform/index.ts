@@ -1,5 +1,5 @@
 /**
- * Platform-specific integrations for FeedbackFlow
+ * Platform-specific integrations for markupr
  *
  * Provides native OS features:
  * - Windows: Taskbar integration (jump lists, progress, overlay icons, thumbnail toolbar)

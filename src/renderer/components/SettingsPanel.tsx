@@ -298,7 +298,7 @@ const DirectoryPicker: React.FC<{
 }> = ({ label, description, value, onChange }) => {
   const handleBrowse = useCallback(async () => {
     try {
-      const result = await window.feedbackflow.settings.selectDirectory();
+      const result = await window.markupr.settings.selectDirectory();
       if (result) {
         onChange(result);
       }
@@ -1107,18 +1107,18 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     const loadSettings = async () => {
       try {
         // Load settings
-        const allSettings = await window.feedbackflow.settings.getAll();
+        const allSettings = await window.markupr.settings.getAll();
         setSettings({ ...DEFAULT_SETTINGS, ...allSettings });
 
         // Load audio devices
-        const devices = await window.feedbackflow.audio.getDevices();
+        const devices = await window.markupr.audio.getDevices();
         setAudioDevices(devices);
 
         // Check if API keys exist (we won't show the actual values for security)
         try {
           const [hasOpenAiKey, hasAnthropicKey] = await Promise.all([
-            window.feedbackflow.settings.hasApiKey('openai'),
-            window.feedbackflow.settings.hasApiKey('anthropic'),
+            window.markupr.settings.hasApiKey('openai'),
+            window.markupr.settings.hasApiKey('anthropic'),
           ]);
           if (hasOpenAiKey) {
             setOpenAiApiKey((prev) => ({ ...prev, value: '********', valid: true }));
@@ -1141,7 +1141,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
         // Load app version
         try {
-          const ver = await window.feedbackflow.version();
+          const ver = await window.markupr.version();
           setAppVersion(ver);
         } catch {
           setAppVersion('');
@@ -1162,7 +1162,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
       // Save immediately
       try {
-        await window.feedbackflow.settings.set(key, value);
+        await window.markupr.settings.set(key, value);
       } catch (error) {
         console.error('Failed to save setting:', error);
       }
@@ -1178,9 +1178,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       setHasChanges(true);
 
       try {
-        await window.feedbackflow.settings.set('hotkeys', newHotkeys);
+        await window.markupr.settings.set('hotkeys', newHotkeys);
         // Re-register hotkeys
-        await window.feedbackflow.hotkeys.updateConfig(newHotkeys);
+        await window.markupr.hotkeys.updateConfig(newHotkeys);
       } catch (error) {
         console.error('Failed to update hotkey:', error);
       }
@@ -1201,10 +1201,10 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     setOpenAiApiKey((prev) => ({ ...prev, testing: true, error: null }));
 
     try {
-      const validation = await window.feedbackflow.settings.testApiKey('openai', openAiApiKey.value);
+      const validation = await window.markupr.settings.testApiKey('openai', openAiApiKey.value);
 
       if (validation.valid) {
-        await window.feedbackflow.settings.setApiKey('openai', openAiApiKey.value);
+        await window.markupr.settings.setApiKey('openai', openAiApiKey.value);
         setOpenAiApiKey((prev) => ({ ...prev, testing: false, valid: true }));
       } else {
         setOpenAiApiKey((prev) => ({
@@ -1236,10 +1236,10 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     setAnthropicApiKey((prev) => ({ ...prev, testing: true, error: null }));
 
     try {
-      const validation = await window.feedbackflow.settings.testApiKey('anthropic', anthropicApiKey.value);
+      const validation = await window.markupr.settings.testApiKey('anthropic', anthropicApiKey.value);
 
       if (validation.valid) {
-        await window.feedbackflow.settings.setApiKey('anthropic', anthropicApiKey.value);
+        await window.markupr.settings.setApiKey('anthropic', anthropicApiKey.value);
         setAnthropicApiKey((prev) => ({ ...prev, testing: false, valid: true }));
       } else {
         setAnthropicApiKey((prev) => ({
@@ -1270,7 +1270,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     setSettings((prev) => ({ ...prev, ...defaults }));
 
     for (const [key, value] of Object.entries(defaults)) {
-      await window.feedbackflow.settings.set(key as keyof AppSettings, value);
+      await window.markupr.settings.set(key as keyof AppSettings, value);
     }
   }, []);
 
@@ -1287,7 +1287,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     setSettings((prev) => ({ ...prev, ...defaults }));
 
     for (const [key, value] of Object.entries(defaults)) {
-      await window.feedbackflow.settings.set(key as keyof AppSettings, value);
+      await window.markupr.settings.set(key as keyof AppSettings, value);
     }
   }, []);
 
@@ -1300,16 +1300,16 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     setSettings((prev) => ({ ...prev, ...defaults }));
 
     for (const [key, value] of Object.entries(defaults)) {
-      await window.feedbackflow.settings.set(key as keyof AppSettings, value);
+      await window.markupr.settings.set(key as keyof AppSettings, value);
     }
   }, []);
 
   const resetHotkeysSection = useCallback(async () => {
     const defaults = { ...DEFAULT_HOTKEY_CONFIG };
     setSettings((prev) => ({ ...prev, hotkeys: defaults }));
-    await window.feedbackflow.settings.set('hotkeys', defaults);
+    await window.markupr.settings.set('hotkeys', defaults);
     // @ts-expect-error - update may be named updateConfig in type definition
-    await (window.feedbackflow.hotkeys.update ?? window.feedbackflow.hotkeys.updateConfig)?.(defaults);
+    await (window.markupr.hotkeys.update ?? window.markupr.hotkeys.updateConfig)?.(defaults);
   }, []);
 
   const resetAdvancedSection = useCallback(async () => {
@@ -1321,14 +1321,14 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     setSettings((prev) => ({ ...prev, ...defaults }));
 
     for (const [key, value] of Object.entries(defaults)) {
-      await window.feedbackflow.settings.set(key as keyof AppSettings, value);
+      await window.markupr.settings.set(key as keyof AppSettings, value);
     }
   }, []);
 
   // Data management handlers
   const handleClearAllData = useCallback(async () => {
     try {
-      await window.feedbackflow.settings.clearAllData();
+      await window.markupr.settings.clearAllData();
       setSettings(DEFAULT_SETTINGS);
       setOpenAiApiKey({ value: '', visible: false, testing: false, valid: null, error: null });
       setAnthropicApiKey({ value: '', visible: false, testing: false, valid: null, error: null });
@@ -1340,7 +1340,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
   const handleExportSettings = useCallback(async () => {
     try {
-      await window.feedbackflow.settings.export();
+      await window.markupr.settings.export();
     } catch (error) {
       console.error('Failed to export settings:', error);
     }
@@ -1348,7 +1348,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
   const handleImportSettings = useCallback(async () => {
     try {
-      const imported = await window.feedbackflow.settings.import();
+      const imported = await window.markupr.settings.import();
       if (imported) {
         setSettings({ ...DEFAULT_SETTINGS, ...imported });
       }

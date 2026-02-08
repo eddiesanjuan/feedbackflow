@@ -1,5 +1,5 @@
 /**
- * Windows Taskbar Integration for FeedbackFlow
+ * Windows Taskbar Integration for markupr
  *
  * Provides:
  * - Jump list with recent sessions

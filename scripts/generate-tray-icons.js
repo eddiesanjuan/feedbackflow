@@ -1,5 +1,5 @@
 /**
- * Generate placeholder tray icons for FeedbackFlow
+ * Generate placeholder tray icons for markupr
  *
  * Creates 16x16 and 32x32 (retina) icons for each state.
  * These are simple placeholders - replace with proper icons for production.
@@ -121,7 +121,7 @@ async function generateIcon(name, svg, size) {
 }
 
 async function main() {
-  console.log('Generating FeedbackFlow tray icons...\n');
+  console.log('Generating markupr tray icons...\n');
 
   const states = ['idle', 'recording', 'processing', 'error'];
   const size = 16;

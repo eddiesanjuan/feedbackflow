@@ -1,5 +1,5 @@
 /**
- * FeedbackFlow Donate Button
+ * markupr Donate Button
  *
  * A clean, minimal donate link with subtle native macOS styling.
  * Coffee icon + rotating messages with restrained emphasis.

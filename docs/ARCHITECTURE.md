@@ -1,6 +1,6 @@
 # Architecture
 
-This document provides a high-level overview of FeedbackFlow's architecture.
+This document provides a high-level overview of markupr's architecture.
 
 ## Table of Contents
 
@@ -13,11 +13,11 @@ This document provides a high-level overview of FeedbackFlow's architecture.
 
 ## Overview
 
-FeedbackFlow is an Electron application with a React frontend. It follows Electron's multi-process architecture with clear separation between the main process (Node.js) and renderer process (Chromium).
+markupr is an Electron application with a React frontend. It follows Electron's multi-process architecture with clear separation between the main process (Node.js) and renderer process (Chromium).
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        FeedbackFlow                              │
+│                        markupr                              │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  ┌──────────────────┐                ┌──────────────────────┐   │
@@ -67,9 +67,9 @@ The preload script bridges the two processes:
 
 ```typescript
 // Preload exposes a safe API
-contextBridge.exposeInMainWorld('feedbackflow', {
+contextBridge.exposeInMainWorld('markupr', {
   session: {
-    start: (sourceId) => ipcRenderer.invoke('feedbackflow:session:start', sourceId),
+    start: (sourceId) => ipcRenderer.invoke('markupr:session:start', sourceId),
     // ...
   },
   // ...
@@ -129,7 +129,7 @@ function App() {
   const [state, setState] = useState<SessionState>('idle');
 
   useEffect(() => {
-    const unsubscribe = window.feedbackflow.session.onStateChange(({ state }) => {
+    const unsubscribe = window.markupr.session.onStateChange(({ state }) => {
       setState(state);
     });
     return unsubscribe;
@@ -166,7 +166,7 @@ User speaks
 ┌──────────────────┐    ┌──────────────────┐
 │ Transcription    │    │ Intelligent      │
 │ Service          │    │ Capture          │
-│ (Deepgram WS)    │    │                  │
+│ (OpenAI WS)    │    │                  │
 └────────┬─────────┘    └────────┬─────────┘
          │                        │
          │ Transcript             │ Voice pause detected
@@ -269,7 +269,7 @@ User clicks Export
 | **SessionController** | Orchestrates recording sessions, manages state |
 | **CaptureService** | Screen capture via desktopCapturer |
 | **IntelligentCapture** | Voice-triggered screenshot timing |
-| **TranscriptionService** | Deepgram WebSocket integration |
+| **TranscriptionService** | OpenAI WebSocket integration |
 | **OutputService** | Document generation coordination |
 | **HotkeyManager** | Global hotkey registration |
 | **TrayManager** | System tray icon and menu |
@@ -336,8 +336,8 @@ API keys are stored using system keychain:
 
 import keytar from 'keytar';
 
-await keytar.setPassword('feedbackflow', 'deepgram', apiKey);
-const key = await keytar.getPassword('feedbackflow', 'deepgram');
+await keytar.setPassword('markupr', 'openai', apiKey);
+const key = await keytar.getPassword('markupr', 'openai');
 ```
 
 ### Content Security Policy
@@ -356,7 +356,7 @@ All IPC channels are:
 
 ```typescript
 // Safe: Defined channel with specific handler
-ipcMain.handle('feedbackflow:session:start', async (_, sourceId: string) => {
+ipcMain.handle('markupr:session:start', async (_, sourceId: string) => {
   // Validate input
   if (typeof sourceId !== 'string') throw new Error('Invalid sourceId');
   return sessionController.start(sourceId);
@@ -378,7 +378,7 @@ graph TD
     end
 
     subgraph Preload
-        API[feedbackflow API]
+        API[markupr API]
     end
 
     subgraph Main
@@ -405,7 +405,7 @@ sequenceDiagram
     participant U as User
     participant R as Renderer
     participant M as Main
-    participant D as Deepgram
+    participant D as OpenAI
 
     U->>R: Press hotkey
     R->>M: session.start(sourceId)

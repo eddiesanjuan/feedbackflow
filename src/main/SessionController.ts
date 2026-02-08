@@ -1,5 +1,5 @@
 /**
- * SessionController - Core Orchestrator for FeedbackFlow
+ * SessionController - Core Orchestrator for markupr
  *
  * Implements a bulletproof finite state machine for session lifecycle:
  *   idle -> starting -> recording -> stopping -> processing -> complete
@@ -183,7 +183,7 @@ interface StoreSchema {
 }
 
 const store = new Store<StoreSchema>({
-  name: 'feedbackflow-sessions',
+  name: 'markupr-sessions',
   defaults: {
     currentSession: null,
     recentSessions: [],

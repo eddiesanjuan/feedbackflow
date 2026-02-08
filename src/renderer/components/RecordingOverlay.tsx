@@ -31,7 +31,7 @@ interface Position {
   y: number;
 }
 
-const STORAGE_KEY = 'feedbackflow-overlay-position';
+const STORAGE_KEY = 'markupr-overlay-position';
 const DEFAULT_POSITION: Position = { x: 20, y: 20 };
 const DEFAULT_WIDTH = 360;
 const DEFAULT_HEIGHT = 88;
@@ -180,7 +180,7 @@ export const RecordingOverlay: React.FC<RecordingOverlayProps> = ({
       {/* Keyframe animations */}
       <style>
         {`
-          @keyframes feedbackflow-pulse {
+          @keyframes markupr-pulse {
             0%, 100% {
               opacity: 1;
               transform: scale(1);
@@ -191,7 +191,7 @@ export const RecordingOverlay: React.FC<RecordingOverlayProps> = ({
             }
           }
 
-          @keyframes feedbackflow-badge-pop {
+          @keyframes markupr-badge-pop {
             0% {
               transform: scale(0) translateY(0);
               opacity: 0;
@@ -264,7 +264,7 @@ export const RecordingOverlay: React.FC<RecordingOverlayProps> = ({
                 height: 10,
                 backgroundColor: theme.recordingDot,
                 borderRadius: '50%',
-                animation: 'feedbackflow-pulse 1.5s ease-in-out infinite',
+                animation: 'markupr-pulse 1.5s ease-in-out infinite',
               }}
             />
           </div>
@@ -419,7 +419,7 @@ export const RecordingOverlay: React.FC<RecordingOverlayProps> = ({
               fontSize: 10,
               fontWeight: 700,
               borderRadius: 10,
-              animation: 'feedbackflow-badge-pop 1.2s ease-out forwards',
+              animation: 'markupr-badge-pop 1.2s ease-out forwards',
               pointerEvents: 'none',
             }}
           >

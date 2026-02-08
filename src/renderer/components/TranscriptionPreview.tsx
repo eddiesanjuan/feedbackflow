@@ -15,7 +15,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import type { TranscriptChunkPayload } from '../../shared/types';
 
 export interface TranscriptionPreviewProps {
-  /** Current transcript data from Deepgram */
+  /** Current live transcript data */
   transcript: TranscriptChunkPayload | null;
   /** Position of the overlay on screen */
   position?: 'bottom-center' | 'bottom-left' | 'bottom-right';
@@ -164,7 +164,7 @@ export const TranscriptionPreview: React.FC<TranscriptionPreviewProps> = ({
       {/* Keyframe animations */}
       <style>
         {`
-          @keyframes feedbackflow-subtitle-fade-in {
+          @keyframes markupr-subtitle-fade-in {
             0% {
               opacity: 0;
               transform: translateY(8px);
@@ -175,7 +175,7 @@ export const TranscriptionPreview: React.FC<TranscriptionPreviewProps> = ({
             }
           }
 
-          @keyframes feedbackflow-subtitle-fade-out {
+          @keyframes markupr-subtitle-fade-out {
             0% {
               opacity: 1;
               transform: translateY(0);
@@ -186,7 +186,7 @@ export const TranscriptionPreview: React.FC<TranscriptionPreviewProps> = ({
             }
           }
 
-          @keyframes feedbackflow-word-pop {
+          @keyframes markupr-word-pop {
             0% {
               opacity: 0;
               transform: scale(0.9);
@@ -201,23 +201,23 @@ export const TranscriptionPreview: React.FC<TranscriptionPreviewProps> = ({
             }
           }
 
-          .feedbackflow-subtitle-container {
-            animation: feedbackflow-subtitle-fade-in ${FADE_IN_MS}ms ease-out forwards;
+          .markupr-subtitle-container {
+            animation: markupr-subtitle-fade-in ${FADE_IN_MS}ms ease-out forwards;
           }
 
-          .feedbackflow-subtitle-container.hiding {
-            animation: feedbackflow-subtitle-fade-out ${FADE_OUT_MS}ms ease-out forwards;
+          .markupr-subtitle-container.hiding {
+            animation: markupr-subtitle-fade-out ${FADE_OUT_MS}ms ease-out forwards;
           }
 
-          .feedbackflow-word {
+          .markupr-word {
             display: inline-block;
-            animation: feedbackflow-word-pop ${FADE_IN_MS}ms ease-out forwards;
+            animation: markupr-word-pop ${FADE_IN_MS}ms ease-out forwards;
           }
         `}
       </style>
 
       <div
-        className={`feedbackflow-subtitle-container ${!isShowing ? 'hiding' : ''}`}
+        className={`markupr-subtitle-container ${!isShowing ? 'hiding' : ''}`}
         style={{
           ...positionStyles,
           maxWidth: 640,
@@ -376,39 +376,39 @@ export const TranscriptionPreviewAnimated: React.FC<TranscriptionPreviewProps> =
     <>
       <style>
         {`
-          @keyframes feedbackflow-subtitle-fade-in {
+          @keyframes markupr-subtitle-fade-in {
             0% { opacity: 0; transform: translateY(8px); }
             100% { opacity: 1; transform: translateY(0); }
           }
 
-          @keyframes feedbackflow-subtitle-fade-out {
+          @keyframes markupr-subtitle-fade-out {
             0% { opacity: 1; transform: translateY(0); }
             100% { opacity: 0; transform: translateY(8px); }
           }
 
-          @keyframes feedbackflow-word-pop {
+          @keyframes markupr-word-pop {
             0% { opacity: 0; transform: translateY(4px) scale(0.95); }
             100% { opacity: 1; transform: translateY(0) scale(1); }
           }
 
-          .feedbackflow-subtitle-animated {
-            animation: feedbackflow-subtitle-fade-in ${FADE_IN_MS}ms ease-out forwards;
+          .markupr-subtitle-animated {
+            animation: markupr-subtitle-fade-in ${FADE_IN_MS}ms ease-out forwards;
           }
 
-          .feedbackflow-subtitle-animated.hiding {
-            animation: feedbackflow-subtitle-fade-out ${FADE_OUT_MS}ms ease-out forwards;
+          .markupr-subtitle-animated.hiding {
+            animation: markupr-subtitle-fade-out ${FADE_OUT_MS}ms ease-out forwards;
           }
 
-          .feedbackflow-animated-word {
+          .markupr-animated-word {
             display: inline-block;
-            animation: feedbackflow-word-pop ${FADE_IN_MS}ms ease-out forwards;
+            animation: markupr-word-pop ${FADE_IN_MS}ms ease-out forwards;
             animation-fill-mode: both;
           }
         `}
       </style>
 
       <div
-        className={`feedbackflow-subtitle-animated ${!isShowing ? 'hiding' : ''}`}
+        className={`markupr-subtitle-animated ${!isShowing ? 'hiding' : ''}`}
         style={{
           ...positionStyles,
           maxWidth: 640,
@@ -440,7 +440,7 @@ export const TranscriptionPreviewAnimated: React.FC<TranscriptionPreviewProps> =
         {words.map((word, index) => (
           <span
             key={word.id}
-            className="feedbackflow-animated-word"
+            className="markupr-animated-word"
             style={{
               animationDelay: `${index * 30}ms`,
               marginRight: '0.25em',

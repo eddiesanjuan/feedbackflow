@@ -68,10 +68,8 @@ TARGETS=(
 if [[ "$FULL_WIPE" -eq 1 ]]; then
   TARGETS+=(
     "$HOME/Library/Application Support/feedbackflow"
-    "$HOME/Library/Application Support/FeedbackFlow"
     "$HOME/Library/Application Support/markupr"
     "$HOME/Library/Logs/feedbackflow"
-    "$HOME/Library/Logs/FeedbackFlow"
     "$HOME/Library/Logs/markupr"
   )
 fi

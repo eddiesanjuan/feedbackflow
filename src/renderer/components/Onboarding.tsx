@@ -365,7 +365,7 @@ const MicrophoneStep: React.FC<{
   const handleRecheck = async () => {
     setIsRechecking(true);
     try {
-      const isGranted = await window.feedbackflow.permissions.check('microphone');
+      const isGranted = await window.markupr.permissions.check('microphone');
       if (!isGranted) {
         onRequestPermission();
       }
@@ -548,7 +548,7 @@ const ScreenRecordingStep: React.FC<{
   const handleRecheck = async () => {
     setIsRechecking(true);
     try {
-      const isGranted = await window.feedbackflow.permissions.check('screen');
+      const isGranted = await window.markupr.permissions.check('screen');
       // The parent component will update status via the onRequestPermission callback
       // which triggers a re-render. We just need to wait a moment.
       if (!isGranted) {
@@ -1108,7 +1108,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, onSkip }) =>
   useEffect(() => {
     const checkInitialPermissions = async () => {
       try {
-        const permissionStatus = await window.feedbackflow.permissions.getAll();
+        const permissionStatus = await window.markupr.permissions.getAll();
         setPermissions({
           microphone: permissionStatus.microphone ? 'granted' : 'unknown',
           screen: permissionStatus.screen ? 'granted' : 'unknown',
@@ -1127,14 +1127,14 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, onSkip }) =>
 
     try {
       // First check via main process (macOS system permissions)
-      const isGranted = await window.feedbackflow.permissions.check('microphone');
+      const isGranted = await window.markupr.permissions.check('microphone');
       if (isGranted) {
         setPermissions((prev) => ({ ...prev, microphone: 'granted' }));
         return;
       }
 
       // Request via main process first (triggers macOS prompt)
-      const mainGranted = await window.feedbackflow.permissions.request('microphone');
+      const mainGranted = await window.markupr.permissions.request('microphone');
 
       if (mainGranted) {
         // Verify with browser API as well
@@ -1155,14 +1155,14 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, onSkip }) =>
 
     try {
       // First check if already granted
-      const isGranted = await window.feedbackflow.permissions.check('screen');
+      const isGranted = await window.markupr.permissions.check('screen');
       if (isGranted) {
         setPermissions((prev) => ({ ...prev, screen: 'granted' }));
         return;
       }
 
       // Request permission - this will open System Preferences on macOS
-      const granted = await window.feedbackflow.permissions.request('screen');
+      const granted = await window.markupr.permissions.request('screen');
 
       if (granted) {
         setPermissions((prev) => ({ ...prev, screen: 'granted' }));
@@ -1180,14 +1180,14 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, onSkip }) =>
     setApiKey((prev) => ({ ...prev, testing: true, error: null }));
 
     try {
-      const validation = await window.feedbackflow.settings.testApiKey('openai', apiKey.value);
+      const validation = await window.markupr.settings.testApiKey('openai', apiKey.value);
 
       if (validation.valid) {
         setApiKey((prev) => ({ ...prev, testing: false, valid: true }));
 
         // Save the API key via IPC (using secure storage)
         try {
-          await window.feedbackflow.settings.setApiKey('openai', apiKey.value);
+          await window.markupr.settings.setApiKey('openai', apiKey.value);
         } catch {
           // Settings save failed but key is valid
         }

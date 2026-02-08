@@ -1,5 +1,5 @@
 /**
- * FeedbackFlow Premium Theme System
+ * markupr Premium Theme System
  *
  * Design tokens for a premium, Apple/Linear quality experience.
  * Supports dark/light/system modes with customizable accent colors.

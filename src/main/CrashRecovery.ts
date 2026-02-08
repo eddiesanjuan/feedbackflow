@@ -1,5 +1,5 @@
 /**
- * CrashRecovery - Session Recovery and Error Reporting for FeedbackFlow
+ * CrashRecovery - Session Recovery and Error Reporting for markupr
  *
  * Provides:
  * - Auto-save session state every 5 seconds during recording (max 5s data loss)
@@ -90,7 +90,7 @@ const DEFAULT_SETTINGS: CrashRecoverySettings = {
 };
 
 const store = new Store<CrashRecoveryStoreSchema>({
-  name: 'feedbackflow-crash-recovery',
+  name: 'markupr-crash-recovery',
   defaults: {
     activeSession: null,
     crashLogs: [],

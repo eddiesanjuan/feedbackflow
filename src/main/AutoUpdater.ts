@@ -1,5 +1,5 @@
 /**
- * FeedbackFlow - Auto Updater Manager
+ * markupr - Auto Updater Manager
  *
  * Handles automatic updates using electron-updater with GitHub Releases.
  *

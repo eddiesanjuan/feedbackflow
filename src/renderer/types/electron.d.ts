@@ -1,7 +1,7 @@
 /**
- * FeedbackFlow - Electron Type Declarations for Renderer
+ * markupr - Electron Type Declarations for Renderer
  *
- * This file provides TypeScript type support for the window.feedbackflow API
+ * This file provides TypeScript type support for the window.markupr API
  * exposed by the preload script via contextBridge.
  */
 
@@ -201,7 +201,7 @@ interface OutputAPI {
 }
 
 /**
- * Complete FeedbackFlow API
+ * Complete markupr API
  */
 /**
  * Navigation API (Main -> Renderer navigation events)
@@ -327,9 +327,9 @@ interface WhisperAPI {
 }
 
 /**
- * Complete FeedbackFlow API
+ * Complete markupr API
  */
-export interface FeedbackFlowAPI {
+export interface MarkuprAPI {
   // Domain APIs
   session: SessionAPI;
   capture: CaptureAPI;
@@ -366,7 +366,8 @@ export interface FeedbackFlowAPI {
 
 declare global {
   interface Window {
-    feedbackflow: FeedbackFlowAPI;
+    markupr: MarkuprAPI;
+    feedbackflow: MarkuprAPI;
   }
 }
 

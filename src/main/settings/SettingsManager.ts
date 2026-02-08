@@ -46,7 +46,7 @@ export interface AppSettings {
   maxImageWidth: number; // 800-2400
 
   // Transcription
-  transcriptionService: 'openai' | 'deepgram';
+  transcriptionService: 'openai';
   language: string;
   enableKeywordTriggers: boolean;
 
@@ -65,8 +65,6 @@ export interface AppSettings {
   keepAudioBackups: boolean;
 
   // Legacy (for migration compatibility - these are mapped to secure storage or new fields)
-  /** @deprecated Kept for migration compatibility only */
-  deepgramApiKey?: string;
   /** @deprecated Use audioDeviceId instead */
   preferredAudioDevice?: string;
   /** @deprecated Output format is always markdown */
@@ -183,7 +181,7 @@ const SETTINGS_SCHEMA = {
   imageFormat: { type: 'string', enum: ['png', 'jpeg'] },
   imageQuality: { type: 'number', minimum: 1, maximum: 100 },
   maxImageWidth: { type: 'number', minimum: 800, maximum: 2400 },
-  transcriptionService: { type: 'string', enum: ['openai', 'deepgram'] },
+  transcriptionService: { type: 'string', enum: ['openai'] },
   language: { type: 'string' },
   enableKeywordTriggers: { type: 'boolean' },
   hotkeys: {
@@ -347,7 +345,7 @@ export class SettingsManager implements ISettingsManager {
         return value === 'dark' || value === 'light' || value === 'system';
 
       case 'transcriptionService':
-        return (value as unknown as string) === 'openai' || (value as unknown as string) === 'deepgram';
+        return (value as unknown as string) === 'openai';
 
       case 'accentColor':
         return typeof value === 'string' && /^#[0-9A-Fa-f]{6}$/.test(value as string);
@@ -491,7 +489,7 @@ export class SettingsManager implements ISettingsManager {
    * Normalize deprecated transcription service values to the current default.
    */
   private normalizeTranscriptionService(): void {
-    const current = this.store.get('transcriptionService');
+    const current = this.store.get('transcriptionService') as unknown;
     if (current === 'deepgram') {
       this.store.set('transcriptionService', 'openai');
       console.log('[SettingsManager] Normalized legacy transcriptionService "deepgram" -> "openai"');

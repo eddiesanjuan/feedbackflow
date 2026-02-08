@@ -1,6 +1,6 @@
 # Development Guide
 
-This guide covers everything you need to know to develop FeedbackFlow.
+This guide covers everything you need to know to develop markupr.
 
 ## Table of Contents
 
@@ -47,8 +47,8 @@ Create `.vscode/extensions.json`:
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/eddiesanjuan/feedbackflow.git
-cd feedbackflow
+git clone https://github.com/eddiesanjuan/markupr.git
+cd markupr
 ```
 
 ### 2. Install Dependencies
@@ -61,7 +61,7 @@ This installs:
 - Electron and electron-vite
 - React and React DOM
 - TypeScript
-- Deepgram SDK
+- OpenAI SDK
 - All other dependencies
 
 ### 3. Configure Environment
@@ -73,7 +73,7 @@ Create a `.env.local` file (optional, for development):
 DEEPGRAM_API_KEY=your_dev_api_key
 
 # Enable additional logging
-DEBUG=feedbackflow:*
+DEBUG=markupr:*
 ```
 
 ### 4. Start Development Server
@@ -89,7 +89,7 @@ This starts:
 
 ### 5. Verify Setup
 
-1. The FeedbackFlow window should open
+1. The markupr window should open
 2. Tray icon should appear
 3. Press `Cmd+Shift+F` (or `Ctrl+Shift+F`)
 4. If you see the window selector, setup is complete!
@@ -97,7 +97,7 @@ This starts:
 ## Project Structure
 
 ```
-feedbackflow/
+markupr/
 ├── src/
 │   ├── main/                    # Electron main process
 │   │   ├── index.ts             # Entry point, orchestration
@@ -113,7 +113,7 @@ feedbackflow/
 │   │   │   └── IntelligentCapture.ts
 │   │   ├── audio/               # Audio capture
 │   │   │   └── AudioCapture.ts
-│   │   ├── transcription/       # Deepgram integration
+│   │   ├── transcription/       # OpenAI integration
 │   │   │   └── TranscriptionService.ts
 │   │   ├── output/              # Document generation
 │   │   │   ├── MarkdownGenerator.ts
@@ -176,7 +176,7 @@ feedbackflow/
 
 ## Build System
 
-FeedbackFlow uses [electron-vite](https://electron-vite.org/) for building.
+markupr uses [electron-vite](https://electron-vite.org/) for building.
 
 ### Configuration Files
 
@@ -216,15 +216,15 @@ dist/
 └── renderer/       # Compiled React app
 
 release/            # Packaged applications
-├── FeedbackFlow-0.4.0.dmg
-├── FeedbackFlow-0.4.0-arm64.dmg
-├── FeedbackFlow Setup 0.4.0.exe
-└── feedbackflow_0.4.0_amd64.deb
+├── markupr-0.4.0.dmg
+├── markupr-0.4.0-arm64.dmg
+├── markupr Setup 0.4.0.exe
+└── markupr_0.4.0_amd64.deb
 ```
 
 ## Testing
 
-FeedbackFlow uses [Vitest](https://vitest.dev/) for testing.
+markupr uses [Vitest](https://vitest.dev/) for testing.
 
 ### Running Tests
 
@@ -297,7 +297,7 @@ vi.mock('electron', () => ({
 Or set in environment:
 
 ```bash
-DEBUG=feedbackflow:* npm run dev
+DEBUG=markupr:* npm run dev
 ```
 
 ### DevTools
@@ -316,7 +316,7 @@ Main process logs appear in the terminal:
 [Main] Settings loaded
 [Main] Session controller initialized
 [Main] Transcription service configured
-[Main] FeedbackFlow initialization complete
+[Main] markupr initialization complete
 ```
 
 Renderer logs appear in DevTools console.
@@ -325,10 +325,10 @@ Renderer logs appear in DevTools console.
 
 ```bash
 # Enable all debug output
-DEBUG=feedbackflow:*
+DEBUG=markupr:*
 
 # Enable specific modules
-DEBUG=feedbackflow:transcription,feedbackflow:capture
+DEBUG=markupr:transcription,markupr:capture
 
 # Verbose Electron logs
 ELECTRON_ENABLE_LOGGING=1

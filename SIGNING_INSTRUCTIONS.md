@@ -1,6 +1,6 @@
-# Code Signing & Notarization Guide for FeedbackFlow
+# Code Signing & Notarization Guide for markupr
 
-This guide explains how to set up Apple code signing and notarization for distributing FeedbackFlow.
+This guide explains how to set up Apple code signing and notarization for distributing markupr.
 
 ## Why Code Signing Matters
 
@@ -64,7 +64,7 @@ Apple requires an app-specific password for notarization (not your regular Apple
 2. Sign in with your Apple ID
 3. Navigate to "App-Specific Passwords"
 4. Click "Generate Password"
-5. Name it "FeedbackFlow Notarization"
+5. Name it "markupr Notarization"
 6. **Save this password securely** - you'll need it for builds
 
 ---
@@ -95,7 +95,7 @@ security find-identity -v -p codesigning | grep "Developer ID"
 Add to your shell profile (`~/.zshrc` or `~/.bashrc`):
 
 ```bash
-# FeedbackFlow Code Signing
+# markupr Code Signing
 export APPLE_ID="your.email@example.com"
 export APPLE_APP_SPECIFIC_PASSWORD="xxxx-xxxx-xxxx-xxxx"
 export APPLE_TEAM_ID="ABCD1234XY"
@@ -183,10 +183,10 @@ security find-identity -v -p codesigning
 The app was modified after signing:
 ```bash
 # Verify signature
-codesign --verify --deep --strict /path/to/FeedbackFlow.app
+codesign --verify --deep --strict /path/to/markupr.app
 
 # Re-sign if needed
-codesign --deep --force --verify --verbose --sign "Developer ID Application: Your Name" /path/to/FeedbackFlow.app
+codesign --deep --force --verify --verbose --sign "Developer ID Application: Your Name" /path/to/markupr.app
 ```
 
 ### "This app is damaged"
@@ -194,7 +194,7 @@ codesign --deep --force --verify --verbose --sign "Developer ID Application: You
 Gatekeeper quarantine issue:
 ```bash
 # Remove quarantine attribute
-xattr -cr /Applications/FeedbackFlow.app
+xattr -cr /Applications/markupr.app
 ```
 
 ### Notarization timeout
@@ -237,7 +237,7 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: FeedbackFlow-mac
+          name: markupr-mac
           path: release/*.dmg
 ```
 
@@ -268,10 +268,10 @@ npm run release
 npx electron-builder --mac --dir
 
 # Verify signature
-codesign --verify --deep --strict "release/mac/FeedbackFlow.app"
+codesign --verify --deep --strict "release/mac/markupr.app"
 
 # Check notarization status
-xcrun stapler validate "release/FeedbackFlow-0.2.0.dmg"
+xcrun stapler validate "release/markupr-0.2.0.dmg"
 ```
 
 ---

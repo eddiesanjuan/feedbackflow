@@ -1,5 +1,5 @@
 /**
- * Shared types for FeedbackFlow
+ * Shared types for markupr
  */
 
 /**
@@ -104,7 +104,7 @@ export interface AppSettings {
   maxImageWidth: number; // 800-2400
 
   // Transcription
-  transcriptionService: 'openai' | 'deepgram';
+  transcriptionService: 'openai';
   language: string;
   enableKeywordTriggers: boolean;
 
@@ -123,8 +123,6 @@ export interface AppSettings {
   keepAudioBackups: boolean;
 
   // Legacy fields (for migration compatibility)
-  /** @deprecated Kept for migration compatibility only */
-  deepgramApiKey?: string;
   /** @deprecated Use imageQuality instead */
   screenshotQuality?: number;
   /** @deprecated Use pauseThreshold instead */
@@ -193,197 +191,197 @@ export const DEFAULT_SETTINGS: AppSettings = {
 
 /**
  * IPC channel names for main/renderer communication
- * Namespaced with 'feedbackflow:' prefix for clarity
+ * Namespaced with 'markupr:' prefix for clarity
  */
 export const IPC_CHANNELS = {
   // ---------------------------------------------------------------------------
   // Session Channels (Renderer -> Main)
   // ---------------------------------------------------------------------------
-  SESSION_START: 'feedbackflow:session:start',
-  SESSION_STOP: 'feedbackflow:session:stop',
-  SESSION_PAUSE: 'feedbackflow:session:pause',
-  SESSION_RESUME: 'feedbackflow:session:resume',
-  SESSION_CANCEL: 'feedbackflow:session:cancel',
-  SESSION_GET_STATUS: 'feedbackflow:session:get-status',
-  SESSION_GET_CURRENT: 'feedbackflow:session:get-current',
+  SESSION_START: 'markupr:session:start',
+  SESSION_STOP: 'markupr:session:stop',
+  SESSION_PAUSE: 'markupr:session:pause',
+  SESSION_RESUME: 'markupr:session:resume',
+  SESSION_CANCEL: 'markupr:session:cancel',
+  SESSION_GET_STATUS: 'markupr:session:get-status',
+  SESSION_GET_CURRENT: 'markupr:session:get-current',
 
   // ---------------------------------------------------------------------------
   // Session Channels (Main -> Renderer)
   // ---------------------------------------------------------------------------
-  SESSION_STATE_CHANGED: 'feedbackflow:session:state-changed',
-  SESSION_STATUS: 'feedbackflow:session:status-update',
-  SESSION_COMPLETE: 'feedbackflow:session:complete',
-  SESSION_FEEDBACK_ITEM: 'feedbackflow:session:feedback-item',
-  SESSION_VOICE_ACTIVITY: 'feedbackflow:session:voice-activity',
-  SESSION_ERROR: 'feedbackflow:session:error',
+  SESSION_STATE_CHANGED: 'markupr:session:state-changed',
+  SESSION_STATUS: 'markupr:session:status-update',
+  SESSION_COMPLETE: 'markupr:session:complete',
+  SESSION_FEEDBACK_ITEM: 'markupr:session:feedback-item',
+  SESSION_VOICE_ACTIVITY: 'markupr:session:voice-activity',
+  SESSION_ERROR: 'markupr:session:error',
 
   // ---------------------------------------------------------------------------
   // Capture Channels (Renderer -> Main)
   // ---------------------------------------------------------------------------
-  CAPTURE_GET_SOURCES: 'feedbackflow:capture:get-sources',
-  CAPTURE_MANUAL_SCREENSHOT: 'feedbackflow:capture:manual-screenshot',
-  SCREEN_RECORDING_START: 'feedbackflow:screen-recording:start',
-  SCREEN_RECORDING_CHUNK: 'feedbackflow:screen-recording:chunk',
-  SCREEN_RECORDING_STOP: 'feedbackflow:screen-recording:stop',
+  CAPTURE_GET_SOURCES: 'markupr:capture:get-sources',
+  CAPTURE_MANUAL_SCREENSHOT: 'markupr:capture:manual-screenshot',
+  SCREEN_RECORDING_START: 'markupr:screen-recording:start',
+  SCREEN_RECORDING_CHUNK: 'markupr:screen-recording:chunk',
+  SCREEN_RECORDING_STOP: 'markupr:screen-recording:stop',
 
   // ---------------------------------------------------------------------------
   // Capture Channels (Main -> Renderer)
   // ---------------------------------------------------------------------------
-  SCREENSHOT_CAPTURED: 'feedbackflow:capture:screenshot-taken',
-  MANUAL_SCREENSHOT: 'feedbackflow:capture:manual-triggered',
+  SCREENSHOT_CAPTURED: 'markupr:capture:screenshot-taken',
+  MANUAL_SCREENSHOT: 'markupr:capture:manual-triggered',
 
   // ---------------------------------------------------------------------------
   // Display Channels (Main -> Renderer) - Multi-monitor support
   // ---------------------------------------------------------------------------
-  DISPLAYS_CHANGED: 'feedbackflow:displays:changed',
-  DISPLAY_DISCONNECTED: 'feedbackflow:display:disconnected',
+  DISPLAYS_CHANGED: 'markupr:displays:changed',
+  DISPLAY_DISCONNECTED: 'markupr:display:disconnected',
 
   // ---------------------------------------------------------------------------
   // Audio Channels (Renderer -> Main)
   // ---------------------------------------------------------------------------
-  AUDIO_GET_DEVICES: 'feedbackflow:audio:get-devices',
-  AUDIO_SET_DEVICE: 'feedbackflow:audio:set-device',
+  AUDIO_GET_DEVICES: 'markupr:audio:get-devices',
+  AUDIO_SET_DEVICE: 'markupr:audio:set-device',
 
   // ---------------------------------------------------------------------------
   // Audio Channels (Main -> Renderer) - Communication with audio capture
   // ---------------------------------------------------------------------------
-  AUDIO_REQUEST_DEVICES: 'feedbackflow:audio:request-devices',
-  AUDIO_START_CAPTURE: 'feedbackflow:audio:start-capture',
-  AUDIO_STOP_CAPTURE: 'feedbackflow:audio:stop-capture',
-  AUDIO_CHUNK: 'feedbackflow:audio:chunk',
-  AUDIO_DEVICES_RESPONSE: 'feedbackflow:audio:devices-response',
-  AUDIO_CAPTURE_ERROR: 'feedbackflow:audio:capture-error',
-  AUDIO_CAPTURE_STARTED: 'feedbackflow:audio:capture-started',
-  AUDIO_CAPTURE_STOPPED: 'feedbackflow:audio:capture-stopped',
-  AUDIO_LEVEL: 'feedbackflow:audio:level',
-  AUDIO_VOICE_ACTIVITY: 'feedbackflow:audio:voice-activity',
+  AUDIO_REQUEST_DEVICES: 'markupr:audio:request-devices',
+  AUDIO_START_CAPTURE: 'markupr:audio:start-capture',
+  AUDIO_STOP_CAPTURE: 'markupr:audio:stop-capture',
+  AUDIO_CHUNK: 'markupr:audio:chunk',
+  AUDIO_DEVICES_RESPONSE: 'markupr:audio:devices-response',
+  AUDIO_CAPTURE_ERROR: 'markupr:audio:capture-error',
+  AUDIO_CAPTURE_STARTED: 'markupr:audio:capture-started',
+  AUDIO_CAPTURE_STOPPED: 'markupr:audio:capture-stopped',
+  AUDIO_LEVEL: 'markupr:audio:level',
+  AUDIO_VOICE_ACTIVITY: 'markupr:audio:voice-activity',
 
   // ---------------------------------------------------------------------------
   // Transcription Channels (Main -> Renderer)
   // ---------------------------------------------------------------------------
-  TRANSCRIPTION_UPDATE: 'feedbackflow:transcript:chunk',
-  TRANSCRIPTION_FINAL: 'feedbackflow:transcript:final',
+  TRANSCRIPTION_UPDATE: 'markupr:transcript:chunk',
+  TRANSCRIPTION_FINAL: 'markupr:transcript:final',
 
   // ---------------------------------------------------------------------------
   // Transcription Control Channels (Renderer -> Main)
   // ---------------------------------------------------------------------------
-  TRANSCRIPTION_GET_TIER_STATUSES: 'feedbackflow:transcription:get-tier-statuses',
-  TRANSCRIPTION_GET_CURRENT_TIER: 'feedbackflow:transcription:get-current-tier',
-  TRANSCRIPTION_SET_TIER: 'feedbackflow:transcription:set-tier',
+  TRANSCRIPTION_GET_TIER_STATUSES: 'markupr:transcription:get-tier-statuses',
+  TRANSCRIPTION_GET_CURRENT_TIER: 'markupr:transcription:get-current-tier',
+  TRANSCRIPTION_SET_TIER: 'markupr:transcription:set-tier',
 
   // ---------------------------------------------------------------------------
   // Settings Channels (Renderer -> Main)
   // ---------------------------------------------------------------------------
-  SETTINGS_GET: 'feedbackflow:settings:get',
-  SETTINGS_GET_ALL: 'feedbackflow:settings:get-all',
-  SETTINGS_SET: 'feedbackflow:settings:set',
-  SETTINGS_GET_API_KEY: 'feedbackflow:settings:get-api-key',
-  SETTINGS_SET_API_KEY: 'feedbackflow:settings:set-api-key',
-  SETTINGS_DELETE_API_KEY: 'feedbackflow:settings:delete-api-key',
-  SETTINGS_HAS_API_KEY: 'feedbackflow:settings:has-api-key',
-  SETTINGS_TEST_API_KEY: 'feedbackflow:settings:test-api-key',
-  SETTINGS_SELECT_DIRECTORY: 'feedbackflow:settings:select-directory',
-  SETTINGS_CLEAR_ALL_DATA: 'feedbackflow:settings:clear-all-data',
-  SETTINGS_EXPORT: 'feedbackflow:settings:export',
-  SETTINGS_IMPORT: 'feedbackflow:settings:import',
+  SETTINGS_GET: 'markupr:settings:get',
+  SETTINGS_GET_ALL: 'markupr:settings:get-all',
+  SETTINGS_SET: 'markupr:settings:set',
+  SETTINGS_GET_API_KEY: 'markupr:settings:get-api-key',
+  SETTINGS_SET_API_KEY: 'markupr:settings:set-api-key',
+  SETTINGS_DELETE_API_KEY: 'markupr:settings:delete-api-key',
+  SETTINGS_HAS_API_KEY: 'markupr:settings:has-api-key',
+  SETTINGS_TEST_API_KEY: 'markupr:settings:test-api-key',
+  SETTINGS_SELECT_DIRECTORY: 'markupr:settings:select-directory',
+  SETTINGS_CLEAR_ALL_DATA: 'markupr:settings:clear-all-data',
+  SETTINGS_EXPORT: 'markupr:settings:export',
+  SETTINGS_IMPORT: 'markupr:settings:import',
 
   // ---------------------------------------------------------------------------
   // Permissions Channels (Renderer -> Main)
   // ---------------------------------------------------------------------------
-  PERMISSIONS_CHECK: 'feedbackflow:permissions:check',
-  PERMISSIONS_REQUEST: 'feedbackflow:permissions:request',
-  PERMISSIONS_GET_ALL: 'feedbackflow:permissions:get-all',
+  PERMISSIONS_CHECK: 'markupr:permissions:check',
+  PERMISSIONS_REQUEST: 'markupr:permissions:request',
+  PERMISSIONS_GET_ALL: 'markupr:permissions:get-all',
 
   // ---------------------------------------------------------------------------
   // Output Channels (Renderer -> Main)
   // ---------------------------------------------------------------------------
-  OUTPUT_SAVE: 'feedbackflow:output:save',
-  OUTPUT_COPY_CLIPBOARD: 'feedbackflow:output:copy-clipboard',
-  OUTPUT_OPEN_FOLDER: 'feedbackflow:output:open-folder',
-  OUTPUT_EXPORT: 'feedbackflow:output:export',
+  OUTPUT_SAVE: 'markupr:output:save',
+  OUTPUT_COPY_CLIPBOARD: 'markupr:output:copy-clipboard',
+  OUTPUT_OPEN_FOLDER: 'markupr:output:open-folder',
+  OUTPUT_EXPORT: 'markupr:output:export',
 
   // Session History Browser
-  OUTPUT_LIST_SESSIONS: 'feedbackflow:output:list-sessions',
-  OUTPUT_GET_SESSION_METADATA: 'feedbackflow:output:get-session-metadata',
-  OUTPUT_DELETE_SESSION: 'feedbackflow:output:delete-session',
-  OUTPUT_DELETE_SESSIONS: 'feedbackflow:output:delete-sessions',
-  OUTPUT_EXPORT_SESSION: 'feedbackflow:output:export-session',
-  OUTPUT_EXPORT_SESSIONS: 'feedbackflow:output:export-sessions',
+  OUTPUT_LIST_SESSIONS: 'markupr:output:list-sessions',
+  OUTPUT_GET_SESSION_METADATA: 'markupr:output:get-session-metadata',
+  OUTPUT_DELETE_SESSION: 'markupr:output:delete-session',
+  OUTPUT_DELETE_SESSIONS: 'markupr:output:delete-sessions',
+  OUTPUT_EXPORT_SESSION: 'markupr:output:export-session',
+  OUTPUT_EXPORT_SESSIONS: 'markupr:output:export-sessions',
 
   // ---------------------------------------------------------------------------
   // Output Channels (Main -> Renderer)
   // ---------------------------------------------------------------------------
-  OUTPUT_READY: 'feedbackflow:output:ready',
-  OUTPUT_ERROR: 'feedbackflow:output:error',
+  OUTPUT_READY: 'markupr:output:ready',
+  OUTPUT_ERROR: 'markupr:output:error',
 
   // ---------------------------------------------------------------------------
   // Hotkey Channels
   // ---------------------------------------------------------------------------
-  HOTKEY_TRIGGERED: 'feedbackflow:hotkey:triggered',
-  HOTKEY_CONFIG: 'feedbackflow:hotkey:config',
-  HOTKEY_UPDATE: 'feedbackflow:hotkey:update',
+  HOTKEY_TRIGGERED: 'markupr:hotkey:triggered',
+  HOTKEY_CONFIG: 'markupr:hotkey:config',
+  HOTKEY_UPDATE: 'markupr:hotkey:update',
 
   // ---------------------------------------------------------------------------
   // Clipboard (Legacy - kept for compatibility)
   // ---------------------------------------------------------------------------
-  COPY_TO_CLIPBOARD: 'feedbackflow:clipboard:copy',
+  COPY_TO_CLIPBOARD: 'markupr:clipboard:copy',
 
   // ---------------------------------------------------------------------------
   // Window Control Channels
   // ---------------------------------------------------------------------------
-  WINDOW_MINIMIZE: 'feedbackflow:window:minimize',
-  WINDOW_CLOSE: 'feedbackflow:window:close',
-  WINDOW_HIDE: 'feedbackflow:window:hide',
+  WINDOW_MINIMIZE: 'markupr:window:minimize',
+  WINDOW_CLOSE: 'markupr:window:close',
+  WINDOW_HIDE: 'markupr:window:hide',
 
   // ---------------------------------------------------------------------------
   // Update Channels (Renderer -> Main)
   // ---------------------------------------------------------------------------
-  UPDATE_CHECK: 'feedbackflow:update:check',
-  UPDATE_DOWNLOAD: 'feedbackflow:update:download',
-  UPDATE_INSTALL: 'feedbackflow:update:install',
+  UPDATE_CHECK: 'markupr:update:check',
+  UPDATE_DOWNLOAD: 'markupr:update:download',
+  UPDATE_INSTALL: 'markupr:update:install',
 
   // ---------------------------------------------------------------------------
   // Update Channels (Main -> Renderer)
   // ---------------------------------------------------------------------------
-  UPDATE_STATUS: 'feedbackflow:update:status',
+  UPDATE_STATUS: 'markupr:update:status',
 
   // ---------------------------------------------------------------------------
   // Crash Recovery Channels (Renderer -> Main)
   // ---------------------------------------------------------------------------
-  CRASH_RECOVERY_CHECK: 'feedbackflow:crash-recovery:check',
-  CRASH_RECOVERY_RECOVER: 'feedbackflow:crash-recovery:recover',
-  CRASH_RECOVERY_DISCARD: 'feedbackflow:crash-recovery:discard',
-  CRASH_RECOVERY_GET_LOGS: 'feedbackflow:crash-recovery:get-logs',
-  CRASH_RECOVERY_CLEAR_LOGS: 'feedbackflow:crash-recovery:clear-logs',
-  CRASH_RECOVERY_UPDATE_SETTINGS: 'feedbackflow:crash-recovery:update-settings',
+  CRASH_RECOVERY_CHECK: 'markupr:crash-recovery:check',
+  CRASH_RECOVERY_RECOVER: 'markupr:crash-recovery:recover',
+  CRASH_RECOVERY_DISCARD: 'markupr:crash-recovery:discard',
+  CRASH_RECOVERY_GET_LOGS: 'markupr:crash-recovery:get-logs',
+  CRASH_RECOVERY_CLEAR_LOGS: 'markupr:crash-recovery:clear-logs',
+  CRASH_RECOVERY_UPDATE_SETTINGS: 'markupr:crash-recovery:update-settings',
 
   // ---------------------------------------------------------------------------
   // Crash Recovery Channels (Main -> Renderer)
   // ---------------------------------------------------------------------------
-  CRASH_RECOVERY_FOUND: 'feedbackflow:crash-recovery:found',
+  CRASH_RECOVERY_FOUND: 'markupr:crash-recovery:found',
 
   // ---------------------------------------------------------------------------
   // Taskbar Channels (Renderer -> Main) - Windows-specific
   // ---------------------------------------------------------------------------
-  TASKBAR_SET_PROGRESS: 'feedbackflow:taskbar:setProgress',
-  TASKBAR_FLASH_FRAME: 'feedbackflow:taskbar:flashFrame',
-  TASKBAR_SET_OVERLAY: 'feedbackflow:taskbar:setOverlay',
+  TASKBAR_SET_PROGRESS: 'markupr:taskbar:setProgress',
+  TASKBAR_FLASH_FRAME: 'markupr:taskbar:flashFrame',
+  TASKBAR_SET_OVERLAY: 'markupr:taskbar:setOverlay',
 
   // ---------------------------------------------------------------------------
   // Whisper Model Channels (Renderer -> Main)
   // ---------------------------------------------------------------------------
-  WHISPER_CHECK_MODEL: 'feedbackflow:whisper:check-model',
-  WHISPER_DOWNLOAD_MODEL: 'feedbackflow:whisper:download-model',
-  WHISPER_CANCEL_DOWNLOAD: 'feedbackflow:whisper:cancel-download',
-  WHISPER_GET_AVAILABLE_MODELS: 'feedbackflow:whisper:get-available-models',
-  WHISPER_HAS_TRANSCRIPTION_CAPABILITY: 'feedbackflow:whisper:has-transcription-capability',
+  WHISPER_CHECK_MODEL: 'markupr:whisper:check-model',
+  WHISPER_DOWNLOAD_MODEL: 'markupr:whisper:download-model',
+  WHISPER_CANCEL_DOWNLOAD: 'markupr:whisper:cancel-download',
+  WHISPER_GET_AVAILABLE_MODELS: 'markupr:whisper:get-available-models',
+  WHISPER_HAS_TRANSCRIPTION_CAPABILITY: 'markupr:whisper:has-transcription-capability',
 
   // ---------------------------------------------------------------------------
   // Whisper Model Channels (Main -> Renderer)
   // ---------------------------------------------------------------------------
-  WHISPER_DOWNLOAD_PROGRESS: 'feedbackflow:whisper:download-progress',
-  WHISPER_DOWNLOAD_COMPLETE: 'feedbackflow:whisper:download-complete',
-  WHISPER_DOWNLOAD_ERROR: 'feedbackflow:whisper:download-error',
+  WHISPER_DOWNLOAD_PROGRESS: 'markupr:whisper:download-progress',
+  WHISPER_DOWNLOAD_COMPLETE: 'markupr:whisper:download-complete',
+  WHISPER_DOWNLOAD_ERROR: 'markupr:whisper:download-error',
 
   // ---------------------------------------------------------------------------
   // Legacy channels (backwards compatibility)
@@ -457,7 +455,7 @@ export interface ScreenshotCapturedPayload {
 /**
  * Transcription tier identifiers used by UI and IPC.
  */
-export type TranscriptionTier = 'auto' | 'deepgram' | 'whisper' | 'macos-dictation' | 'timer-only';
+export type TranscriptionTier = 'auto' | 'whisper' | 'macos-dictation' | 'timer-only';
 
 /**
  * Runtime availability status for a transcription tier.

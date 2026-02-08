@@ -182,25 +182,25 @@ class ErrorHandler {
     });
 
     // Notify renderer to show settings
-    this.emitToRenderer('feedbackflow:show-settings', { tab: 'api-key' });
+    this.emitToRenderer('markupr:show-settings', { tab: 'api-key' });
 
     // Show notification
-    this.notifyUser('API Key Invalid', 'Please check your Deepgram API key in settings.');
+    this.notifyUser('API Key Invalid', 'Please check your OpenAI API key in settings.');
 
     // Also show dialog for critical operations
     dialog.showMessageBox({
       type: 'warning',
       title: 'API Key Required',
-      message: 'Your Deepgram API key is missing or invalid.',
+      message: 'Your OpenAI API key is missing or invalid.',
       detail:
-        'markupr uses Deepgram for voice transcription. ' +
+        'markupr uses OpenAI for post-session narration transcription. ' +
         'Please enter a valid API key in Settings.\n\n' +
-        'You can get a free API key at console.deepgram.com',
+        'Create a key at platform.openai.com/api-keys',
       buttons: ['Open Settings', 'OK'],
       defaultId: 0,
     }).then(({ response }) => {
       if (response === 0) {
-        this.emitToRenderer('feedbackflow:show-settings', { tab: 'api-key' });
+        this.emitToRenderer('markupr:show-settings', { tab: 'api-key' });
       }
     });
   }
@@ -221,7 +221,7 @@ class ErrorHandler {
     });
 
     // Emit to renderer for UI updates
-    this.emitToRenderer('feedbackflow:network-error', {
+    this.emitToRenderer('markupr:network-error', {
       message: 'Connection issue detected',
       isBuffering: true,
     });
@@ -242,7 +242,7 @@ class ErrorHandler {
       operation: 'handleNetworkRecovery',
     });
 
-    this.emitToRenderer('feedbackflow:network-restored', {});
+    this.emitToRenderer('markupr:network-restored', {});
     this.notifyUser('Connection Restored', 'Transcription service reconnected.');
   }
 
@@ -266,7 +266,7 @@ class ErrorHandler {
     // (e.g., window closed, minimized, etc.)
 
     // Just emit to renderer for potential UI feedback
-    this.emitToRenderer('feedbackflow:capture-warning', {
+    this.emitToRenderer('markupr:capture-warning', {
       message: 'Screenshot capture skipped',
       reason: error.message,
     });
@@ -311,7 +311,7 @@ class ErrorHandler {
     }
 
     // Generic audio error
-    this.emitToRenderer('feedbackflow:audio-error', {
+    this.emitToRenderer('markupr:audio-error', {
       message: error.message,
     });
   }
@@ -350,7 +350,7 @@ class ErrorHandler {
     }
 
     // Generic transcription error
-    this.emitToRenderer('feedbackflow:transcription-error', {
+    this.emitToRenderer('markupr:transcription-error', {
       message: 'Transcription service error',
       detail: error.message,
     });
@@ -445,7 +445,7 @@ class ErrorHandler {
    */
   notifyUser(title: string, message: string): void {
     // First try to use renderer notification
-    this.emitToRenderer('feedbackflow:notification', { title, message });
+    this.emitToRenderer('markupr:notification', { title, message });
 
     // Also show system notification if supported
     if (Notification.isSupported()) {
@@ -633,7 +633,7 @@ class ErrorHandler {
     if (message.includes('capture') || message.includes('screenshot')) {
       return 'capture';
     }
-    if (message.includes('transcri') || message.includes('deepgram')) {
+    if (message.includes('transcri')) {
       return 'transcription';
     }
     if (

@@ -57,7 +57,7 @@ class TestableExportService {
 
     return {
       version: '1.0',
-      generator: 'FeedbackFlow v0.4.0',
+      generator: 'markupr v0.4.0',
       exportedAt: new Date().toISOString(),
       session: {
         id: session.id,
@@ -258,7 +258,7 @@ describe('ExportService', () => {
       const json = service.generateJsonExport(session, false);
 
       expect(json.version).toBe('1.0');
-      expect(json.generator).toContain('FeedbackFlow');
+      expect(json.generator).toContain('markupr');
       expect(json.exportedAt).toBeDefined();
     });
 

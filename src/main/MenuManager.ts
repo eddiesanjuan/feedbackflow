@@ -317,26 +317,26 @@ export class MenuManager {
           {
             label: 'markupr Documentation',
             click: () =>
-              shell.openExternal('https://github.com/eddiesanjuan/feedbackflow#readme'),
+              shell.openExternal('https://github.com/eddiesanjuan/markupr#readme'),
           },
           {
             label: 'Release Notes',
             click: () =>
               shell.openExternal(
-                'https://github.com/eddiesanjuan/feedbackflow/releases'
+                'https://github.com/eddiesanjuan/markupr/releases'
               ),
           },
           { type: 'separator' },
           {
             label: 'Report Issue...',
             click: () =>
-              shell.openExternal('https://github.com/eddiesanjuan/feedbackflow/issues'),
+              shell.openExternal('https://github.com/eddiesanjuan/markupr/issues'),
           },
           {
             label: 'Feature Request...',
             click: () =>
               shell.openExternal(
-                'https://github.com/eddiesanjuan/feedbackflow/discussions/new?category=ideas'
+                'https://github.com/eddiesanjuan/markupr/discussions/new?category=ideas'
               ),
           },
           { type: 'separator' },

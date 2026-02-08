@@ -1,5 +1,5 @@
 /**
- * WindowsTaskbar - Windows-specific taskbar integration for FeedbackFlow
+ * WindowsTaskbar - Windows-specific taskbar integration for markupr
  *
  * Provides native Windows taskbar features:
  * - Jump lists with recent sessions and quick actions

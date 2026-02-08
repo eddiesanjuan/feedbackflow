@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * FeedbackFlow Icon Generation Script
+ * markupr Icon Generation Script
  *
  * Generates all app icons and brand assets from SVG sources using sharp.
  *
@@ -284,7 +284,7 @@ async function generateFavicons() {
  */
 async function main() {
   console.log('=========================================');
-  console.log('  FeedbackFlow Icon Generator (sharp)');
+  console.log('  markupr Icon Generator (sharp)');
   console.log('=========================================');
 
   try {

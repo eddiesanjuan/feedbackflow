@@ -691,9 +691,9 @@ export function SessionHistory({ isOpen, onClose, onOpenSession }: SessionHistor
       setIsLoading(true);
       try {
         // Call the IPC API to list sessions
-        // The API is typed in electron.d.ts as window.feedbackflow.output.listSessions()
-        if (window.feedbackflow?.output?.listSessions) {
-          const list = await window.feedbackflow.output.listSessions();
+        // The API is typed in electron.d.ts as window.markupr.output.listSessions()
+        if (window.markupr?.output?.listSessions) {
+          const list = await window.markupr.output.listSessions();
           setSessions(list);
         } else {
           // Fallback for development/testing without full IPC wiring
@@ -809,8 +809,8 @@ export function SessionHistory({ isOpen, onClose, onOpenSession }: SessionHistor
 
     try {
       // Call the IPC API to delete sessions
-      if (window.feedbackflow?.output?.deleteSessions) {
-        const result = await window.feedbackflow.output.deleteSessions(sessionIds);
+      if (window.markupr?.output?.deleteSessions) {
+        const result = await window.markupr.output.deleteSessions(sessionIds);
         if (result.success) {
           // Remove successfully deleted sessions from state
           setSessions((prev) => prev.filter((s) => !result.deleted.includes(s.id)));
@@ -842,12 +842,12 @@ export function SessionHistory({ isOpen, onClose, onOpenSession }: SessionHistor
   const handleExportSessions = useCallback(async (sessionIds: string[]) => {
     try {
       // Call the IPC API to export sessions
-      if (window.feedbackflow?.output?.exportSessions) {
-        const result = await window.feedbackflow.output.exportSessions(sessionIds);
+      if (window.markupr?.output?.exportSessions) {
+        const result = await window.markupr.output.exportSessions(sessionIds);
         if (result.success && result.path) {
           console.log('Sessions exported to:', result.path);
           // Optionally open the folder containing the export
-          await window.feedbackflow.output.openFolder(result.path);
+          await window.markupr.output.openFolder(result.path);
         } else if (result.error) {
           console.error('Export failed:', result.error);
         }
@@ -861,7 +861,7 @@ export function SessionHistory({ isOpen, onClose, onOpenSession }: SessionHistor
 
   const handleOpenFolder = useCallback(async (session: SessionMetadata) => {
     try {
-      await window.feedbackflow.output.openFolder(session.folder);
+      await window.markupr.output.openFolder(session.folder);
     } catch (error) {
       console.error('Failed to open folder:', error);
     }
@@ -960,7 +960,7 @@ export function SessionHistory({ isOpen, onClose, onOpenSession }: SessionHistor
     <div style={styles.overlay}>
       <style>
         {`
-          @keyframes feedbackflow-dialog-enter {
+          @keyframes markupr-dialog-enter {
             from {
               opacity: 0;
               transform: scale(0.95) translateY(10px);
@@ -972,24 +972,24 @@ export function SessionHistory({ isOpen, onClose, onOpenSession }: SessionHistor
           }
 
           .ff-dialog-animate {
-            animation: feedbackflow-dialog-enter 0.2s ease-out;
+            animation: markupr-dialog-enter 0.2s ease-out;
           }
 
-          .feedbackflow-history-scrollbar::-webkit-scrollbar {
+          .markupr-history-scrollbar::-webkit-scrollbar {
             width: 8px;
           }
 
-          .feedbackflow-history-scrollbar::-webkit-scrollbar-track {
+          .markupr-history-scrollbar::-webkit-scrollbar-track {
             background: rgba(31, 41, 55, 0.3);
             border-radius: 4px;
           }
 
-          .feedbackflow-history-scrollbar::-webkit-scrollbar-thumb {
+          .markupr-history-scrollbar::-webkit-scrollbar-thumb {
             background: rgba(107, 114, 128, 0.5);
             border-radius: 4px;
           }
 
-          .feedbackflow-history-scrollbar::-webkit-scrollbar-thumb:hover {
+          .markupr-history-scrollbar::-webkit-scrollbar-thumb:hover {
             background: rgba(107, 114, 128, 0.7);
           }
         `}
@@ -1065,7 +1065,7 @@ export function SessionHistory({ isOpen, onClose, onOpenSession }: SessionHistor
         </div>
 
         {/* Content */}
-        <div ref={listRef} style={styles.content} className="feedbackflow-history-scrollbar" role="grid">
+        <div ref={listRef} style={styles.content} className="markupr-history-scrollbar" role="grid">
           {isLoading ? (
             <LoadingState />
           ) : filteredSessions.length === 0 ? (

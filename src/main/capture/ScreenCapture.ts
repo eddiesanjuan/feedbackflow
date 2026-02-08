@@ -1,5 +1,5 @@
 /**
- * ScreenCapture Service for FeedbackFlow
+ * ScreenCapture Service for markupr
  *
  * Production-quality screen capture using Electron's desktopCapturer API.
  * Handles:

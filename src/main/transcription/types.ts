@@ -2,10 +2,9 @@
  * Shared Types for Transcription Services
  *
  * Common types used across all transcription tiers:
- * - Tier 1: Deepgram (cloud)
- * - Tier 2: Local Whisper
- * - Tier 3: macOS Dictation
- * - Tier 4: Timer-only
+ * - Tier 1: Local Whisper
+ * - Tier 2: macOS Dictation
+ * - Tier 3: Timer-only
  */
 
 // ============================================================================
@@ -15,7 +14,7 @@
 /**
  * Available transcription tiers in priority order
  */
-export type TranscriptionTier = 'deepgram' | 'whisper' | 'macos-dictation' | 'timer-only';
+export type TranscriptionTier = 'whisper' | 'macos-dictation' | 'timer-only';
 
 /**
  * Whisper model sizes available for download

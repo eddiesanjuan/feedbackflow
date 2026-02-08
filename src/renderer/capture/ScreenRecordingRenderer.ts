@@ -87,7 +87,7 @@ export class ScreenRecordingRenderer {
 
   private async getCandidateSourceIds(preferredSourceId: string): Promise<string[]> {
     const candidates = new Set<string>([preferredSourceId]);
-    const captureApi = window.feedbackflow?.capture;
+    const captureApi = window.markupr?.capture;
     if (!captureApi?.getSources) {
       return Array.from(candidates);
     }
@@ -182,7 +182,7 @@ export class ScreenRecordingRenderer {
     const stream = await this.acquireScreenStream(options.sourceId);
 
     const recordingStartTime = Date.now();
-    const startResult = await window.feedbackflow.screenRecording.start(
+    const startResult = await window.markupr.screenRecording.start(
       options.sessionId,
       mimeType,
       recordingStartTime
@@ -198,7 +198,7 @@ export class ScreenRecordingRenderer {
     } catch (error) {
       // MediaRecorder construction failed — clean up the main-process artifact and stream.
       stream.getTracks().forEach((track) => track.stop());
-      await window.feedbackflow.screenRecording.stop(options.sessionId).catch(() => {});
+      await window.markupr.screenRecording.stop(options.sessionId).catch(() => {});
       throw error;
     }
 
@@ -211,7 +211,7 @@ export class ScreenRecordingRenderer {
       const writePromise = event.data
         .arrayBuffer()
         .then((buffer) =>
-          window.feedbackflow.screenRecording.appendChunk(sessionId, new Uint8Array(buffer))
+          window.markupr.screenRecording.appendChunk(sessionId, new Uint8Array(buffer))
         )
         .then((result) => {
           if (!result.success) {
@@ -243,7 +243,7 @@ export class ScreenRecordingRenderer {
       this.mediaRecorder = null;
       this.activeSessionId = null;
       this.recordingStartTime = null;
-      await window.feedbackflow.screenRecording.stop(options.sessionId).catch(() => {});
+      await window.markupr.screenRecording.stop(options.sessionId).catch(() => {});
       throw error;
     }
   }
@@ -274,7 +274,7 @@ export class ScreenRecordingRenderer {
     await Promise.allSettled(Array.from(this.inFlightWrites));
     this.inFlightWrites.clear();
 
-    const result = await window.feedbackflow.screenRecording.stop(sessionId);
+    const result = await window.markupr.screenRecording.stop(sessionId);
     this.cleanupStream();
     this.mediaRecorder = null;
     this.activeSessionId = null;

@@ -1,23 +1,22 @@
 /**
- * IntelligentCapture - Intelligent Screenshot Trigger for FeedbackFlow
+ * IntelligentCapture - Intelligent Screenshot Trigger for markupr
  *
- * This is the SMART bridge between Deepgram's utterance_end events and screenshot capture.
+ * This bridges narration pause events and screenshot capture.
  *
  * Features:
- * - Triggers screenshots on Deepgram utterance_end (1200ms natural pause)
+ * - Triggers screenshots on utterance/pause events (1200ms natural pause)
  * - Supports manual screenshot via global hotkey (Cmd+Shift+S)
  * - 500ms debounce to prevent rapid captures
  * - Maintains 3-second rolling transcript window for association
  * - Emits events with full context for downstream consumers
  *
  * Architecture:
- *   TranscriptionService.onUtteranceEnd() ----\
+ *   NarrationService.onUtteranceEnd() --------\
  *                                              +--> IntelligentCapture --> SessionController
  *   HotkeyManager.onHotkey('manualScreenshot') /
  */
 
 import { EventEmitter } from 'events';
-import type { TranscriptionService, TranscriptResult } from '../transcription/TranscriptionService';
 import type { ScreenCaptureService, Screenshot } from './ScreenCapture';
 import type { IHotkeyManager, HotkeyAction } from '../HotkeyManager';
 
@@ -65,6 +64,24 @@ export type ScreenshotCallback = (screenshot: Screenshot, decision: CaptureDecis
 export type CaptureErrorCallback = (error: Error, trigger: CaptureTrigger) => void;
 
 /**
+ * Minimal transcript record used for screenshot-context windowing.
+ */
+export interface TranscriptResult {
+  text: string;
+  isFinal: boolean;
+  confidence: number;
+  timestamp: number;
+}
+
+/**
+ * Minimal narration service contract required by intelligent capture.
+ */
+export interface NarrationService {
+  onUtteranceEnd(callback: (timestamp: number) => void): () => void;
+  onTranscript(callback: (result: TranscriptResult) => void): () => void;
+}
+
+/**
  * IntelligentCapture service interface
  */
 export interface IntelligentCaptureService {
@@ -72,7 +89,7 @@ export interface IntelligentCaptureService {
    * Initialize with required service dependencies
    */
   initialize(
-    transcriptionService: TranscriptionService,
+    transcriptionService: NarrationService,
     screenCapture: ScreenCaptureService,
     hotkeyManager: IHotkeyManager
   ): void;
@@ -158,7 +175,7 @@ class IntelligentCaptureServiceImpl implements IntelligentCaptureService {
   private sourceId: string | null = null;
 
   // Service dependencies
-  private transcriptionService: TranscriptionService | null = null;
+  private transcriptionService: NarrationService | null = null;
   private screenCapture: ScreenCaptureService | null = null;
   private hotkeyManager: IHotkeyManager | null = null;
 
@@ -190,7 +207,7 @@ class IntelligentCaptureServiceImpl implements IntelligentCaptureService {
    * Must be called before start()
    */
   initialize(
-    transcriptionService: TranscriptionService,
+    transcriptionService: NarrationService,
     screenCapture: ScreenCaptureService,
     hotkeyManager: IHotkeyManager
   ): void {
@@ -326,7 +343,7 @@ class IntelligentCaptureServiceImpl implements IntelligentCaptureService {
 
   /**
    * Handle utterance end event from transcription service
-   * This is the primary intelligent trigger - Deepgram's 1200ms pause detection
+   * This is the primary intelligent trigger - a 1200ms narration pause detection
    */
   private handleUtteranceEnd(_timestamp: number): void {
     if (!this._isActive) {

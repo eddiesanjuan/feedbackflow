@@ -1,5 +1,5 @@
 /**
- * HotkeyManager - Global Hotkey Registration for FeedbackFlow
+ * HotkeyManager - Global Hotkey Registration for markupr
  *
  * Handles:
  * - Global hotkey registration that works when any app is focused

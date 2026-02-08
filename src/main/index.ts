@@ -305,7 +305,7 @@ function createWindow(): void {
 
     // Check if onboarding needed
     if (!hasCompletedOnboarding) {
-      mainWindow?.webContents.send('feedbackflow:show-onboarding');
+      mainWindow?.webContents.send('markupr:show-onboarding');
     }
   });
 
@@ -489,7 +489,7 @@ function handleTrayClick(): void {
   if (currentState === 'idle') {
     // Show window to start a new session
     showWindow();
-    mainWindow?.webContents.send('feedbackflow:show-window-selector');
+    mainWindow?.webContents.send('markupr:show-window-selector');
   } else if (currentState === 'recording') {
     // Stop recording
     stopSession();
@@ -504,7 +504,7 @@ function handleTrayClick(): void {
  */
 function handleSettingsClick(): void {
   showWindow();
-  mainWindow?.webContents.send('feedbackflow:show-settings');
+  mainWindow?.webContents.send('markupr:show-settings');
 }
 
 /**
@@ -522,27 +522,27 @@ function handleMenuAction(action: string, data?: unknown): void {
       break;
     case 'show-history':
       showWindow();
-      mainWindow?.webContents.send('feedbackflow:show-history');
+      mainWindow?.webContents.send('markupr:show-history');
       break;
     case 'show-export':
       showWindow();
-      mainWindow?.webContents.send('feedbackflow:show-export');
+      mainWindow?.webContents.send('markupr:show-export');
       break;
     case 'show-shortcuts':
       showWindow();
-      mainWindow?.webContents.send('feedbackflow:show-shortcuts');
+      mainWindow?.webContents.send('markupr:show-shortcuts');
       break;
     case 'check-updates':
       autoUpdaterManager.checkForUpdates();
       break;
     case 'open-session':
       showWindow();
-      mainWindow?.webContents.send('feedbackflow:open-session-dialog');
+      mainWindow?.webContents.send('markupr:open-session-dialog');
       break;
     case 'open-session-path':
       if (data && typeof data === 'object' && 'path' in data) {
         showWindow();
-        mainWindow?.webContents.send('feedbackflow:open-session', (data as { path: string }).path);
+        mainWindow?.webContents.send('markupr:open-session', (data as { path: string }).path);
       }
       break;
     default:
@@ -1417,7 +1417,7 @@ function setupIPC(): void {
         }
 
         const extension = extensionFromMimeType(mimeType);
-        const recordingsDir = join(app.getPath('temp'), 'feedbackflow-recordings');
+        const recordingsDir = join(app.getPath('temp'), 'markupr-recordings');
         await fs.mkdir(recordingsDir, { recursive: true });
 
         const tempPath = join(recordingsDir, `${sessionId}${extension}`);
@@ -1603,7 +1603,7 @@ function setupIPC(): void {
 
     const options: Electron.SaveDialogOptions = {
       title: 'Export markupr Settings',
-      defaultPath: join(app.getPath('documents'), 'feedbackflow-settings.json'),
+      defaultPath: join(app.getPath('documents'), 'markupr-settings.json'),
       filters: [{ name: 'JSON', extensions: ['json'] }],
     };
     const result = mainWindow
@@ -1927,7 +1927,7 @@ function setupIPC(): void {
   // App Version Handler
   // ---------------------------------------------------------------------------
 
-  ipcMain.handle('feedbackflow:app:version', () => {
+  ipcMain.handle('markupr:app:version', () => {
     return app.getVersion();
   });
 
@@ -1959,7 +1959,7 @@ function setupIPC(): void {
   // Popover Control Handlers (Menu Bar Mode)
   // ---------------------------------------------------------------------------
 
-  ipcMain.handle('feedbackflow:popover:resize', (_, width: number, height: number) => {
+  ipcMain.handle('markupr:popover:resize', (_, width: number, height: number) => {
     if (popover) {
       popover.resize(width, height);
       return { success: true };
@@ -1967,7 +1967,7 @@ function setupIPC(): void {
     return { success: false, error: 'Popover not initialized' };
   });
 
-  ipcMain.handle('feedbackflow:popover:resize-to-state', (_, state: string) => {
+  ipcMain.handle('markupr:popover:resize-to-state', (_, state: string) => {
     if (popover && state in POPOVER_SIZES) {
       popover.resizeToState(state as keyof typeof POPOVER_SIZES);
       return { success: true };
@@ -1975,17 +1975,17 @@ function setupIPC(): void {
     return { success: false, error: 'Popover not initialized or invalid state' };
   });
 
-  ipcMain.handle('feedbackflow:popover:show', () => {
+  ipcMain.handle('markupr:popover:show', () => {
     popover?.show();
     return { success: true };
   });
 
-  ipcMain.handle('feedbackflow:popover:hide', () => {
+  ipcMain.handle('markupr:popover:hide', () => {
     popover?.hide();
     return { success: true };
   });
 
-  ipcMain.handle('feedbackflow:popover:toggle', () => {
+  ipcMain.handle('markupr:popover:toggle', () => {
     popover?.toggle();
     return { success: true };
   });
@@ -2420,7 +2420,7 @@ app.whenReady().then(async () => {
     popoverWindow.once('ready-to-show', () => {
       console.log('[Main] Popover ready to show');
       if (!hasCompletedOnboarding) {
-        popoverWindow.webContents.send('feedbackflow:show-onboarding');
+        popoverWindow.webContents.send('markupr:show-onboarding');
       }
     });
 

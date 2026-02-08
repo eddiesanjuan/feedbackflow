@@ -3,7 +3,7 @@
  *
  * Generates a self-contained HTML document with:
  * - Embedded CSS (no external dependencies)
- * - Dark theme matching FeedbackFlow aesthetic
+ * - Dark theme matching markupr aesthetic
  * - Base64-embedded images
  * - Responsive design
  * - Print-friendly styles

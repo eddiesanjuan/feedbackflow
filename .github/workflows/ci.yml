@@ -1,5 +1,5 @@
 # =============================================================================
-# FeedbackFlow CI Pipeline
+# markupr CI Pipeline
 # =============================================================================
 # Runs on every push to main and pull request
 # Matrix build for macOS and Windows with comprehensive validation
@@ -91,10 +91,10 @@ jobs:
         os: [macos-latest, windows-latest]
         include:
           - os: macos-latest
-            artifact-name: feedbackflow-macos
+            artifact-name: markupr-macos
             build-path: release/*.dmg
           - os: windows-latest
-            artifact-name: feedbackflow-windows
+            artifact-name: markupr-windows
             build-path: release/*.exe
 
     steps:

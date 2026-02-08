@@ -37,9 +37,9 @@ class AudioCaptureRenderer {
   }
 
   private setupIPCListeners(): void {
-    const api = window.feedbackflow;
+    const api = window.markupr;
     if (!api?.audio) {
-      console.error('[AudioCaptureRenderer] feedbackflow.audio API not available');
+      console.error('[AudioCaptureRenderer] markupr.audio API not available');
       return;
     }
 
@@ -162,7 +162,7 @@ class AudioCaptureRenderer {
           this.sendEncodedChunkToMain(new Uint8Array(buffer), timestamp, duration, mimeType);
         })
         .catch((error) => {
-          const api = window.feedbackflow;
+          const api = window.markupr;
           api?.audio?.sendCaptureError(`Failed to process audio chunk: ${(error as Error).message}`);
         });
     };
@@ -170,7 +170,7 @@ class AudioCaptureRenderer {
     this.mediaRecorder.onerror = (event: Event) => {
       const recorderError = (event as ErrorEvent).error;
       const message = recorderError instanceof Error ? recorderError.message : 'Unknown recorder error';
-      const api = window.feedbackflow;
+      const api = window.markupr;
       api?.audio?.sendCaptureError(`Audio recorder error: ${message}`);
     };
 
@@ -217,9 +217,9 @@ class AudioCaptureRenderer {
       return;
     }
 
-    const api = window.feedbackflow;
+    const api = window.markupr;
     if (!api?.audio) {
-      console.error('[AudioCaptureRenderer] feedbackflow.audio API not available');
+      console.error('[AudioCaptureRenderer] markupr.audio API not available');
       return;
     }
 

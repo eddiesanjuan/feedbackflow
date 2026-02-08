@@ -6,7 +6,6 @@ function makeStatuses(
   overrides: Partial<Record<TierStatus['tier'], TierStatus>>
 ): TierStatus[] {
   const defaults: TierStatus[] = [
-    { tier: 'deepgram', available: false, reason: 'No API key configured' },
     { tier: 'whisper', available: false, reason: 'Model not downloaded' },
     { tier: 'macos-dictation', available: true },
     { tier: 'timer-only', available: true },
@@ -16,17 +15,16 @@ function makeStatuses(
 }
 
 describe('TierManager preference selection', () => {
-  it('prefers Deepgram by default when auto mode and Deepgram is available', async () => {
+  it('prefers Whisper by default when auto mode and Whisper is available', async () => {
     const manager = new TierManager();
     vi.spyOn(manager, 'getTierStatuses').mockResolvedValue(
       makeStatuses({
-        deepgram: { tier: 'deepgram', available: true },
         whisper: { tier: 'whisper', available: true },
       })
     );
 
     const selected = await manager.selectBestTier();
-    expect(selected).toBe('deepgram');
+    expect(selected).toBe('whisper');
   });
 
   it('uses preferred Whisper when available', async () => {
@@ -34,7 +32,6 @@ describe('TierManager preference selection', () => {
     manager.setPreferredTier('whisper');
     vi.spyOn(manager, 'getTierStatuses').mockResolvedValue(
       makeStatuses({
-        deepgram: { tier: 'deepgram', available: true },
         whisper: { tier: 'whisper', available: true },
       })
     );
@@ -45,16 +42,16 @@ describe('TierManager preference selection', () => {
 
   it('falls back automatically when preferred tier is unavailable', async () => {
     const manager = new TierManager();
-    manager.setPreferredTier('deepgram');
+    manager.setPreferredTier('whisper');
     vi.spyOn(manager, 'getTierStatuses').mockResolvedValue(
       makeStatuses({
-        deepgram: { tier: 'deepgram', available: false, reason: 'No internet' },
-        whisper: { tier: 'whisper', available: true },
+        whisper: { tier: 'whisper', available: false, reason: 'No model' },
+        'macos-dictation': { tier: 'macos-dictation', available: true },
       })
     );
 
     const selected = await manager.selectBestTier();
-    expect(selected).toBe('whisper');
+    expect(selected).toBe('macos-dictation');
   });
 
   it('rejects non-transcribing preferred tiers in strict feedback mode', () => {
