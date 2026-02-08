@@ -93,7 +93,7 @@
     "vitest": "^1.0.0"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.73.0",
+    "@anthropic-ai/sdk": "^0.74.0",
     "electron-log": "^5.4.3",
     "electron-store": "^11.0.2",
     "electron-updater": "^6.7.3",
