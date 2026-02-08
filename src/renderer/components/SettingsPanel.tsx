@@ -1201,30 +1201,17 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     setOpenAiApiKey((prev) => ({ ...prev, testing: true, error: null }));
 
     try {
-      const response = await fetch('https://api.openai.com/v1/models', {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${openAiApiKey.value}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const validation = await window.feedbackflow.settings.testApiKey('openai', openAiApiKey.value);
 
-      if (response.ok) {
+      if (validation.valid) {
         await window.feedbackflow.settings.setApiKey('openai', openAiApiKey.value);
         setOpenAiApiKey((prev) => ({ ...prev, testing: false, valid: true }));
-      } else if (response.status === 401) {
-        setOpenAiApiKey((prev) => ({
-          ...prev,
-          testing: false,
-          valid: false,
-          error: 'Invalid OpenAI API key. Please check and try again.',
-        }));
       } else {
         setOpenAiApiKey((prev) => ({
           ...prev,
           testing: false,
           valid: false,
-          error: `OpenAI API error (${response.status}). Please try again.`,
+          error: validation.error || 'OpenAI API key test failed. Please try again.',
         }));
       }
     } catch {
@@ -1232,7 +1219,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         ...prev,
         testing: false,
         valid: false,
-        error: 'Network error. Please check your connection.',
+        error: 'Failed to test OpenAI API key. Please try again.',
       }));
     }
   }, [openAiApiKey.value]);
@@ -1249,30 +1236,17 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     setAnthropicApiKey((prev) => ({ ...prev, testing: true, error: null }));
 
     try {
-      const response = await fetch('https://api.anthropic.com/v1/models', {
-        method: 'GET',
-        headers: {
-          'x-api-key': anthropicApiKey.value,
-          'anthropic-version': '2023-06-01',
-        },
-      });
+      const validation = await window.feedbackflow.settings.testApiKey('anthropic', anthropicApiKey.value);
 
-      if (response.ok) {
+      if (validation.valid) {
         await window.feedbackflow.settings.setApiKey('anthropic', anthropicApiKey.value);
         setAnthropicApiKey((prev) => ({ ...prev, testing: false, valid: true }));
-      } else if (response.status === 401 || response.status === 403) {
-        setAnthropicApiKey((prev) => ({
-          ...prev,
-          testing: false,
-          valid: false,
-          error: 'Invalid Anthropic API key. Please check and try again.',
-        }));
       } else {
         setAnthropicApiKey((prev) => ({
           ...prev,
           testing: false,
           valid: false,
-          error: `Anthropic API error (${response.status}). Please try again.`,
+          error: validation.error || 'Anthropic API key test failed. Please try again.',
         }));
       }
     } catch {
@@ -1280,7 +1254,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         ...prev,
         testing: false,
         valid: false,
-        error: 'Network error. Please check your connection.',
+        error: 'Failed to test Anthropic API key. Please try again.',
       }));
     }
   }, [anthropicApiKey.value]);

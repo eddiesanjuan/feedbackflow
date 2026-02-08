@@ -59,6 +59,7 @@ import {
   type SessionPayload,
   type SaveResult,
   type TrayState,
+  type ApiKeyValidationResult,
   type TranscriptionTier as UiTranscriptionTier,
   type TranscriptionTierStatus,
 } from '../shared/types';
@@ -1230,6 +1231,90 @@ async function exportSessionFolders(sessionIds: string[]): Promise<string> {
   return bundleDir;
 }
 
+type ApiKeyProvider = 'openai' | 'anthropic';
+
+async function validateProviderApiKey(
+  service: ApiKeyProvider,
+  key: string,
+): Promise<ApiKeyValidationResult> {
+  const trimmedKey = key.trim();
+
+  if (trimmedKey.length < 10) {
+    return {
+      valid: false,
+      error: 'Please enter a valid API key.',
+    };
+  }
+
+  const controller = new AbortController();
+  const timeoutHandle = setTimeout(() => controller.abort(), 12000);
+
+  const requestConfig = service === 'openai'
+    ? {
+        url: 'https://api.openai.com/v1/models?limit=1',
+        headers: {
+          Authorization: `Bearer ${trimmedKey}`,
+          'Content-Type': 'application/json',
+        } as Record<string, string>,
+      }
+    : {
+        url: 'https://api.anthropic.com/v1/models?limit=1',
+        headers: {
+          'x-api-key': trimmedKey,
+          'anthropic-version': '2023-06-01',
+        } as Record<string, string>,
+      };
+
+  try {
+    const response = await fetch(requestConfig.url, {
+      method: 'GET',
+      headers: requestConfig.headers,
+      signal: controller.signal,
+    });
+
+    if (response.ok) {
+      return { valid: true };
+    }
+
+    if (service === 'openai' && (response.status === 401 || response.status === 403)) {
+      return {
+        valid: false,
+        status: response.status,
+        error: 'Invalid OpenAI API key. Please check and try again.',
+      };
+    }
+
+    if (service === 'anthropic' && (response.status === 401 || response.status === 403)) {
+      return {
+        valid: false,
+        status: response.status,
+        error: 'Invalid Anthropic API key. Please check and try again.',
+      };
+    }
+
+    const providerLabel = service === 'openai' ? 'OpenAI' : 'Anthropic';
+    return {
+      valid: false,
+      status: response.status,
+      error: `${providerLabel} API error (${response.status}). Please try again.`,
+    };
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      return {
+        valid: false,
+        error: 'Request timed out. Please check your connection and try again.',
+      };
+    }
+
+    return {
+      valid: false,
+      error: 'Unable to reach API service. Check internet/VPN/firewall and try again.',
+    };
+  } finally {
+    clearTimeout(timeoutHandle);
+  }
+}
+
 // =============================================================================
 // IPC Handlers Setup
 // =============================================================================
@@ -1637,6 +1722,20 @@ function setupIPC(): void {
       }
 
       return settingsManager.hasApiKey(service);
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.SETTINGS_TEST_API_KEY,
+    async (_, service: ApiKeyProvider, key: string): Promise<ApiKeyValidationResult> => {
+      if (service !== 'openai' && service !== 'anthropic') {
+        return {
+          valid: false,
+          error: 'Unsupported API provider.',
+        };
+      }
+
+      return validateProviderApiKey(service, key);
     }
   );
 

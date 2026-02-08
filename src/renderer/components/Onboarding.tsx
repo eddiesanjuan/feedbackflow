@@ -1180,16 +1180,9 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, onSkip }) =>
     setApiKey((prev) => ({ ...prev, testing: true, error: null }));
 
     try {
-      // Test the API key by making a lightweight OpenAI request
-      const response = await fetch('https://api.openai.com/v1/models', {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${apiKey.value}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const validation = await window.feedbackflow.settings.testApiKey('openai', apiKey.value);
 
-      if (response.ok) {
+      if (validation.valid) {
         setApiKey((prev) => ({ ...prev, testing: false, valid: true }));
 
         // Save the API key via IPC (using secure storage)
@@ -1198,19 +1191,12 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, onSkip }) =>
         } catch {
           // Settings save failed but key is valid
         }
-      } else if (response.status === 401) {
-        setApiKey((prev) => ({
-          ...prev,
-          testing: false,
-          valid: false,
-          error: 'Invalid OpenAI API key. Please check and try again.',
-        }));
       } else {
         setApiKey((prev) => ({
           ...prev,
           testing: false,
           valid: false,
-          error: `OpenAI API error: ${response.status}. Please try again.`,
+          error: validation.error || 'OpenAI API key test failed. Please try again.',
         }));
       }
     } catch {
@@ -1218,7 +1204,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, onSkip }) =>
         ...prev,
         testing: false,
         valid: false,
-        error: 'Network error. Please check your connection.',
+        error: 'Failed to test API key. Please try again.',
       }));
     }
   }, [apiKey.value]);

@@ -138,6 +138,15 @@ export interface AppSettings {
 }
 
 /**
+ * Result of validating a provider API key from the main process.
+ */
+export interface ApiKeyValidationResult {
+  valid: boolean;
+  error?: string;
+  status?: number;
+}
+
+/**
  * Default settings
  */
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -272,6 +281,7 @@ export const IPC_CHANNELS = {
   SETTINGS_SET_API_KEY: 'feedbackflow:settings:set-api-key',
   SETTINGS_DELETE_API_KEY: 'feedbackflow:settings:delete-api-key',
   SETTINGS_HAS_API_KEY: 'feedbackflow:settings:has-api-key',
+  SETTINGS_TEST_API_KEY: 'feedbackflow:settings:test-api-key',
   SETTINGS_SELECT_DIRECTORY: 'feedbackflow:settings:select-directory',
   SETTINGS_CLEAR_ALL_DATA: 'feedbackflow:settings:clear-all-data',
   SETTINGS_EXPORT: 'feedbackflow:settings:export',

@@ -26,6 +26,7 @@ import type {
   WhisperDownloadProgressPayload,
   WhisperModelInfoPayload,
   WhisperModelCheckResult,
+  ApiKeyValidationResult,
 } from '../../shared/types';
 
 type Unsubscribe = () => void;
@@ -140,6 +141,7 @@ interface SettingsAPI {
   setApiKey: (service: string, key: string) => Promise<boolean>;
   deleteApiKey: (service: string) => Promise<boolean>;
   hasApiKey: (service: string) => Promise<boolean>;
+  testApiKey: (service: 'openai' | 'anthropic', key: string) => Promise<ApiKeyValidationResult>;
   selectDirectory: () => Promise<string | null>;
   clearAllData: () => Promise<void>;
   export: () => Promise<void>;

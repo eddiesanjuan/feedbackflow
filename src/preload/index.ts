@@ -34,6 +34,7 @@ import {
   type WhisperModelCheckResult,
   type TranscriptionTier,
   type TranscriptionTierStatus,
+  type ApiKeyValidationResult,
 } from '../shared/types';
 
 // =============================================================================
@@ -458,6 +459,16 @@ const feedbackflow = {
      */
     hasApiKey: (service: string): Promise<boolean> => {
       return ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_HAS_API_KEY, service);
+    },
+
+    /**
+     * Validate an API key by performing a provider request from main process.
+     */
+    testApiKey: (
+      service: 'openai' | 'anthropic',
+      key: string
+    ): Promise<ApiKeyValidationResult> => {
+      return ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_TEST_API_KEY, service, key);
     },
 
     /**
