@@ -26,9 +26,9 @@ Bug reporting tools assume something is *broken*. Development feedback captures 
 
 ## What markupr Does
 
-markupr is a menu bar app that lets you talk through what you see in any application and produces an organized, AI-ready document with screenshots/recordings placed exactly where they belong.
+markupr is a menu bar app that intelligently captures your development feedback. Press a hotkey, talk through what you see, and markupr records your screen while transcribing your voice in real time. When you stop, an intelligent post-processing pipeline correlates your transcript timestamps with the screen recording to extract the right frames at the right moments -- then stitches everything into a structured, AI-ready markdown document.
 
-One hotkey to start. One hotkey to stop. A markdown file with your words, your screenshots, and AI-generated structure -- ready to paste into whatever tool you use next.
+One hotkey to start. One hotkey to stop. A markdown file with your words, contextually-placed screenshots, and intelligent structure -- ready to hand to your AI coding agent, paste into a GitHub issue, or drop in a Slack thread. The output isn't a transcript with screenshots attached. It's a document that understands the relationship between what you said and what was on screen.
 
 ---
 
@@ -83,15 +83,17 @@ Everything is saved to an organized folder on your machine:
     fb-003.png
 ```
 
-The markdown file is the core output. It contains:
+The markdown file is the core output. The post-processing pipeline:
 
-- A full transcript of everything you said
-- Screenshots embedded with standard markdown image references
-- Each screenshot placed next to the words you were speaking at that moment
-- Timestamps linking your narration to what was on screen
-- A structured summary with item counts and session duration
+1. Analyzes your transcript timestamps against the screen recording
+2. Extracts the most relevant frames at the exact moments you described each issue
+3. Places screenshots inline with the corresponding narration
+4. Structures the document with clear sections, timestamps, and context
+5. Produces a summary with item counts and session duration
 
-On the premium tier, Claude AI reads your transcript alongside your screenshots and produces an intelligent, contextualized document -- grouping related feedback, identifying patterns, and surfacing what matters most.
+The result is a document purpose-built for AI consumption -- your coding agent can read it and immediately understand every issue, see exactly what you saw, and act on it.
+
+On the premium tier, Claude AI reads your transcript alongside your screenshots and produces an even more intelligent document -- grouping related feedback, identifying patterns across items, surfacing what matters most, and writing actionable summaries.
 
 ### The Clipboard Bridge
 
@@ -186,11 +188,18 @@ Transcription degrades gracefully:
 
 If OpenAI fails mid-session, markupr falls back to Whisper. If Whisper isn't available, it falls back to macOS Dictation. If nothing works, it continues capturing screenshots on a timer and saves whatever audio it has.
 
-### Intelligent Screenshot Timing
+### Intelligent Screen Recording & Frame Extraction
 
-Screenshots are triggered by silence detection. markupr monitors audio input using RMS (root mean square) amplitude analysis. When you stop talking for approximately 1.2 seconds, it captures what's on your screen. This means screenshots naturally correspond to the things you just described.
+During a session, markupr continuously records your screen (up to 4K@30fps, VP9/VP8 encoded). Simultaneously, silence detection monitors audio input using RMS amplitude analysis -- when you pause for ~1.2 seconds, the system notes a capture point. You can also trigger a manual capture at any time with `Cmd+Shift+S`.
 
-You can also trigger a manual screenshot at any time with `Cmd+Shift+S`, with a 500ms debounce to prevent rapid-fire captures.
+The real intelligence happens in post-processing. When you end a session, the pipeline:
+
+1. Walks through the transcript with timestamps
+2. Correlates each narration segment with the screen recording timeline
+3. Extracts frames at the exact moments that correspond to what you were describing
+4. Stitches the frames and transcript into a structured markdown document
+
+This means the output isn't just "screenshots taken during pauses" -- it's contextually-aware frame extraction that ensures every image in the document shows exactly what you were talking about.
 
 ### Crash Recovery
 
@@ -208,16 +217,16 @@ This means even a power failure mid-session doesn't lose your work.
 
 | | markupr | Loom | Jam.dev | Screenshots + Notes |
 |---|---|---|---|---|
-| Voice + Screenshots | Yes | Video only | Browser only | Manual |
+| Voice + Screen Recording | Yes | Video only | Browser only | Manual |
 | AI-Ready Output | Structured markdown | No | Partial | No |
-| Auto Screenshots | Silence-triggered | No | Auto (browser) | No |
+| Intelligent Frame Extraction | Timestamp-correlated | No | Auto (browser) | No |
 | Works Offline | Yes (local Whisper) | No | No | Yes |
 | Works with Any App | Yes (desktop-wide) | Yes | No (browser) | Yes |
 | Free | Fully functional | Limited | Limited | Yes |
 | Open Source | MIT | No | No | N/A |
 | Output format | Markdown + images | MP4 | Web report | Scattered files |
 
-The core differentiator is this: markupr produces structured text and images that AI tools can read and act on immediately. Video files can't do that. Browser-only tools miss everything outside the browser. Manual note-taking breaks your flow.
+The core differentiator: markupr's intelligent pipeline understands the relationship between what you said and what was on screen, then produces a structured document optimized for AI consumption. Video files can't do that -- AI tools can't read them. Browser-only tools miss everything outside the browser. Manual note-taking breaks your flow. markupr captures everything, then intelligently assembles the output.
 
 ---
 
@@ -259,7 +268,7 @@ The core differentiator is this: markupr produces structured text and images tha
 
 ## The Vision in One Sentence
 
-markupr turns the way you naturally think about software -- talking through what you see -- into structured documents that humans and AI tools can act on immediately.
+markupr turns the way you naturally think about software -- talking through what you see -- into intelligently structured documents where every screenshot is placed exactly where it belongs, ready for humans and AI tools to act on immediately.
 
 ---
 

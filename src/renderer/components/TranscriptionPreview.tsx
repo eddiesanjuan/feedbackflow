@@ -14,6 +14,8 @@
 
 import React, { useMemo } from 'react';
 
+const MAX_RENDER_SEGMENTS = 100;
+
 export interface TranscriptSegment {
   /** Unique identifier for the segment */
   id: string;
@@ -54,6 +56,11 @@ export const TranscriptionPreview: React.FC<TranscriptionPreviewProps> = ({
   isDarkMode = false,
   maxHeight = 300,
 }) => {
+  const visibleSegments = useMemo(
+    () => (segments.length > MAX_RENDER_SEGMENTS ? segments.slice(-MAX_RENDER_SEGMENTS) : segments),
+    [segments]
+  );
+
   const theme = useMemo(
     () => ({
       bg: isDarkMode ? 'rgba(0, 0, 0, 0.80)' : 'rgba(255, 255, 255, 0.94)',
@@ -99,6 +106,7 @@ export const TranscriptionPreview: React.FC<TranscriptionPreviewProps> = ({
           }}
         >
           Transcript ({segments.length} segment{segments.length !== 1 ? 's' : ''})
+          {segments.length > visibleSegments.length && ` · showing latest ${visibleSegments.length}`}
         </span>
         {onToggle && (
           <button
@@ -128,7 +136,7 @@ export const TranscriptionPreview: React.FC<TranscriptionPreviewProps> = ({
           gap: 8,
         }}
       >
-        {segments.map((segment) => (
+        {visibleSegments.map((segment) => (
           <div key={segment.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
             <span
               style={{

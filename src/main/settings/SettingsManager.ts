@@ -4,19 +4,21 @@
  * Handles:
  * - Persistent settings storage with electron-store (schema validated)
  * - Secure API key storage with keytar (macOS Keychain, Windows Credential Manager)
+ * - Encrypted fallback key storage via safeStorage when keytar is unavailable
  * - Settings migration between versions
  * - Change event emission for reactive updates
  * - IPC handlers for renderer access
  *
  * Security:
- * - API keys are NEVER stored in electron-store
  * - keytar uses OS-level secure storage (Keychain, Credential Manager)
+ * - fallback secrets are encrypted with safeStorage before disk persistence
+ * - plaintext fallback is only used as a last resort when secure storage is unavailable
  * - Settings are validated against schema before saving
  */
 
 import Store from 'electron-store';
 import * as keytar from 'keytar';
-import { app, ipcMain } from 'electron';
+import { app, ipcMain, safeStorage } from 'electron';
 import { join } from 'path';
 import type { HotkeyConfig } from '../HotkeyManager';
 
@@ -114,6 +116,9 @@ export interface ISettingsManager {
 
 const KEYTAR_SERVICE = 'com.markupr.app';
 const LEGACY_KEYTAR_SERVICES = ['com.feedbackflow.app', 'feedbackflow'] as const;
+const FALLBACK_SECRET_STORE_NAME = 'secure-keys';
+const LEGACY_INSECURE_SECRET_STORE_KEY = '__plaintext_fallback__';
+const INSECURE_SECRET_PREFIX = 'plaintext:';
 const SETTINGS_VERSION = 2;
 
 /**
@@ -205,6 +210,7 @@ const SETTINGS_SCHEMA = {
 
 export class SettingsManager implements ISettingsManager {
   private store: Store<AppSettings>;
+  private secureStore: Store<Record<string, string>>;
   private changeCallbacks: Set<SettingsChangeCallback> = new Set();
   private ipcRegistered = false;
 
@@ -218,6 +224,10 @@ export class SettingsManager implements ISettingsManager {
       schema: SETTINGS_SCHEMA as any,
       defaults: this.getDefaultsWithPaths(),
       clearInvalidConfig: false, // Don't clear on schema violation, migrate instead
+    });
+    this.secureStore = new Store<Record<string, string>>({
+      name: FALLBACK_SECRET_STORE_NAME,
+      clearInvalidConfig: false,
     });
 
     // Run migrations
@@ -359,6 +369,113 @@ export class SettingsManager implements ISettingsManager {
   // Secure Storage (API Keys)
   // --------------------------------------------------------------------------
 
+  private canUseEncryptedFallback(): boolean {
+    try {
+      return safeStorage.isEncryptionAvailable();
+    } catch {
+      return false;
+    }
+  }
+
+  private getFallbackApiKey(service: string): string | null {
+    try {
+      const encrypted = this.secureStore.get(service);
+      if (!encrypted) {
+        return null;
+      }
+
+      if (!this.canUseEncryptedFallback()) {
+        console.warn(
+          `[SettingsManager] Encrypted fallback exists for ${service}, but safeStorage is unavailable`
+        );
+        return null;
+      }
+
+      return safeStorage.decryptString(Buffer.from(encrypted, 'base64'));
+    } catch (error) {
+      console.warn(`[SettingsManager] Failed to read fallback API key for ${service}:`, error);
+      return null;
+    }
+  }
+
+  private setFallbackApiKey(service: string, key: string): void {
+    if (!this.canUseEncryptedFallback()) {
+      throw new Error('safeStorage encryption is unavailable');
+    }
+
+    const encrypted = safeStorage.encryptString(key).toString('base64');
+    this.secureStore.set(service, encrypted);
+  }
+
+  private clearFallbackApiKey(service: string): void {
+    try {
+      this.secureStore.delete(service);
+    } catch (error) {
+      console.warn(`[SettingsManager] Failed to clear fallback API key for ${service}:`, error);
+    }
+  }
+
+  private getInsecureStoreKey(service: string): string {
+    return `${INSECURE_SECRET_PREFIX}${service}`;
+  }
+
+  private getInsecureApiKey(service: string): string | null {
+    const storeKey = this.getInsecureStoreKey(service);
+    const directValue = this.secureStore.get(storeKey);
+    if (typeof directValue === 'string' && directValue.length > 0) {
+      return directValue;
+    }
+
+    // Legacy fallback: previous builds stored a map under settings.json.
+    try {
+      const insecureMap = this.store.get(
+        LEGACY_INSECURE_SECRET_STORE_KEY as keyof AppSettings
+      ) as unknown as Record<string, string> | undefined;
+      const value = insecureMap?.[service];
+      return typeof value === 'string' && value.length > 0 ? value : null;
+    } catch (error) {
+      console.warn(`[SettingsManager] Failed to read plaintext fallback API key for ${service}:`, error);
+      return null;
+    }
+  }
+
+  private setInsecureApiKey(service: string, key: string): void {
+    const storeKey = this.getInsecureStoreKey(service);
+    this.secureStore.set(storeKey, key);
+
+    // Best-effort cleanup of legacy fallback map entry.
+    const legacyMap = (this.store.get(
+      LEGACY_INSECURE_SECRET_STORE_KEY as keyof AppSettings
+    ) as unknown as Record<string, string> | undefined) || {};
+    if (legacyMap[service]) {
+      delete legacyMap[service];
+      this.store.set(
+        LEGACY_INSECURE_SECRET_STORE_KEY as keyof AppSettings,
+        legacyMap as unknown as AppSettings[keyof AppSettings]
+      );
+    }
+  }
+
+  private clearInsecureApiKey(service: string): void {
+    try {
+      this.secureStore.delete(this.getInsecureStoreKey(service));
+    } catch (error) {
+      console.warn(`[SettingsManager] Failed to clear plaintext fallback API key for ${service}:`, error);
+    }
+
+    const legacyMap = (this.store.get(
+      LEGACY_INSECURE_SECRET_STORE_KEY as keyof AppSettings
+    ) as unknown as Record<string, string> | undefined) || {};
+    if (!legacyMap[service]) {
+      return;
+    }
+    delete legacyMap[service];
+    this.store.set(
+      LEGACY_INSECURE_SECRET_STORE_KEY as keyof AppSettings,
+      legacyMap as unknown as AppSettings[keyof AppSettings]
+    );
+  }
+
   /**
    * Get an API key from secure storage
    */
@@ -391,10 +508,10 @@ export class SettingsManager implements ISettingsManager {
         return legacyKey;
       }
 
-      return null;
+      return this.getFallbackApiKey(service) || this.getInsecureApiKey(service);
     } catch (error) {
       console.error(`[SettingsManager] Failed to get API key for ${service}:`, error);
-      return null;
+      return this.getFallbackApiKey(service) || this.getInsecureApiKey(service);
     }
   }
 
@@ -404,10 +521,35 @@ export class SettingsManager implements ISettingsManager {
   async setApiKey(service: string, key: string): Promise<void> {
     try {
       await keytar.setPassword(KEYTAR_SERVICE, service, key);
+      this.clearFallbackApiKey(service);
+      this.clearInsecureApiKey(service);
       console.log(`[SettingsManager] Stored API key for ${service}`);
     } catch (error) {
-      console.error(`[SettingsManager] Failed to store API key for ${service}:`, error);
-      throw new Error(`Failed to store API key: ${error}`);
+      console.warn(
+        `[SettingsManager] Keytar store failed for ${service}; attempting encrypted fallback:`,
+        error
+      );
+
+      try {
+        this.setFallbackApiKey(service, key);
+        this.clearInsecureApiKey(service);
+        console.log(`[SettingsManager] Stored API key for ${service} via encrypted fallback`);
+      } catch (fallbackError) {
+        console.warn(
+          `[SettingsManager] Encrypted fallback failed for ${service}; storing plaintext fallback:`,
+          fallbackError
+        );
+        try {
+          this.setInsecureApiKey(service, key);
+          console.log(`[SettingsManager] Stored API key for ${service} via plaintext fallback`);
+        } catch (insecureError) {
+          throw new Error(
+            `Unable to store API key for ${service}: ${
+              insecureError instanceof Error ? insecureError.message : String(insecureError)
+            }`
+          );
+        }
+      }
     }
   }
 
@@ -415,13 +557,22 @@ export class SettingsManager implements ISettingsManager {
    * Delete an API key from secure storage
    */
   async deleteApiKey(service: string): Promise<void> {
+    let keytarError: unknown = null;
     try {
       await keytar.deletePassword(KEYTAR_SERVICE, service);
-      console.log(`[SettingsManager] Deleted API key for ${service}`);
     } catch (error) {
-      console.error(`[SettingsManager] Failed to delete API key for ${service}:`, error);
-      throw new Error(`Failed to delete API key: ${error}`);
+      keytarError = error;
+      console.warn(`[SettingsManager] Failed to delete keytar API key for ${service}:`, error);
     }
+
+    this.clearFallbackApiKey(service);
+    this.clearInsecureApiKey(service);
+
+    if (keytarError && !this.canUseEncryptedFallback()) {
+      return;
+    }
+
+    console.log(`[SettingsManager] Deleted API key for ${service}`);
   }
 
   /**

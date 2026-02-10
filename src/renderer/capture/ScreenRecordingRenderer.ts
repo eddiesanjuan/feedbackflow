@@ -31,8 +31,8 @@ interface DesktopVideoConstraints extends MediaTrackConstraints {
 }
 
 const MIME_TYPE_CANDIDATES = [
-  'video/webm;codecs=vp9',
   'video/webm;codecs=vp8',
+  'video/webm;codecs=vp9',
   'video/webm',
 ] as const;
 
@@ -51,7 +51,26 @@ export class ScreenRecordingRenderer {
   private activeSessionId: string | null = null;
   private inFlightWrites: Set<Promise<void>> = new Set();
   private stopping = false;
+  private stopPromise: Promise<StopResult> | null = null;
   private recordingStartTime: number | null = null;
+
+  private stopTracks(stream: MediaStream | null | undefined): void {
+    if (!stream) {
+      return;
+    }
+    try {
+      stream.getTracks().forEach((track) => {
+        try {
+          track.enabled = false;
+          track.stop();
+        } catch {
+          // Best effort.
+        }
+      });
+    } catch {
+      // Best effort.
+    }
+  }
 
   private getDesktopConstraints(
     sourceId: string,
@@ -135,25 +154,10 @@ export class ScreenRecordingRenderer {
       }
     }
 
-    if (typeof navigator.mediaDevices.getDisplayMedia === 'function') {
-      try {
-        return await navigator.mediaDevices.getDisplayMedia({
-          audio: false,
-          video: {
-            frameRate: { ideal: 30, max: 30 },
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
-          },
-        });
-      } catch (displayMediaError) {
-        lastError = displayMediaError;
-      }
-    }
-
     const message =
       lastError instanceof Error
         ? lastError.message
-        : 'Unable to acquire a screen capture stream';
+        : 'Unable to acquire a desktop capture stream.';
     throw new Error(message);
   }
 
@@ -249,38 +253,113 @@ export class ScreenRecordingRenderer {
   }
 
   async stop(): Promise<StopResult> {
-    if (!this.mediaRecorder || !this.activeSessionId || this.stopping) {
+    if (this.stopPromise) {
+      return this.stopPromise;
+    }
+
+    if (this.stopping) {
       return { success: true };
     }
 
-    this.stopping = true;
-    const sessionId = this.activeSessionId;
-    const recorder = this.mediaRecorder;
+    if (!this.mediaRecorder || !this.activeSessionId) {
+      // Defensive cleanup for partially-initialized recorder state.
+      this.cleanupStream();
+      this.mediaRecorder = null;
+      this.activeSessionId = null;
+      this.stopping = false;
+      this.recordingStartTime = null;
+      return { success: true };
+    }
 
-    await new Promise<void>((resolve) => {
-      const timeout = setTimeout(resolve, 4000);
-      recorder.onstop = () => {
-        clearTimeout(timeout);
-        resolve();
-      };
-      try {
-        recorder.stop();
-      } catch {
-        clearTimeout(timeout);
-        resolve();
+    const stopTask = (async (): Promise<StopResult> => {
+      this.stopping = true;
+      const sessionId = this.activeSessionId;
+      const recorder = this.mediaRecorder;
+      let result: StopResult = { success: true };
+
+      if (!recorder || !sessionId) {
+        this.cleanupStream();
+        this.mediaRecorder = null;
+        this.activeSessionId = null;
+        this.recordingStartTime = null;
+        this.stopping = false;
+        return result;
       }
+
+      try {
+        await new Promise<void>((resolve) => {
+          const timeout = setTimeout(resolve, 4000);
+          recorder.onstop = () => {
+            clearTimeout(timeout);
+            resolve();
+          };
+          try {
+            if (recorder.state === 'recording') {
+              try {
+                recorder.requestData();
+              } catch {
+                // Best effort.
+              }
+            }
+            recorder.stop();
+          } catch {
+            clearTimeout(timeout);
+            resolve();
+          }
+        });
+
+        recorder.ondataavailable = null;
+        recorder.onerror = null;
+        recorder.onstop = null;
+        this.stopTracks(recorder.stream);
+
+        // Release screen-capture tracks immediately so macOS indicator turns off
+        // even if persistence finalization takes longer than expected.
+        this.cleanupStream();
+        this.mediaRecorder = null;
+        this.activeSessionId = null;
+        this.recordingStartTime = null;
+
+        await Promise.allSettled(Array.from(this.inFlightWrites));
+        this.inFlightWrites.clear();
+
+        try {
+          const finalized = await Promise.race([
+            window.markupr.screenRecording.stop(sessionId),
+            new Promise<StopResult>((resolve) => {
+              setTimeout(
+                () =>
+                  resolve({
+                    success: false,
+                    error: 'Timed out while finalizing screen recording persistence.',
+                  }),
+                7000
+              );
+            }),
+          ]);
+          result = finalized;
+        } catch (error) {
+          result = {
+            success: false,
+            error: error instanceof Error ? error.message : 'Failed to finalize screen recording.',
+          };
+        }
+      } finally {
+        // Defensive cleanup for any partial/failed stop paths.
+        this.cleanupStream();
+        this.mediaRecorder = null;
+        this.activeSessionId = null;
+        this.stopping = false;
+        this.recordingStartTime = null;
+      }
+
+      return result;
+    })();
+
+    this.stopPromise = stopTask.finally(() => {
+      this.stopPromise = null;
     });
-
-    await Promise.allSettled(Array.from(this.inFlightWrites));
-    this.inFlightWrites.clear();
-
-    const result = await window.markupr.screenRecording.stop(sessionId);
-    this.cleanupStream();
-    this.mediaRecorder = null;
-    this.activeSessionId = null;
-    this.stopping = false;
-    this.recordingStartTime = null;
-    return result;
+    return this.stopPromise;
   }
 
   async pause(): Promise<void> {
@@ -311,7 +390,7 @@ export class ScreenRecordingRenderer {
     if (!this.mediaStream) {
       return;
     }
-    this.mediaStream.getTracks().forEach((track) => track.stop());
+    this.stopTracks(this.mediaStream);
     this.mediaStream = null;
   }
 }

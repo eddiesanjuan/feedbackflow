@@ -24,6 +24,8 @@ class AudioCaptureRenderer {
   private mediaRecorder: MediaRecorder | null = null;
   private recorderMimeType = 'audio/webm';
   private capturing = false;
+  private stopping = false;
+  private inFlightChunkReads: Set<Promise<void>> = new Set();
   private config: CaptureConfig = {
     deviceId: null,
     sampleRate: 16000,
@@ -148,15 +150,14 @@ class AudioCaptureRenderer {
     }
 
     this.mediaRecorder.ondataavailable = (event: BlobEvent) => {
-      if (!this.capturing || !event.data || event.data.size === 0) {
+      if ((!this.capturing && !this.stopping) || !event.data || event.data.size === 0) {
         return;
       }
 
       const timestamp = performance.now();
       const duration = this.config.chunkDurationMs;
       const mimeType = event.data.type || this.mediaRecorder?.mimeType || this.recorderMimeType;
-
-      void event.data
+      const chunkPromise = event.data
         .arrayBuffer()
         .then((buffer) => {
           this.sendEncodedChunkToMain(new Uint8Array(buffer), timestamp, duration, mimeType);
@@ -164,7 +165,11 @@ class AudioCaptureRenderer {
         .catch((error) => {
           const api = window.markupr;
           api?.audio?.sendCaptureError(`Failed to process audio chunk: ${(error as Error).message}`);
+        })
+        .finally(() => {
+          this.inFlightChunkReads.delete(chunkPromise);
         });
+      this.inFlightChunkReads.add(chunkPromise);
     };
 
     this.mediaRecorder.onerror = (event: Event) => {
@@ -177,6 +182,7 @@ class AudioCaptureRenderer {
     try {
       this.mediaRecorder.start(this.config.chunkDurationMs);
       this.capturing = true;
+      this.stopping = false;
       console.log(
         `[AudioCaptureRenderer] Capture started with MediaRecorder (${this.mediaRecorder.mimeType || this.recorderMimeType})`
       );
@@ -237,13 +243,11 @@ class AudioCaptureRenderer {
     }
 
     const wasCapturing = this.capturing;
-    this.capturing = false;
+    this.stopping = wasCapturing || this.stopping;
 
     if (this.mediaRecorder) {
       const recorder = this.mediaRecorder;
       this.mediaRecorder = null;
-      recorder.onerror = null;
-      recorder.ondataavailable = null;
 
       if (recorder.state !== 'inactive') {
         await new Promise<void>((resolve) => {
@@ -254,6 +258,13 @@ class AudioCaptureRenderer {
           };
 
           try {
+            if (recorder.state === 'recording') {
+              try {
+                recorder.requestData();
+              } catch {
+                // Best effort; some runtimes may throw while stopping.
+              }
+            }
             recorder.stop();
           } catch {
             clearTimeout(timeout);
@@ -261,7 +272,20 @@ class AudioCaptureRenderer {
           }
         });
       }
+
+      // Drain any in-flight chunk reads from the final MediaRecorder events.
+      if (this.inFlightChunkReads.size > 0) {
+        await Promise.allSettled(Array.from(this.inFlightChunkReads));
+      }
+      this.inFlightChunkReads.clear();
+
+      recorder.ondataavailable = null;
+      recorder.onerror = null;
+      recorder.onstop = null;
     }
+
+    this.capturing = false;
+    this.stopping = false;
 
     if (this.mediaStream) {
       try {

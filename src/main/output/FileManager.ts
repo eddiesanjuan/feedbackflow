@@ -130,7 +130,7 @@ export class FileManager {
 
       // Save summary (for clipboard reference)
       const summaryPath = path.join(sessionDir, 'feedback-summary.md');
-      const summary = this.generateSummaryContent(session);
+      const summary = this.generateSummaryContent(session, document.metadata);
       await fs.writeFile(summaryPath, summary, 'utf-8');
 
       // Save metadata
@@ -357,13 +357,19 @@ export class FileManager {
   /**
    * Generate a short summary for quick reference
    */
-  private generateSummaryContent(session: Session): string {
+  private generateSummaryContent(
+    session: Session,
+    metadata?: MarkdownDocument['metadata']
+  ): string {
     const { feedbackItems, startTime, endTime } = session;
     const duration = endTime ? Math.round((endTime - startTime) / 1000) : 0;
-    const screenshotCount = feedbackItems.filter((item) => item.screenshot).length;
+    const feedbackItemCount = feedbackItems.length;
+    const feedbackScreenshotCount = feedbackItems.filter((item) => item.screenshot).length;
+    const itemCount = Math.max(feedbackItemCount, metadata?.itemCount ?? 0);
+    const screenshotCount = Math.max(feedbackScreenshotCount, metadata?.screenshotCount ?? 0);
 
     let summary = '# Quick Summary\n\n';
-    summary += `**Items:** ${feedbackItems.length}\n`;
+    summary += `**Items:** ${itemCount}\n`;
     summary += `**Screenshots:** ${screenshotCount}\n`;
     summary += `**Duration:** ${duration}s\n\n`;
 

@@ -38,6 +38,29 @@ interface ApiKeyState {
   error: string | null;
 }
 
+const MASKED_API_KEY_PLACEHOLDER = '********';
+const API_TEST_TIMEOUT_MS = 15000;
+const API_SAVE_TIMEOUT_MS = 12000;
+const buildProviderTestFailureMessage = (provider: 'OpenAI' | 'Anthropic', error: unknown): string => {
+  const detail = error instanceof Error ? error.message : 'Unknown error';
+  return `Failed to test ${provider} API key: ${detail}`;
+};
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
+    promise
+      .then((value) => {
+        clearTimeout(timeout);
+        resolve(value);
+      })
+      .catch((error) => {
+        clearTimeout(timeout);
+        reject(error);
+      });
+  });
+}
+
 // Accent color presets
 const ACCENT_COLORS = [
   { name: 'Blue', value: '#3B82F6' },
@@ -522,7 +545,7 @@ const ApiKeyInput: React.FC<{
           placeholder={`Enter your ${serviceName} API key`}
           style={{
             ...styles.apiKeyInput,
-            borderColor: apiKey.error ? '#EF4444' : apiKey.valid ? '#10B981' : '#374151',
+            borderColor: apiKey.error ? '#EF4444' : apiKey.valid ? '#10B981' : 'rgba(145, 160, 186, 0.34)',
           }}
         />
         <button style={styles.apiKeyVisibilityButton} onClick={onToggleVisibility} title={apiKey.visible ? 'Hide' : 'Show'}>
@@ -551,21 +574,27 @@ const ApiKeyInput: React.FC<{
       <button
         style={{
           ...styles.apiKeyTestButton,
-          backgroundColor: apiKey.testing ? '#374151' : apiKey.valid ? '#10B981' : '#3B82F6',
-          cursor: apiKey.testing || !apiKey.value ? 'not-allowed' : 'pointer',
+          backgroundColor: apiKey.testing ? 'rgba(124, 137, 160, 0.42)' : apiKey.valid ? '#10B981' : '#3B82F6',
+          cursor: !apiKey.value ? 'not-allowed' : 'pointer',
           opacity: !apiKey.value ? 0.5 : 1,
         }}
         onClick={onTest}
-        disabled={apiKey.testing || !apiKey.value}
+        disabled={!apiKey.value}
       >
         {apiKey.testing ? (
           <span style={styles.spinner} />
         ) : apiKey.valid ? (
           <>
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M3.5 7l2.5 2.5 4.5-4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path
+                d="M7 2.25a4.75 4.75 0 104.39 2.92"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+              />
+              <path d="M10.7 2.3h1.2v1.2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
             </svg>
-            Verified
+            Retest
           </>
         ) : (
           'Test Connection'
@@ -691,8 +720,8 @@ const RecordingTab: React.FC<{
         onChange={(value) => onSettingChange('defaultCountdown', Number(value) as 0 | 3 | 5)}
       />
       <ToggleSetting
-        label="Show Transcription Preview"
-        description="Display live transcription during recording"
+        label="Show Recording HUD"
+        description="Display mic activity and shortcut hints while recording"
         value={settings.showTranscriptionPreview}
         onChange={(value) => onSettingChange('showTranscriptionPreview', value)}
       />
@@ -1121,10 +1150,10 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             window.markupr.settings.hasApiKey('anthropic'),
           ]);
           if (hasOpenAiKey) {
-            setOpenAiApiKey((prev) => ({ ...prev, value: '********', valid: true }));
+            setOpenAiApiKey((prev) => ({ ...prev, value: MASKED_API_KEY_PLACEHOLDER, valid: true }));
           }
           if (hasAnthropicKey) {
-            setAnthropicApiKey((prev) => ({ ...prev, value: '********', valid: true }));
+            setAnthropicApiKey((prev) => ({ ...prev, value: MASKED_API_KEY_PLACEHOLDER, valid: true }));
           }
           const hasRequiredKeys = hasOpenAiKey && hasAnthropicKey;
           setHasRequiredByokKeys(hasRequiredKeys);
@@ -1201,26 +1230,59 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     setOpenAiApiKey((prev) => ({ ...prev, testing: true, error: null }));
 
     try {
-      const validation = await window.markupr.settings.testApiKey('openai', openAiApiKey.value);
+      let candidateKey = openAiApiKey.value.trim();
+      if (candidateKey === MASKED_API_KEY_PLACEHOLDER) {
+        const storedKey = await window.markupr.settings.getApiKey('openai');
+        if (!storedKey) {
+          setOpenAiApiKey((prev) => ({
+            ...prev,
+            valid: false,
+            error: 'No saved OpenAI key found. Paste your key and test again.',
+          }));
+          return;
+        }
+        candidateKey = storedKey.trim();
+      }
+
+      const validation = await withTimeout(
+        window.markupr.settings.testApiKey('openai', candidateKey),
+        API_TEST_TIMEOUT_MS,
+        'OpenAI API test timed out. Please try again.'
+      );
 
       if (validation.valid) {
-        await window.markupr.settings.setApiKey('openai', openAiApiKey.value);
-        setOpenAiApiKey((prev) => ({ ...prev, testing: false, valid: true }));
+        const saved = await withTimeout(
+          window.markupr.settings.setApiKey('openai', candidateKey),
+          API_SAVE_TIMEOUT_MS,
+          'Saving OpenAI key timed out. Please try again.'
+        );
+        if (!saved) {
+          setOpenAiApiKey((prev) => ({
+            ...prev,
+            valid: false,
+            error: 'OpenAI key validated, but local save verification failed. Relaunch app and try again.',
+          }));
+          return;
+        }
+
+        const hasAnthropic = await window.markupr.settings.hasApiKey('anthropic').catch(() => false);
+        setHasRequiredByokKeys(Boolean(hasAnthropic));
+        setOpenAiApiKey((prev) => ({ ...prev, valid: true }));
       } else {
         setOpenAiApiKey((prev) => ({
           ...prev,
-          testing: false,
           valid: false,
           error: validation.error || 'OpenAI API key test failed. Please try again.',
         }));
       }
-    } catch {
+    } catch (error) {
       setOpenAiApiKey((prev) => ({
         ...prev,
-        testing: false,
         valid: false,
-        error: 'Failed to test OpenAI API key. Please try again.',
+        error: buildProviderTestFailureMessage('OpenAI', error),
       }));
+    } finally {
+      setOpenAiApiKey((prev) => ({ ...prev, testing: false }));
     }
   }, [openAiApiKey.value]);
 
@@ -1236,26 +1298,60 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     setAnthropicApiKey((prev) => ({ ...prev, testing: true, error: null }));
 
     try {
-      const validation = await window.markupr.settings.testApiKey('anthropic', anthropicApiKey.value);
+      let candidateKey = anthropicApiKey.value.trim();
+      if (candidateKey === MASKED_API_KEY_PLACEHOLDER) {
+        const storedKey = await window.markupr.settings.getApiKey('anthropic');
+        if (!storedKey) {
+          setAnthropicApiKey((prev) => ({
+            ...prev,
+            valid: false,
+            error: 'No saved Anthropic key found. Paste your key and test again.',
+          }));
+          return;
+        }
+        candidateKey = storedKey.trim();
+      }
+
+      const validation = await withTimeout(
+        window.markupr.settings.testApiKey('anthropic', candidateKey),
+        API_TEST_TIMEOUT_MS,
+        'Anthropic API test timed out. Please try again.'
+      );
 
       if (validation.valid) {
-        await window.markupr.settings.setApiKey('anthropic', anthropicApiKey.value);
-        setAnthropicApiKey((prev) => ({ ...prev, testing: false, valid: true }));
+        const saved = await withTimeout(
+          window.markupr.settings.setApiKey('anthropic', candidateKey),
+          API_SAVE_TIMEOUT_MS,
+          'Saving Anthropic key timed out. Please try again.'
+        );
+        if (!saved) {
+          setAnthropicApiKey((prev) => ({
+            ...prev,
+            valid: false,
+            error:
+              'Anthropic key validated, but local save verification failed. Relaunch app and try again.',
+          }));
+          return;
+        }
+
+        const hasOpenAi = await window.markupr.settings.hasApiKey('openai').catch(() => false);
+        setHasRequiredByokKeys(Boolean(hasOpenAi));
+        setAnthropicApiKey((prev) => ({ ...prev, valid: true }));
       } else {
         setAnthropicApiKey((prev) => ({
           ...prev,
-          testing: false,
           valid: false,
           error: validation.error || 'Anthropic API key test failed. Please try again.',
         }));
       }
-    } catch {
+    } catch (error) {
       setAnthropicApiKey((prev) => ({
         ...prev,
-        testing: false,
         valid: false,
-        error: 'Failed to test Anthropic API key. Please try again.',
+        error: buildProviderTestFailureMessage('Anthropic', error),
       }));
+    } finally {
+      setAnthropicApiKey((prev) => ({ ...prev, testing: false }));
     }
   }, [anthropicApiKey.value]);
 
@@ -1535,9 +1631,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 style={{
                   ...styles.tabButton,
                   ...(isCompact ? styles.tabButtonCompact : {}),
-                  backgroundColor: activeTab === tab.id ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
-                  color: activeTab === tab.id ? '#3B82F6' : '#9ca3af',
-                  borderColor: activeTab === tab.id ? 'rgba(59, 130, 246, 0.3)' : 'transparent',
+                  backgroundColor: activeTab === tab.id ? 'rgba(10, 132, 255, 0.16)' : 'transparent',
+                  color: activeTab === tab.id ? '#79bcff' : '#9aa8bf',
+                  borderColor: activeTab === tab.id ? 'rgba(10, 132, 255, 0.32)' : 'transparent',
                 }}
                 onClick={() => setActiveTab(tab.id)}
                 aria-selected={activeTab === tab.id}
@@ -1598,21 +1694,21 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             border-radius: 50%;
             background: #3B82F6;
             cursor: pointer;
-            border: 2px solid #1f2937;
+            border: 2px solid #0b1220;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
           }
 
           input[type="range"]::-webkit-slider-runnable-track {
             width: 100%;
             height: 4px;
-            background: #374151;
+            background: rgba(124, 137, 160, 0.4);
             border-radius: 2px;
           }
 
           select {
             -webkit-appearance: none;
             appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M3 5l3 3 3-3' stroke='%239ca3af' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M3 5l3 3 3-3' stroke='%238f9db5' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
             background-repeat: no-repeat;
             background-position: right 12px center;
             padding-right: 36px;
@@ -1670,9 +1766,9 @@ const styles: Record<string, ExtendedCSSProperties> = {
   backdrop: {
     position: 'absolute',
     inset: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.34)',
-    backdropFilter: 'blur(4px)',
-    WebkitBackdropFilter: 'blur(4px)',
+    backgroundColor: 'rgba(5, 8, 15, 0.44)',
+    backdropFilter: 'blur(8px)',
+    WebkitBackdropFilter: 'blur(8px)',
   },
 
   panel: {
@@ -1680,9 +1776,9 @@ const styles: Record<string, ExtendedCSSProperties> = {
     width: '100%',
     maxWidth: 940,
     maxHeight: '92vh',
-    backgroundColor: 'rgba(249, 249, 251, 0.98)',
+    backgroundColor: 'rgba(14, 19, 29, 0.92)',
     borderRadius: 16,
-    boxShadow: '0 24px 56px rgba(15, 23, 42, 0.2), 0 0 0 1px rgba(60, 60, 67, 0.2)',
+    boxShadow: '0 24px 56px rgba(2, 6, 14, 0.62), 0 0 0 1px rgba(145, 160, 186, 0.24)',
     display: 'flex',
     flexDirection: 'column',
     overflow: 'hidden',
@@ -1696,14 +1792,14 @@ const styles: Record<string, ExtendedCSSProperties> = {
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: '20px 24px',
-    borderBottom: '1px solid rgba(60, 60, 67, 0.2)',
+    borderBottom: '1px solid rgba(145, 160, 186, 0.24)',
     WebkitAppRegion: 'drag',
   },
 
   headerTitle: {
     fontSize: 18,
     fontWeight: 600,
-    color: '#1d1d1f',
+    color: '#eef3ff',
     margin: 0,
   },
 
@@ -1716,7 +1812,7 @@ const styles: Record<string, ExtendedCSSProperties> = {
   byokBadge: {
     border: '1px solid rgba(245, 158, 11, 0.4)',
     backgroundColor: 'rgba(245, 158, 11, 0.16)',
-    color: '#7a4b00',
+    color: '#f4c77f',
     fontSize: 11,
     fontWeight: 600,
     borderRadius: 999,
@@ -1734,7 +1830,7 @@ const styles: Record<string, ExtendedCSSProperties> = {
     backgroundColor: 'transparent',
     border: 'none',
     borderRadius: 8,
-    color: '#6e6e73',
+    color: '#9aa8bf',
     cursor: 'pointer',
     transition: 'all 0.2s ease',
     WebkitAppRegion: 'no-drag',
@@ -1752,7 +1848,7 @@ const styles: Record<string, ExtendedCSSProperties> = {
   sidebar: {
     width: 200,
     padding: '16px 12px',
-    borderRight: '1px solid rgba(60, 60, 67, 0.2)',
+    borderRight: '1px solid rgba(145, 160, 186, 0.2)',
     display: 'flex',
     flexDirection: 'column',
     gap: 4,
@@ -1762,7 +1858,7 @@ const styles: Record<string, ExtendedCSSProperties> = {
   sidebarCompact: {
     width: '100%',
     borderRight: 'none',
-    borderBottom: '1px solid rgba(60, 60, 67, 0.2)',
+    borderBottom: '1px solid rgba(145, 160, 186, 0.24)',
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
@@ -1778,7 +1874,7 @@ const styles: Record<string, ExtendedCSSProperties> = {
     backgroundColor: 'transparent',
     border: '1px solid transparent',
     borderRadius: 8,
-    color: '#6e6e73',
+    color: '#9aa8bf',
     fontSize: 14,
     fontWeight: 500,
     cursor: 'pointer',
@@ -1831,7 +1927,7 @@ const styles: Record<string, ExtendedCSSProperties> = {
   sectionTitle: {
     fontSize: 14,
     fontWeight: 600,
-    color: '#3a3a3c',
+    color: '#d5deef',
     margin: 0,
     textTransform: 'uppercase',
     letterSpacing: '0.05em',
@@ -1839,7 +1935,7 @@ const styles: Record<string, ExtendedCSSProperties> = {
 
   sectionDescription: {
     fontSize: 13,
-    color: '#6e6e73',
+    color: '#9aa8bf',
     marginTop: 2,
   },
 
@@ -1847,10 +1943,10 @@ const styles: Record<string, ExtendedCSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
     gap: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: 'rgba(18, 25, 37, 0.82)',
     borderRadius: 12,
     padding: 16,
-    border: '1px solid rgba(60, 60, 67, 0.18)',
+    border: '1px solid rgba(145, 160, 186, 0.2)',
   },
 
   resetSectionButton: {
@@ -1860,9 +1956,9 @@ const styles: Record<string, ExtendedCSSProperties> = {
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'transparent',
-    border: '1px solid rgba(60, 60, 67, 0.3)',
+    border: '1px solid rgba(145, 160, 186, 0.34)',
     borderRadius: 6,
-    color: '#6e6e73',
+    color: '#9aa8bf',
     cursor: 'pointer',
     transition: 'all 0.15s ease',
     flexShrink: 0,
@@ -1894,12 +1990,12 @@ const styles: Record<string, ExtendedCSSProperties> = {
   settingLabel: {
     fontSize: 14,
     fontWeight: 500,
-    color: '#1d1d1f',
+    color: '#eef3ff',
   },
 
   settingDescription: {
     fontSize: 12,
-    color: '#6e6e73',
+    color: '#9aa8bf',
     lineHeight: 1.4,
   },
 
@@ -1931,10 +2027,10 @@ const styles: Record<string, ExtendedCSSProperties> = {
   select: {
     minWidth: 180,
     padding: '8px 12px',
-    backgroundColor: '#ffffff',
-    border: '1px solid rgba(60, 60, 67, 0.3)',
+    backgroundColor: 'rgba(12, 18, 29, 0.84)',
+    border: '1px solid rgba(145, 160, 186, 0.34)',
     borderRadius: 8,
-    color: '#1d1d1f',
+    color: '#eef3ff',
     fontSize: 13,
     cursor: 'pointer',
     transition: 'border-color 0.2s ease',
@@ -1954,7 +2050,7 @@ const styles: Record<string, ExtendedCSSProperties> = {
   sliderValue: {
     fontSize: 13,
     fontWeight: 500,
-    color: '#3B82F6',
+    color: '#79bcff',
     minWidth: 48,
     textAlign: 'right',
     fontVariantNumeric: 'tabular-nums',
@@ -1964,7 +2060,7 @@ const styles: Record<string, ExtendedCSSProperties> = {
     width: 120,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#374151',
+    backgroundColor: 'rgba(124, 137, 160, 0.42)',
     cursor: 'pointer',
   },
 
@@ -1979,10 +2075,10 @@ const styles: Record<string, ExtendedCSSProperties> = {
   directoryInput: {
     flex: 1,
     padding: '8px 12px',
-    backgroundColor: '#ffffff',
-    border: '1px solid rgba(60, 60, 67, 0.3)',
+    backgroundColor: 'rgba(12, 18, 29, 0.84)',
+    border: '1px solid rgba(145, 160, 186, 0.34)',
     borderRadius: 8,
-    color: '#1d1d1f',
+    color: '#eef3ff',
     fontSize: 13,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
@@ -1992,10 +2088,10 @@ const styles: Record<string, ExtendedCSSProperties> = {
 
   browseButton: {
     padding: '8px 12px',
-    backgroundColor: '#f2f2f7',
-    border: '1px solid rgba(60, 60, 67, 0.28)',
+    backgroundColor: 'rgba(124, 137, 160, 0.14)',
+    border: '1px solid rgba(145, 160, 186, 0.34)',
     borderRadius: 8,
-    color: '#1d1d1f',
+    color: '#eef3ff',
     fontSize: 13,
     fontWeight: 500,
     cursor: 'pointer',
@@ -2007,10 +2103,10 @@ const styles: Record<string, ExtendedCSSProperties> = {
   keyRecorder: {
     minWidth: 140,
     padding: '8px 12px',
-    backgroundColor: '#ffffff',
-    border: '1px solid rgba(60, 60, 67, 0.3)',
+    backgroundColor: 'rgba(12, 18, 29, 0.84)',
+    border: '1px solid rgba(145, 160, 186, 0.34)',
     borderRadius: 8,
-    color: '#1d1d1f',
+    color: '#eef3ff',
     fontSize: 13,
     cursor: 'pointer',
     transition: 'all 0.15s ease',
@@ -2020,7 +2116,7 @@ const styles: Record<string, ExtendedCSSProperties> = {
   },
 
   keyRecorderRecording: {
-    color: '#3B82F6',
+    color: '#79bcff',
     animation: 'pulse 1s ease-in-out infinite',
   },
 
@@ -2067,14 +2163,14 @@ const styles: Record<string, ExtendedCSSProperties> = {
     width: 32,
     height: 32,
     borderRadius: '50%',
-    border: '2px solid rgba(60, 60, 67, 0.3)',
+    border: '2px solid rgba(145, 160, 186, 0.34)',
     backgroundColor: 'transparent',
     cursor: 'pointer',
   },
 
   customColorLabel: {
     fontSize: 10,
-    color: '#6b7280',
+    color: '#8f9db5',
   },
 
   // API Key
@@ -2094,10 +2190,10 @@ const styles: Record<string, ExtendedCSSProperties> = {
   apiKeyInput: {
     width: '100%',
     padding: '10px 40px 10px 12px',
-    backgroundColor: '#ffffff',
-    border: '1px solid rgba(60, 60, 67, 0.3)',
+    backgroundColor: 'rgba(12, 18, 29, 0.84)',
+    border: '1px solid rgba(145, 160, 186, 0.34)',
     borderRadius: 8,
-    color: '#1d1d1f',
+    color: '#eef3ff',
     fontSize: 13,
     transition: 'border-color 0.2s ease',
   },
@@ -2113,7 +2209,7 @@ const styles: Record<string, ExtendedCSSProperties> = {
     backgroundColor: 'transparent',
     border: 'none',
     borderRadius: 4,
-    color: '#6e6e73',
+    color: '#9aa8bf',
     cursor: 'pointer',
     transition: 'color 0.15s ease',
   },
@@ -2137,14 +2233,14 @@ const styles: Record<string, ExtendedCSSProperties> = {
   apiKeyError: {
     display: 'block',
     fontSize: 12,
-    color: '#F87171',
+    color: '#ff9e98',
     marginTop: 4,
   },
 
   apiKeySuccess: {
     display: 'block',
     fontSize: 12,
-    color: '#34D399',
+    color: '#78e0a8',
     marginTop: 4,
   },
 
@@ -2164,13 +2260,13 @@ const styles: Record<string, ExtendedCSSProperties> = {
     display: 'block',
     fontSize: 14,
     fontWeight: 600,
-    color: '#1d1d1f',
+    color: '#eef3ff',
   },
 
   serviceDescription: {
     display: 'block',
     fontSize: 12,
-    color: '#3a3a3c',
+    color: '#d5deef',
     marginTop: 2,
     lineHeight: 1.4,
   },
@@ -2178,10 +2274,10 @@ const styles: Record<string, ExtendedCSSProperties> = {
   // Buttons
   secondaryButton: {
     padding: '8px 16px',
-    backgroundColor: '#f2f2f7',
-    border: '1px solid rgba(60, 60, 67, 0.3)',
+    backgroundColor: 'rgba(124, 137, 160, 0.14)',
+    border: '1px solid rgba(145, 160, 186, 0.34)',
     borderRadius: 8,
-    color: '#1d1d1f',
+    color: '#eef3ff',
     fontSize: 13,
     fontWeight: 500,
     cursor: 'pointer',
@@ -2193,7 +2289,7 @@ const styles: Record<string, ExtendedCSSProperties> = {
     backgroundColor: 'rgba(239, 68, 68, 0.1)',
     border: '1px solid rgba(239, 68, 68, 0.3)',
     borderRadius: 8,
-    color: '#F87171',
+    color: '#ff9e98',
     fontSize: 13,
     fontWeight: 500,
     cursor: 'pointer',
@@ -2203,7 +2299,7 @@ const styles: Record<string, ExtendedCSSProperties> = {
   // Theme Preview
   themePreview: {
     padding: 16,
-    backgroundColor: 'rgba(118, 118, 128, 0.12)',
+    backgroundColor: 'rgba(118, 118, 128, 0.09)',
     borderRadius: 8,
   },
 
@@ -2262,19 +2358,19 @@ const styles: Record<string, ExtendedCSSProperties> = {
 
   hotkeyRefLabel: {
     fontSize: 13,
-    color: '#3a3a3c',
+    color: '#d5deef',
   },
 
   kbd: {
     display: 'inline-block',
     padding: '4px 10px',
-    backgroundColor: '#f2f2f7',
+    backgroundColor: 'rgba(124, 137, 160, 0.14)',
     borderRadius: 6,
-    border: '1px solid rgba(60, 60, 67, 0.26)',
+    border: '1px solid rgba(145, 160, 186, 0.32)',
     fontSize: 12,
     fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace',
-    color: '#1d1d1f',
-    boxShadow: '0 1px 0 rgba(60, 60, 67, 0.22)',
+    color: '#eef3ff',
+    boxShadow: '0 1px 0 rgba(7, 10, 18, 0.4)',
   },
 
   // Footer
@@ -2283,8 +2379,8 @@ const styles: Record<string, ExtendedCSSProperties> = {
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: '16px 24px',
-    borderTop: '1px solid rgba(60, 60, 67, 0.2)',
-    backgroundColor: 'rgba(246, 246, 248, 0.92)',
+    borderTop: '1px solid rgba(145, 160, 186, 0.24)',
+    backgroundColor: 'rgba(14, 19, 29, 0.88)',
     flexWrap: 'wrap',
     gap: 10,
   },
@@ -2298,7 +2394,7 @@ const styles: Record<string, ExtendedCSSProperties> = {
 
   footerText: {
     fontSize: 12,
-    color: '#6e6e73',
+    color: '#9aa8bf',
   },
 
   savedIndicator: {
@@ -2309,9 +2405,9 @@ const styles: Record<string, ExtendedCSSProperties> = {
   resetAllButton: {
     padding: '8px 16px',
     backgroundColor: 'transparent',
-    border: '1px solid rgba(60, 60, 67, 0.3)',
+    border: '1px solid rgba(145, 160, 186, 0.34)',
     borderRadius: 8,
-    color: '#3a3a3c',
+    color: '#d5deef',
     fontSize: 12,
     fontWeight: 500,
     cursor: 'pointer',

@@ -1859,7 +1859,7 @@ export class SessionController {
 
     // Try to stop services but don't wait
     try {
-      this.audioCaptureService.stop();
+      void this.audioCaptureService.stop();
     } catch {
       // Ignore
     }
@@ -1987,7 +1987,7 @@ export class SessionController {
     this.cleanupFunctions = [];
 
     // Stop services
-    this.audioCaptureService.stop();
+    void this.audioCaptureService.stop();
   }
 
   /**
@@ -2016,9 +2016,10 @@ export class SessionController {
     const serviceTimeout = 2000; // 2 seconds per service
 
     const [audioResult] = await Promise.allSettled([
-      this.withTimeoutSync(
-        () => this.audioCaptureService.stop(),
+      this.withTimeout(
+        this.audioCaptureService.stop(),
         serviceTimeout,
+        undefined,
         'AudioCapture.stop()'
       ),
     ]);

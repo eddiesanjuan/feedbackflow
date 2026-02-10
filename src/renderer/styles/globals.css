@@ -44,6 +44,16 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
+body.markupr-hud-mode {
+  background-color: transparent !important;
+}
+
+html.markupr-hud-mode,
+html.markupr-hud-mode body,
+html.markupr-hud-mode #root {
+  background: transparent !important;
+}
+
 /* Remove default button styling */
 button {
   font: inherit;

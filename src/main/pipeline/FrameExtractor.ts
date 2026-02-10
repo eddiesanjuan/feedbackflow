@@ -11,6 +11,7 @@
 import { execFile as execFileCb } from 'child_process';
 import { promisify } from 'util';
 import { existsSync, mkdirSync } from 'fs';
+import { stat as statFile } from 'fs/promises';
 import { join } from 'path';
 
 const execFile = promisify(execFileCb);
@@ -42,11 +43,20 @@ export interface FrameExtractionResult {
 /** Default maximum number of frames to extract */
 const DEFAULT_MAX_FRAMES = 20;
 
-/** Timeout for a single ffmpeg frame extraction (10 seconds) */
-const FFMPEG_FRAME_TIMEOUT_MS = 10_000;
+/** Timeout for decode-accurate frame extraction */
+const FFMPEG_ACCURATE_FRAME_TIMEOUT_MS = 20_000;
+
+/** Timeout for fast-seek fallback extraction */
+const FFMPEG_FAST_FRAME_TIMEOUT_MS = 10_000;
 
 /** Timeout for ffmpeg version check (5 seconds) */
 const FFMPEG_CHECK_TIMEOUT_MS = 5_000;
+
+/** Avoid extracting on startup/teardown edge frames, which are often corrupted */
+const FRAME_EDGE_MARGIN_SECONDS = 0.35;
+
+/** Collapse nearly-identical timestamps after clamping */
+const TIMESTAMP_DEDUPE_WINDOW_SECONDS = 0.15;
 
 // ============================================================================
 // FrameExtractor Class
@@ -54,6 +64,7 @@ const FFMPEG_CHECK_TIMEOUT_MS = 5_000;
 
 export class FrameExtractor {
   private ffmpegPath: string = 'ffmpeg';
+  private ffprobePath: string = 'ffprobe';
   private ffmpegChecked: boolean = false;
   private ffmpegAvailable: boolean = false;
 
@@ -102,6 +113,12 @@ export class FrameExtractor {
       timestamps = this.selectDistributed(timestamps, maxFrames);
     }
 
+    const videoDurationSeconds = await this.getVideoDurationSeconds(request.videoPath);
+    timestamps = this.normalizeTimestamps(timestamps, videoDurationSeconds);
+    if (timestamps.length === 0) {
+      return { frames: [], ffmpegAvailable: true };
+    }
+
     // Ensure the screenshots subdirectory exists
     const screenshotsDir = join(request.outputDir, 'screenshots');
     if (!existsSync(screenshotsDir)) {
@@ -118,6 +135,11 @@ export class FrameExtractor {
 
       try {
         await this.extractSingleFrame(request.videoPath, timestamp, outputPath);
+
+        const stats = await statFile(outputPath).catch(() => null);
+        if (!stats || stats.size <= 0) {
+          throw new Error('ffmpeg did not produce a frame file');
+        }
 
         frames.push({
           path: outputPath,
@@ -153,20 +175,59 @@ export class FrameExtractor {
     timestamp: number,
     outputPath: string
   ): Promise<void> {
-    // -ss before -i for fast seeking
-    // -frames:v 1 to extract exactly one frame
-    // -q:v 2 for high quality PNG output
+    // Prefer decode-accurate extraction (-ss after -i) to avoid VP8/VP9
+    // keyframe seek artifacts. Fall back to fast seek if needed.
+    try {
+      await this.extractSingleFrameAccurate(videoPath, timestamp, outputPath);
+      return;
+    } catch (accurateError) {
+      this.log(
+        `Accurate extraction failed at ${timestamp.toFixed(2)}s, retrying fast seek: ${
+          accurateError instanceof Error ? accurateError.message : String(accurateError)
+        }`
+      );
+    }
+
+    await this.extractSingleFrameFast(videoPath, timestamp, outputPath);
+  }
+
+  private async extractSingleFrameAccurate(
+    videoPath: string,
+    timestamp: number,
+    outputPath: string
+  ): Promise<void> {
+    const args = [
+      '-i', videoPath,
+      '-ss', String(timestamp),
+      '-frames:v', '1',
+      '-vf', 'format=rgb24',
+      '-q:v', '2',
+      '-y',
+      outputPath,
+    ];
+
+    await execFile(this.ffmpegPath, args, {
+      timeout: FFMPEG_ACCURATE_FRAME_TIMEOUT_MS,
+    });
+  }
+
+  private async extractSingleFrameFast(
+    videoPath: string,
+    timestamp: number,
+    outputPath: string
+  ): Promise<void> {
     const args = [
       '-ss', String(timestamp),
       '-i', videoPath,
       '-frames:v', '1',
+      '-vf', 'format=rgb24',
       '-q:v', '2',
       '-y', // overwrite output file if it exists
       outputPath,
     ];
 
     await execFile(this.ffmpegPath, args, {
-      timeout: FFMPEG_FRAME_TIMEOUT_MS,
+      timeout: FFMPEG_FAST_FRAME_TIMEOUT_MS,
     });
   }
 
@@ -197,6 +258,59 @@ export class FrameExtractor {
 
     result.push(sorted[sorted.length - 1]);
     return result;
+  }
+
+  private async getVideoDurationSeconds(videoPath: string): Promise<number | null> {
+    try {
+      const { stdout } = await execFile(
+        this.ffprobePath,
+        [
+          '-v', 'error',
+          '-show_entries', 'format=duration',
+          '-of', 'default=noprint_wrappers=1:nokey=1',
+          videoPath,
+        ],
+        { timeout: FFMPEG_CHECK_TIMEOUT_MS }
+      );
+      const parsed = Number.parseFloat(String(stdout).trim());
+      if (Number.isFinite(parsed) && parsed > 0) {
+        return parsed;
+      }
+      return null;
+    } catch (error) {
+      this.log(`ffprobe duration probe failed: ${error instanceof Error ? error.message : String(error)}`);
+      return null;
+    }
+  }
+
+  private normalizeTimestamps(timestamps: number[], durationSeconds: number | null): number[] {
+    const cleaned = timestamps
+      .map((timestamp) => (Number.isFinite(timestamp) ? Math.max(0, timestamp) : 0))
+      .sort((a, b) => a - b);
+
+    if (cleaned.length === 0) {
+      return [];
+    }
+
+    let clamped = cleaned;
+    if (durationSeconds && durationSeconds > 0) {
+      const minTs = Math.min(FRAME_EDGE_MARGIN_SECONDS, Math.max(0, durationSeconds - 0.05));
+      const maxTs = Math.max(minTs, durationSeconds - FRAME_EDGE_MARGIN_SECONDS);
+      clamped = cleaned.map((timestamp) => Math.max(minTs, Math.min(timestamp, maxTs)));
+    }
+
+    const deduped: number[] = [];
+    for (const timestamp of clamped) {
+      const previous = deduped[deduped.length - 1];
+      if (
+        previous === undefined ||
+        Math.abs(timestamp - previous) >= TIMESTAMP_DEDUPE_WINDOW_SECONDS
+      ) {
+        deduped.push(timestamp);
+      }
+    }
+
+    return deduped;
   }
 
   /**

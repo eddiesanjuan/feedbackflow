@@ -31,6 +31,7 @@ let mockRecorderInstance: {
   state: string;
   start: ReturnType<typeof vi.fn>;
   stop: ReturnType<typeof vi.fn>;
+  requestData: ReturnType<typeof vi.fn>;
   ondataavailable: ((event: { data: Blob }) => void) | null;
   onstop: (() => void) | null;
 };
@@ -40,6 +41,7 @@ class MockMediaRecorder {
   state = 'inactive';
   ondataavailable: ((event: { data: Blob }) => void) | null = null;
   onstop: (() => void) | null = null;
+  requestData = vi.fn();
   start = vi.fn(() => {
     this.state = 'recording';
   });
@@ -307,6 +309,27 @@ describe('ScreenRecordingRenderer', () => {
       const result = await renderer.stop();
 
       expect(result).toEqual(expected);
+    });
+
+    it('should request a final recorder data flush before stop', async () => {
+      await renderer.start({ sessionId: 'sess-1', sourceId: 'screen:0:0' });
+      await renderer.stop();
+
+      expect(mockRecorderInstance.requestData).toHaveBeenCalled();
+    });
+
+    it('should still stop tracks if IPC finalize fails', async () => {
+      const mockStream = new MockMediaStream();
+      vi.mocked(navigator.mediaDevices.getUserMedia).mockResolvedValueOnce(
+        mockStream as unknown as MediaStream
+      );
+      mockScreenRecordingIPC.stop.mockRejectedValueOnce(new Error('ipc stop failed'));
+
+      await renderer.start({ sessionId: 'sess-1', sourceId: 'screen:0:0' });
+      const result = await renderer.stop();
+
+      expect(result.success).toBe(false);
+      expect(mockStream.getTracks()[0].stop).toHaveBeenCalled();
     });
 
     it('should no-op on double stop', async () => {

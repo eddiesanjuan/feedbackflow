@@ -13,6 +13,7 @@ import {
   KeyboardShortcuts,
   ExportDialog,
   SessionReview,
+  RecordingOverlay,
 } from './components';
 import { SessionHistory } from './components/SessionHistory';
 import { ToggleRecordingHint, ManualScreenshotHint, PauseResumeHint } from './components/HotkeyHint';
@@ -26,6 +27,45 @@ import './styles/app-shell.css';
 interface ProcessingProgress {
   percent: number;
   step: string;
+}
+
+const PROCESSING_BASELINE_PERCENT = 4;
+const PROCESSING_VISIBLE_MAX = 96;
+const PROCESSING_PROGRESS_TICK_MS = 120;
+
+const PROCESSING_STEP_LABELS: Record<string, string> = {
+  preparing: 'Finalizing recording assets...',
+  transcribing: 'Transcribing narration...',
+  analyzing: 'Analyzing spoken context...',
+  saving: 'Saving session artifacts...',
+  'extracting-frames': 'Extracting key visual frames...',
+  'generating-report': 'Generating markdown report...',
+  complete: 'Finalizing output files...',
+};
+
+const PROCESSING_STEP_TARGETS: Record<string, number> = {
+  preparing: 28,
+  transcribing: 58,
+  analyzing: 72,
+  saving: 82,
+  'extracting-frames': 90,
+  'generating-report': PROCESSING_VISIBLE_MAX,
+  complete: PROCESSING_VISIBLE_MAX,
+};
+
+function normalizeProcessingStep(step?: string): string {
+  if (!step) return 'preparing';
+  return step.toLowerCase();
+}
+
+function formatProcessingStep(step?: string): string {
+  const normalized = normalizeProcessingStep(step);
+  return PROCESSING_STEP_LABELS[normalized] || 'Finalizing report output...';
+}
+
+function resolveProcessingStageTarget(step?: string): number {
+  const normalized = normalizeProcessingStep(step);
+  return PROCESSING_STEP_TARGETS[normalized] ?? 88;
 }
 
 // ============================================================================
@@ -142,8 +182,12 @@ const App: React.FC = () => {
   const [isVoiceActive, setIsVoiceActive] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [processingProgress, setProcessingProgress] = useState<ProcessingProgress | null>(null);
+  const [rawProcessingProgress, setRawProcessingProgress] = useState<ProcessingProgress | null>(null);
+  const [processingDotFrame, setProcessingDotFrame] = useState(0);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [hasRequiredByokKeys, setHasRequiredByokKeys] = useState<boolean | null>(null);
+  const outputReadyRef = useRef(false);
+  const processingStartedAtRef = useRef<number | null>(null);
 
   // ---------------------------------------------------------------------------
   // Crash recovery (existing)
@@ -294,7 +338,7 @@ const App: React.FC = () => {
         return;
       }
 
-      if (recorder.isRecording()) {
+      if (recorder.isRecording() || recorder.getSessionId()) {
         await recorder.stop().catch((error) => {
           console.warn('[App] Failed to stop continuous screen recording:', error);
         });
@@ -324,10 +368,14 @@ const App: React.FC = () => {
         console.error('[App] Failed to load initial status:', error);
       });
 
+    const toUiState = (nextState: SessionState): SessionState =>
+      nextState === 'complete' && !outputReadyRef.current ? 'processing' : nextState;
+
     const unsubState = window.markupr.session.onStateChange(({ state: nextState, session }) => {
-      setState(nextState);
+      setState(toUiState(nextState));
       void syncScreenRecording(nextState, session, false);
       if (nextState === 'recording') {
+        outputReadyRef.current = false;
         setErrorMessage(null);
         setReportPath(null);
         setRecordingPath(null);
@@ -336,18 +384,31 @@ const App: React.FC = () => {
         setReviewSession(null);
         setShowReviewEditor(false);
         setProcessingProgress(null);
+        setRawProcessingProgress(null);
+        processingStartedAtRef.current = null;
         // Dismiss overlays when recording starts
         setCurrentView('main');
         setShowCountdown(false);
         setIsPaused(false);
       }
       if (nextState === 'stopping' || nextState === 'processing') {
-        // Reset progress for a fresh processing run
-        setProcessingProgress({ percent: 0, step: 'Preparing...' });
+        if (!processingStartedAtRef.current) {
+          processingStartedAtRef.current = Date.now();
+        }
+        setRawProcessingProgress((previous) => previous ?? { percent: 0, step: 'preparing' });
+        setProcessingProgress((previous) =>
+          previous ?? {
+            percent: PROCESSING_BASELINE_PERCENT,
+            step: formatProcessingStep('preparing'),
+          }
+        );
       }
       if (nextState === 'idle') {
+        outputReadyRef.current = false;
         setDuration(0);
         setProcessingProgress(null);
+        setRawProcessingProgress(null);
+        processingStartedAtRef.current = null;
         setIsPaused(false);
       }
     });
@@ -355,7 +416,7 @@ const App: React.FC = () => {
     const unsubStatus = window.markupr.session.onStatusUpdate((status) => {
       setDuration(status.duration);
       setScreenshotCount(status.screenshotCount);
-      setState(status.state);
+      setState(toUiState(status.state));
       setIsPaused(status.isPaused);
       void syncScreenRecording(status.state, null, status.isPaused);
     });
@@ -369,6 +430,12 @@ const App: React.FC = () => {
     });
 
     const unsubReady = window.markupr.output.onReady((payload) => {
+      void syncScreenRecording('idle', null, false).catch((error) => {
+        console.warn('[App] Failed to force-release screen recorder on output ready:', error);
+      });
+      outputReadyRef.current = true;
+      setRawProcessingProgress({ percent: 100, step: 'complete' });
+      setProcessingProgress({ percent: 100, step: formatProcessingStep('complete') });
       setState('complete');
       setErrorMessage(null);
       setReportPath(payload.path || payload.reportPath || null);
@@ -379,14 +446,17 @@ const App: React.FC = () => {
       setShowReviewEditor(false);
       setDuration(0);
       loadRecentSessions();
+      processingStartedAtRef.current = null;
     });
 
     const unsubSessionError = window.markupr.session.onError((payload) => {
+      outputReadyRef.current = false;
       setState('error');
       setErrorMessage(payload.message);
     });
 
     const unsubOutputError = window.markupr.output.onError((payload) => {
+      outputReadyRef.current = false;
       setState('error');
       setErrorMessage(payload.message);
     });
@@ -431,46 +501,24 @@ const App: React.FC = () => {
   // Post-processing progress listeners
   // ---------------------------------------------------------------------------
   useEffect(() => {
-    // Listen for processing progress updates from the main process.
-    // These IPC channels are registered in Wave 3 of the refactor;
-    // for now we subscribe via ipcRenderer directly through the preload bridge.
-    // The preload createEventSubscriber pattern uses ipcRenderer.on under the hood,
-    // so we follow the same convention here with a manual listener through the
-    // existing transcript.onChunk channel pattern as a temporary shim.
-    //
-    // Once the preload is updated (Wave 3), these will be:
-    //   window.markupr.processing.onProgress(...)
-    //   window.markupr.processing.onComplete(...)
-    //
-    // For now, use the generic on pattern if available, or subscribe via
-    // the session state change handler above as a fallback (which we already do).
-    const handleProgress = (_event: unknown, data: ProcessingProgress) => {
-      setProcessingProgress(data);
-    };
-
-    const handleComplete = () => {
-      setProcessingProgress({ percent: 100, step: 'Complete' });
-    };
-
-    // Use ipcRenderer-based subscription if the preload exposes it.
-    // The preload currently does not expose markupr:processing:* channels,
-    // so we check for the pattern and gracefully skip if unavailable.
-    // The processing progress will still work via state transitions above.
+    // Subscribe to post-processing updates emitted from main via preload bridge.
     const markuprApi = window.markupr as Record<string, unknown>;
     let unsubProgress: (() => void) | null = null;
     let unsubComplete: (() => void) | null = null;
 
-    // Check if the processing API has been added to the preload bridge
     if (markuprApi.processing && typeof (markuprApi.processing as Record<string, unknown>).onProgress === 'function') {
       const processingApi = markuprApi.processing as {
         onProgress: (cb: (data: ProcessingProgress) => void) => () => void;
         onComplete: (cb: (data: unknown) => void) => () => void;
       };
       unsubProgress = processingApi.onProgress((data) => {
-        setProcessingProgress(data);
+        setRawProcessingProgress({
+          percent: Math.max(0, Math.min(100, Math.round(data.percent))),
+          step: data.step,
+        });
       });
       unsubComplete = processingApi.onComplete(() => {
-        setProcessingProgress({ percent: 100, step: 'Complete' });
+        setRawProcessingProgress({ percent: 100, step: 'complete' });
       });
     }
 
@@ -479,6 +527,79 @@ const App: React.FC = () => {
       unsubComplete?.();
     };
   }, []);
+
+  // ---------------------------------------------------------------------------
+  // Processing progress smoothing (keeps UX believable and avoids instant jumps)
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    const isProcessingState = state === 'stopping' || state === 'processing';
+    if (!isProcessingState) {
+      return;
+    }
+
+    if (!processingStartedAtRef.current) {
+      processingStartedAtRef.current = Date.now();
+    }
+
+    const interval = window.setInterval(() => {
+      const startedAt = processingStartedAtRef.current ?? Date.now();
+      const elapsedMs = Date.now() - startedAt;
+      const elapsedFloor = (() => {
+        if (elapsedMs < 3500) {
+          return PROCESSING_BASELINE_PERCENT + elapsedMs / 380;
+        }
+        if (elapsedMs < 12000) {
+          return 13 + (elapsedMs - 3500) / 240;
+        }
+        if (elapsedMs < 24000) {
+          return 48 + (elapsedMs - 12000) / 420;
+        }
+        return 76 + (elapsedMs - 24000) / 900;
+      })();
+      const rawPercent = Math.max(0, Math.min(100, rawProcessingProgress?.percent ?? 0));
+      const rawGuided = Math.min(PROCESSING_VISIBLE_MAX, rawPercent + 8);
+      const stageTarget = resolveProcessingStageTarget(rawProcessingProgress?.step);
+      const targetPercent = Math.max(
+        PROCESSING_BASELINE_PERCENT,
+        Math.min(PROCESSING_VISIBLE_MAX, Math.max(elapsedFloor, rawGuided, stageTarget))
+      );
+      const stepLabel = formatProcessingStep(rawProcessingProgress?.step);
+
+      setProcessingProgress((previous) => {
+        const currentPercent = previous?.percent ?? PROCESSING_BASELINE_PERCENT;
+        const delta = targetPercent - currentPercent;
+        const nextPercent =
+          delta <= 0.25
+            ? targetPercent
+            : currentPercent + Math.max(0.3, delta * 0.16);
+
+        return {
+          percent: Math.round(Math.min(PROCESSING_VISIBLE_MAX, nextPercent)),
+          step: stepLabel,
+        };
+      });
+    }, PROCESSING_PROGRESS_TICK_MS);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [state, rawProcessingProgress]);
+
+  useEffect(() => {
+    const isProcessingState = state === 'stopping' || state === 'processing';
+    if (!isProcessingState) {
+      setProcessingDotFrame(0);
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      setProcessingDotFrame((prev) => (prev + 1) % 4);
+    }, 360);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [state]);
 
   // ---------------------------------------------------------------------------
   // Navigation event listeners (new - from main process menu/tray)
@@ -582,6 +703,18 @@ const App: React.FC = () => {
   const manualCaptureDisabled = isMutating || state !== 'recording' || isPaused;
   const showRecordingStatus = state === 'recording';
   const showProcessingProgress = state === 'stopping' || state === 'processing';
+  const isRecordingHudMode = showRecordingStatus && currentView === 'main';
+
+  useEffect(() => {
+    const bodyClass = 'markupr-hud-mode';
+    const htmlClass = 'markupr-hud-mode';
+    document.documentElement.classList.toggle(htmlClass, isRecordingHudMode);
+    document.body.classList.toggle(bodyClass, isRecordingHudMode);
+    return () => {
+      document.documentElement.classList.remove(htmlClass);
+      document.body.classList.remove(bodyClass);
+    };
+  }, [isRecordingHudMode]);
 
   const countdownDuration = settings?.defaultCountdown ?? 0;
   // ---------------------------------------------------------------------------
@@ -599,6 +732,14 @@ const App: React.FC = () => {
     setIsMutating(true);
     try {
       if (state === 'recording') {
+        // Flush renderer-side screen recorder first so main-process post-processing
+        // receives a finalized video artifact.
+        try {
+          await syncScreenRecording('idle', null, false);
+        } catch (error) {
+          console.warn('[App] Failed to flush screen recording before stop:', error);
+        }
+
         const result = await window.markupr.session.stop();
         if (!result.success) {
           setState('error');
@@ -612,6 +753,7 @@ const App: React.FC = () => {
       setRecordingPath(null);
       setAudioPath(null);
       setErrorMessage(null);
+      outputReadyRef.current = false;
 
       const result = await window.markupr.session.start();
       if (!result.success) {
@@ -646,6 +788,7 @@ const App: React.FC = () => {
       setRecordingPath(null);
       setAudioPath(null);
       setErrorMessage(null);
+      outputReadyRef.current = false;
 
       const result = await window.markupr.session.start();
       if (!result.success) {
@@ -743,6 +886,7 @@ const App: React.FC = () => {
 
   const handleRecoverSession = useCallback(() => {
     recoverSession();
+    outputReadyRef.current = true;
     setState('complete');
     loadRecentSessions();
   }, [recoverSession, loadRecentSessions]);
@@ -797,7 +941,7 @@ const App: React.FC = () => {
   // Render
   // ---------------------------------------------------------------------------
   return (
-    <div className={`ff-shell ff-shell--${state}`}>
+    <div className={`ff-shell ff-shell--${state}${isRecordingHudMode ? ' ff-shell--hud' : ''}`}>
       {/* === Global overlays (always rendered, self-manage visibility) === */}
       <UpdateNotification />
 
@@ -857,7 +1001,24 @@ const App: React.FC = () => {
       )}
 
       {/* === Main Card === */}
-      <main className="ff-shell__card">
+      <main className={`ff-shell__card${isRecordingHudMode ? ' ff-shell__card--hud' : ''}`}>
+        {showRecordingStatus && (
+          <RecordingOverlay
+            duration={Math.floor(duration / 1000)}
+            screenshotCount={screenshotCount}
+            onStop={() => {
+              void handlePrimaryAction();
+            }}
+            audioLevel={audioLevel}
+            isVoiceActive={isVoiceActive}
+            manualShortcut={settings?.hotkeys?.manualScreenshot}
+            toggleShortcut={settings?.hotkeys?.toggleRecording}
+            pauseShortcut={settings?.hotkeys?.pauseResume}
+          />
+        )}
+
+        {!isRecordingHudMode && (
+          <>
         <header className="ff-shell__header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <StatusIndicator
@@ -977,8 +1138,8 @@ const App: React.FC = () => {
                 gap: 10,
                 padding: '8px 10px',
                 borderRadius: 10,
-                background: 'rgba(255,255,255,0.65)',
-                border: '1px solid rgba(60, 60, 67, 0.15)',
+                background: 'rgba(16, 22, 32, 0.72)',
+                border: '1px solid rgba(145, 160, 186, 0.26)',
               }}
             >
               <span className="ff-shell__transcript-line">
@@ -1002,7 +1163,7 @@ const App: React.FC = () => {
                       minWidth: 44,
                       textAlign: 'right',
                       fontSize: 11,
-                      color: '#6e6e73',
+                      color: '#98a7c0',
                       fontVariantNumeric: 'tabular-nums',
                     }}
                   >
@@ -1030,7 +1191,12 @@ const App: React.FC = () => {
 
         {showProcessingProgress && (
           <section className="ff-shell__processing">
-            <p className="ff-shell__processing-label">Processing your recording...</p>
+            <p className="ff-shell__processing-label">
+              Processing your recording
+              <span className="ff-shell__processing-dots" aria-hidden="true">
+                {'.'.repeat(Math.max(1, processingDotFrame))}
+              </span>
+            </p>
             <div className="ff-shell__processing-bar-track">
               <div
                 className="ff-shell__processing-bar-fill"
@@ -1156,6 +1322,8 @@ const App: React.FC = () => {
           </p>
           <DonateButton className="ff-shell__donate" />
         </footer>
+          </>
+        )}
       </main>
     </div>
   );

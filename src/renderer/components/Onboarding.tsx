@@ -36,6 +36,24 @@ interface ApiKeyStatus {
   error: string | null;
 }
 
+const API_TEST_TIMEOUT_MS = 15000;
+const API_SAVE_TIMEOUT_MS = 12000;
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
+    promise
+      .then((value) => {
+        clearTimeout(timeout);
+        resolve(value);
+      })
+      .catch((error) => {
+        clearTimeout(timeout);
+        reject(error);
+      });
+  });
+}
+
 // ============================================================================
 // Confetti Particle System
 // ============================================================================
@@ -827,7 +845,7 @@ const ApiKeyStep: React.FC<{
               backgroundColor: apiKey.testing ? '#374151' : 'var(--ff-accent)',
             }}
             onClick={onTestApiKey}
-            disabled={apiKey.testing || apiKey.value.length < 10}
+            disabled={apiKey.value.length < 10}
           >
             {apiKey.testing ? (
               <span style={styles.spinner} />
@@ -1180,32 +1198,45 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, onSkip }) =>
     setApiKey((prev) => ({ ...prev, testing: true, error: null }));
 
     try {
-      const validation = await window.markupr.settings.testApiKey('openai', apiKey.value);
+      const candidateKey = apiKey.value.trim();
+      const validation = await withTimeout(
+        window.markupr.settings.testApiKey('openai', candidateKey),
+        API_TEST_TIMEOUT_MS,
+        'OpenAI API test timed out. Please try again.'
+      );
 
       if (validation.valid) {
-        setApiKey((prev) => ({ ...prev, testing: false, valid: true }));
-
-        // Save the API key via IPC (using secure storage)
-        try {
-          await window.markupr.settings.setApiKey('openai', apiKey.value);
-        } catch {
-          // Settings save failed but key is valid
+        const saved = await withTimeout(
+          window.markupr.settings.setApiKey('openai', candidateKey),
+          API_SAVE_TIMEOUT_MS,
+          'Saving OpenAI key timed out. Please try again.'
+        );
+        if (!saved) {
+          setApiKey((prev) => ({
+            ...prev,
+            valid: false,
+            error: 'OpenAI key validated, but local save verification failed. Relaunch app and try again.',
+          }));
+          return;
         }
+
+        setApiKey((prev) => ({ ...prev, valid: true }));
       } else {
         setApiKey((prev) => ({
           ...prev,
-          testing: false,
           valid: false,
           error: validation.error || 'OpenAI API key test failed. Please try again.',
         }));
       }
-    } catch {
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : 'Unknown error';
       setApiKey((prev) => ({
         ...prev,
-        testing: false,
         valid: false,
-        error: 'Failed to test API key. Please try again.',
+        error: `Failed to test API key: ${detail}`,
       }));
+    } finally {
+      setApiKey((prev) => ({ ...prev, testing: false }));
     }
   }, [apiKey.value]);
 

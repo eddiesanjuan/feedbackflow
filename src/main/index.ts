@@ -76,7 +76,13 @@ import type { WhisperModel } from './transcription/types';
 import { errorHandler } from './ErrorHandler';
 import { autoUpdaterManager } from './AutoUpdater';
 import { crashRecovery, type RecoverableFeedbackItem } from './CrashRecovery';
-import { postProcessor, type PostProcessResult, type PostProcessProgress } from './pipeline';
+import {
+  postProcessor,
+  type PostProcessResult,
+  type PostProcessProgress,
+  type TranscriptSegment,
+  type KeyMoment,
+} from './pipeline';
 import { menuManager } from './MenuManager';
 import { WindowsTaskbar, createWindowsTaskbar } from './platform';
 import { PopoverManager, POPOVER_SIZES } from './windows';
@@ -150,11 +156,19 @@ interface RecordingArtifact {
   mimeType: string;
   bytesWritten: number;
   writeChain: Promise<void>;
+  lastChunkAt: number;
+  startTime?: number;
+}
+
+interface FinalizedRecordingArtifact {
+  tempPath: string;
+  mimeType: string;
+  bytesWritten: number;
   startTime?: number;
 }
 
 const activeScreenRecordings = new Map<string, RecordingArtifact>();
-const finalizedScreenRecordings = new Map<string, Omit<RecordingArtifact, 'writeChain'>>();
+const finalizedScreenRecordings = new Map<string, FinalizedRecordingArtifact>();
 const DEV_RENDERER_URL = 'http://localhost:5173';
 const DEV_RENDERER_LOAD_RETRIES = 10;
 
@@ -399,6 +413,10 @@ function handleSessionStateChange(state: SessionState, session: Session | null):
     state === 'stopping' ||
     state === 'processing';
   popover?.setKeepVisibleOnBlur(keepVisibleOnBlur);
+
+  if (state === 'recording' && popover && !popover.isVisible()) {
+    popover.show();
+  }
 
   // Update Windows taskbar (if on Windows)
   windowsTaskbar?.updateSessionState(state);
@@ -724,6 +742,27 @@ async function finalizeScreenRecording(sessionId: string): Promise<{
 } | null> {
   const active = activeScreenRecordings.get(sessionId);
   if (active) {
+    const QUIET_PERIOD_MS = 750;
+    const MAX_WAIT_MS = 6000;
+    const waitStartedAt = Date.now();
+
+    // Wait for writes to settle so we don't finalize while the renderer is still
+    // flushing the tail of MediaRecorder chunks.
+    while (Date.now() - waitStartedAt < MAX_WAIT_MS) {
+      try {
+        await active.writeChain;
+      } catch (error) {
+        console.warn('[Main] Screen recording write chain failed during finalize:', error);
+      }
+
+      const idleMs = Date.now() - active.lastChunkAt;
+      if (idleMs >= QUIET_PERIOD_MS) {
+        break;
+      }
+
+      await sleep(Math.min(180, QUIET_PERIOD_MS - idleMs));
+    }
+
     try {
       await active.writeChain;
     } catch (error) {
@@ -740,6 +779,317 @@ async function finalizeScreenRecording(sessionId: string): Promise<{
   }
 
   return finalizedScreenRecordings.get(sessionId) || null;
+}
+
+function getScreenRecordingSnapshot(sessionId: string): {
+  tempPath: string;
+  mimeType: string;
+  bytesWritten: number;
+  startTime?: number;
+} | null {
+  const active = activeScreenRecordings.get(sessionId);
+  if (active) {
+    return {
+      tempPath: active.tempPath,
+      mimeType: active.mimeType,
+      bytesWritten: active.bytesWritten,
+      startTime: active.startTime,
+    };
+  }
+
+  const finalized = finalizedScreenRecordings.get(sessionId);
+  if (finalized) {
+    return {
+      tempPath: finalized.tempPath,
+      mimeType: finalized.mimeType,
+      bytesWritten: finalized.bytesWritten,
+      startTime: finalized.startTime,
+    };
+  }
+
+  return null;
+}
+
+function buildPostProcessTranscriptSegments(session: Session): TranscriptSegment[] {
+  const sessionStartSec = session.startTime / 1000;
+  const events = session.transcriptBuffer
+    .filter((event) => event.text.trim().length > 0 && event.isFinal)
+    .sort((a, b) => a.timestamp - b.timestamp);
+
+  if (events.length === 0) {
+    return [];
+  }
+
+  return events.map((event, index) => {
+    const startTime = Math.max(0, event.timestamp - sessionStartSec);
+    const nextTimestampSec =
+      index < events.length - 1
+        ? Math.max(startTime + 0.35, events[index + 1].timestamp - sessionStartSec)
+        : startTime + Math.min(3, Math.max(1, event.text.trim().split(/\s+/).length * 0.35));
+    const endTime = Math.max(startTime + 0.35, nextTimestampSec);
+
+    return {
+      text: event.text.trim(),
+      startTime,
+      endTime,
+      confidence: Number.isFinite(event.confidence) ? event.confidence : 0.8,
+    };
+  });
+}
+
+function formatSecondsAsTimestamp(seconds: number): string {
+  const total = Math.max(0, Math.floor(seconds));
+  const mins = Math.floor(total / 60);
+  const secs = total % 60;
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
+
+function normalizeForMatch(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[`*_~[\]().,!?;:'"\\/|-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function buildTokenSet(value: string): Set<string> {
+  const tokens = normalizeForMatch(value)
+    .split(' ')
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 3);
+  return new Set(tokens);
+}
+
+function overlapScore(a: Set<string>, b: Set<string>): number {
+  if (a.size === 0 || b.size === 0) {
+    return 0;
+  }
+  let overlap = 0;
+  for (const token of a) {
+    if (b.has(token)) {
+      overlap += 1;
+    }
+  }
+  return overlap / Math.min(a.size, b.size);
+}
+
+function extractAiFrameHintsFromMarkdown(
+  markdown: string,
+  transcriptSegments: TranscriptSegment[]
+): KeyMoment[] {
+  if (!markdown) {
+    return [];
+  }
+
+  const parseTimestampToSeconds = (value: string): number | null => {
+    const trimmed = value.trim();
+    const parts = trimmed.split(':').map((part) => Number.parseInt(part, 10));
+    if (parts.some((part) => !Number.isFinite(part) || part < 0)) {
+      return null;
+    }
+    if (parts.length === 2) {
+      return parts[0] * 60 + parts[1];
+    }
+    if (parts.length === 3) {
+      return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    }
+    return null;
+  };
+
+  const timestampHints = Array.from(markdown.matchAll(/\*\*Timestamp:\*\*\s*([0-9]{1,2}:[0-9]{2}(?::[0-9]{2})?)/g))
+    .map((match) => parseTimestampToSeconds(match[1]))
+    .filter((value): value is number => value !== null)
+    .map((seconds) => ({
+      timestamp: Math.max(0, seconds),
+      reason: 'AI-timestamped issue context',
+      confidence: 0.96,
+    }));
+
+  const quoteLines = Array.from(markdown.matchAll(/^\s*>\s+(.+)$/gm))
+    .map((match) => match[1].trim())
+    .filter((line) => line.length >= 10);
+  if (quoteLines.length === 0 && timestampHints.length === 0) {
+    return [];
+  }
+
+  const normalizedSegments = transcriptSegments.map((segment) => ({
+    segment,
+    normalized: normalizeForMatch(segment.text || ''),
+    tokens: buildTokenSet(segment.text || ''),
+  }));
+
+  const hints: KeyMoment[] = [...timestampHints];
+  const seenQuotes = new Set<string>();
+
+  for (const quote of quoteLines) {
+    const normalizedQuote = normalizeForMatch(quote);
+    if (!normalizedQuote || seenQuotes.has(normalizedQuote)) {
+      continue;
+    }
+    seenQuotes.add(normalizedQuote);
+
+    const quoteTokens = buildTokenSet(quote);
+    let bestMatch: { score: number; segment: TranscriptSegment } | null = null;
+
+    for (const candidate of normalizedSegments) {
+      if (!candidate.normalized) {
+        continue;
+      }
+
+      let score = overlapScore(quoteTokens, candidate.tokens);
+      if (
+        normalizedQuote.length >= 16 &&
+        (candidate.normalized.includes(normalizedQuote) || normalizedQuote.includes(candidate.normalized))
+      ) {
+        score = Math.max(score, 0.9);
+      }
+
+      if (!bestMatch || score > bestMatch.score) {
+        bestMatch = { score, segment: candidate.segment };
+      }
+    }
+
+    if (!bestMatch || bestMatch.score < 0.34) {
+      continue;
+    }
+
+    const midpoint =
+      bestMatch.segment.startTime +
+      Math.max(0, (bestMatch.segment.endTime - bestMatch.segment.startTime) / 2);
+    hints.push({
+      timestamp: Math.max(0, midpoint),
+      reason: 'AI-highlighted context',
+      confidence: Math.min(0.98, 0.58 + bestMatch.score * 0.35),
+    });
+  }
+
+  if (hints.length === 0) {
+    return [];
+  }
+
+  const sorted = hints.sort((a, b) => a.timestamp - b.timestamp);
+  const deduped: KeyMoment[] = [];
+  for (const hint of sorted) {
+    const previous = deduped[deduped.length - 1];
+    if (!previous || Math.abs(previous.timestamp - hint.timestamp) >= 1.0) {
+      deduped.push(hint);
+      continue;
+    }
+    if (hint.confidence > previous.confidence) {
+      deduped[deduped.length - 1] = hint;
+    }
+  }
+
+  return deduped.slice(0, 12);
+}
+
+async function appendExtractedFramesToReport(
+  markdownPath: string,
+  extractedFrames: Array<{ path: string; timestamp: number; reason: string }>
+): Promise<void> {
+  if (!extractedFrames.length) {
+    return;
+  }
+
+  const verifiedFrames: Array<{ path: string; timestamp: number; reason: string }> = [];
+  for (const frame of extractedFrames) {
+    try {
+      await fs.access(frame.path);
+      verifiedFrames.push(frame);
+    } catch {
+      // Skip stale frame references so markdown never links missing files.
+    }
+  }
+  if (!verifiedFrames.length) {
+    return;
+  }
+
+  let markdown = await fs.readFile(markdownPath, 'utf-8');
+  if (markdown.includes('## Auto-Extracted Screenshots')) {
+    return;
+  }
+
+  const lines = verifiedFrames
+    .slice()
+    .sort((a, b) => a.timestamp - b.timestamp)
+    .map((frame, index) => {
+      const filename = basename(frame.path) || `frame-${String(index + 1).padStart(3, '0')}.png`;
+      const timestamp = formatSecondsAsTimestamp(frame.timestamp);
+      const reason = frame.reason?.trim() || 'Auto-extracted frame';
+      return `- [${timestamp}] ${reason} ([${filename}](./screenshots/${filename}))`;
+    })
+    .join('\n');
+
+  markdown += `\n## Auto-Extracted Screenshots\n${lines}\n`;
+
+  // Keep report header/session info counts aligned with the post-processed frame output.
+  const screenshotCount = verifiedFrames.length;
+  markdown = markdown.replace(
+    /(\|\s*Duration:\s*[^|]+\|\s*)\d+\s+screenshots(\s*\|\s*\d+\s+items identified\s*\n)/,
+    `$1${screenshotCount} screenshots$2`
+  );
+  markdown = markdown.replace(
+    /(-\s*\*\*Screenshots:\*\*\s*)\d+/,
+    `$1${screenshotCount}`
+  );
+
+  await fs.writeFile(markdownPath, markdown, 'utf-8');
+}
+
+async function syncExtractedFrameMetadata(
+  sessionDir: string,
+  screenshotCount: number
+): Promise<void> {
+  const metadataPath = join(sessionDir, 'metadata.json');
+  try {
+    const raw = await fs.readFile(metadataPath, 'utf-8');
+    const metadata = JSON.parse(raw) as { screenshotCount?: number };
+    metadata.screenshotCount = Math.max(
+      Number.isFinite(metadata.screenshotCount) ? Number(metadata.screenshotCount) : 0,
+      screenshotCount
+    );
+    await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2), 'utf-8');
+  } catch (error) {
+    console.warn('[Main] Failed to sync extracted frame metadata:', error);
+  }
+}
+
+async function writeProcessingTrace(
+  sessionDir: string,
+  trace: {
+    reportPath: string;
+    totalMs: number;
+    aiMs: number;
+    saveMs: number;
+    postProcessMs: number;
+    audioBytes: number;
+    recordingBytes: number;
+    transcriptBufferEvents: number;
+    providedTranscriptSegments: number;
+    aiFrameHints: number;
+    postProcessSegments: number;
+    extractedFrames: number;
+    completedAt: string;
+  }
+): Promise<void> {
+  const tracePath = join(sessionDir, 'processing-trace.json');
+  await fs.writeFile(tracePath, JSON.stringify(trace, null, 2), 'utf-8');
+}
+
+async function copyReportPathToClipboard(path: string): Promise<boolean> {
+  const maxAttempts = 3;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const copied = await clipboardService.copy(path);
+    if (copied) {
+      return true;
+    }
+
+    if (attempt < maxAttempts) {
+      await sleep(120 * attempt);
+    }
+  }
+
+  return false;
 }
 
 async function attachRecordingToSessionOutput(
@@ -881,9 +1231,6 @@ async function startSession(sourceId?: string, sourceName?: string): Promise<{
       });
     }
 
-    // Show recording notification
-    showSuccessNotification('Recording Started', 'Speak naturally. Pause, hotkey, or voice command will capture screenshots.');
-
     return {
       success: true,
       sessionId: session?.id,
@@ -908,6 +1255,13 @@ async function stopSession(): Promise<{
   error?: string;
 }> {
   let stoppedSessionId: string | null = null;
+  const stopStartedAt = Date.now();
+  let aiDurationMs = 0;
+  let saveDurationMs = 0;
+  let postProcessDurationMs = 0;
+  let aiFrameHintCount = 0;
+  let stopPhaseTicker: NodeJS.Timeout | null = null;
+  let stopPhasePercent = 6;
 
   const cleanupRecordingArtifacts = async (sessionId: string): Promise<void> => {
     const artifact = await finalizeScreenRecording(sessionId).catch(() => null);
@@ -922,12 +1276,42 @@ async function stopSession(): Promise<{
     finalizedScreenRecordings.delete(sessionId);
   };
 
+  const emitProcessingProgress = (percent: number, step: string): void => {
+    const boundedPercent = Math.max(0, Math.min(100, Math.round(percent)));
+    mainWindow?.webContents.send(IPC_CHANNELS.PROCESSING_PROGRESS, {
+      percent: boundedPercent,
+      step,
+    });
+  };
+
+  const stopStopPhaseTicker = (): void => {
+    if (stopPhaseTicker) {
+      clearInterval(stopPhaseTicker);
+      stopPhaseTicker = null;
+    }
+  };
+
+  const startStopPhaseTicker = (): void => {
+    stopStopPhaseTicker();
+    emitProcessingProgress(stopPhasePercent, 'preparing');
+    stopPhaseTicker = setInterval(() => {
+      stopPhasePercent = Math.min(32, stopPhasePercent + 1);
+      emitProcessingProgress(stopPhasePercent, 'preparing');
+      windowsTaskbar?.setProgress(Math.max(0.06, stopPhasePercent / 100));
+      if (stopPhasePercent >= 32) {
+        stopStopPhaseTicker();
+      }
+    }, 420);
+  };
+
   try {
     // Set Windows taskbar to processing state with indeterminate progress
     windowsTaskbar?.setProgress(-1);
+    startStopPhaseTicker();
 
     // Stop the session and get results
     const session = await sessionController.stop();
+    stopStopPhaseTicker();
 
     // Stop crash recovery tracking
     crashRecovery.stopTracking();
@@ -941,7 +1325,7 @@ async function stopSession(): Promise<{
     }
     stoppedSessionId = session.id;
 
-    const recordingProbe = await finalizeScreenRecording(session.id).catch(() => null);
+    const recordingProbe = getScreenRecordingSnapshot(session.id);
     const hasTranscript = session.transcriptBuffer.some((entry) => entry.text.trim().length > 0);
     const hasRecording = !!recordingProbe && recordingProbe.bytesWritten > 0;
     const recordingExtension = hasRecording
@@ -960,11 +1344,15 @@ async function stopSession(): Promise<{
       };
     }
 
+    emitProcessingProgress(10, 'preparing');
+
     // Update progress: generating document (33%)
     windowsTaskbar?.setProgress(0.33);
+    emitProcessingProgress(24, 'analyzing');
 
     // Generate output document — uses AI pipeline if an Anthropic key is configured,
     // otherwise falls back to the free-tier rule-based generator.
+    const aiStartedAt = Date.now();
     const { document } = settingsManager
       ? await aiProcessSession(session, {
           settingsManager,
@@ -979,12 +1367,17 @@ async function stopSession(): Promise<{
             screenshotDir: './screenshots',
           }),
         };
+    aiDurationMs = Date.now() - aiStartedAt;
+    emitProcessingProgress(44, 'analyzing');
 
     // Update progress: saving to file system (66%)
     windowsTaskbar?.setProgress(0.66);
+    emitProcessingProgress(56, 'saving');
 
     // Save to file system
+    const saveStartedAt = Date.now();
     const saveResult = await fileManager.saveSession(session, document);
+    saveDurationMs = Date.now() - saveStartedAt;
     if (!saveResult.success) {
       await cleanupRecordingArtifacts(session.id);
       sessionController.clearCapturedAudio();
@@ -994,6 +1387,7 @@ async function stopSession(): Promise<{
         error: saveResult.error || 'Unable to save session report.',
       };
     }
+    emitProcessingProgress(64, 'saving');
 
     const recordingArtifact = await attachRecordingToSessionOutput(
       session.id,
@@ -1020,6 +1414,7 @@ async function stopSession(): Promise<{
         audioDurationMs: audioArtifact.durationMs,
       });
     }
+    emitProcessingProgress(71, 'preparing');
 
     // ------------------------------------------------------------------
     // Post-Processing Pipeline
@@ -1027,18 +1422,31 @@ async function stopSession(): Promise<{
     // Run the post-processor if we have audio and/or video artifacts.
     // Progress and completion events are sent to the renderer via IPC.
     let postProcessResult: PostProcessResult | null = null;
+    const providedTranscriptSegments = buildPostProcessTranscriptSegments(session);
+    const aiMomentHints = extractAiFrameHintsFromMarkdown(
+      document.content,
+      providedTranscriptSegments
+    );
+    aiFrameHintCount = aiMomentHints.length;
 
     if (audioArtifact || recordingArtifact) {
+      const postProcessStartedAt = Date.now();
+      emitProcessingProgress(74, 'transcribing');
       try {
         postProcessResult = await postProcessor.process({
           videoPath: recordingArtifact?.path ?? '',
           audioPath: audioArtifact?.path ?? '',
           sessionDir: saveResult.sessionDir,
+          aiMomentHints,
+          transcriptSegments:
+            providedTranscriptSegments.length > 0
+              ? providedTranscriptSegments
+              : undefined,
           onProgress: (progress: PostProcessProgress) => {
-            mainWindow?.webContents.send('markupr:processing:progress', {
-              percent: progress.percent,
-              step: progress.step,
-            });
+            const bounded = Math.max(0, Math.min(100, progress.percent));
+            // Map pipeline-local progress into the global stop-session range.
+            const mappedPercent = 72 + bounded * 0.2; // 72% -> 92%
+            emitProcessingProgress(mappedPercent, progress.step);
           },
         });
 
@@ -1047,7 +1455,23 @@ async function stopSession(): Promise<{
       } catch (postProcessError) {
         console.warn('[Main] Post-processing pipeline failed, continuing with basic output:', postProcessError);
         // Non-fatal: we still have the basic markdown report from the AI/rule-based pipeline
+      } finally {
+        postProcessDurationMs = Date.now() - postProcessStartedAt;
       }
+    }
+    emitProcessingProgress(93, 'generating-report');
+
+    if (postProcessResult?.extractedFrames?.length) {
+      await appendExtractedFramesToReport(
+        saveResult.markdownPath,
+        postProcessResult.extractedFrames
+      ).catch((error) => {
+        console.warn('[Main] Failed to append extracted frame links to report:', error);
+      });
+      await syncExtractedFrameMetadata(
+        saveResult.sessionDir,
+        postProcessResult.extractedFrames.length
+      );
     }
 
     const markdownForPayload = await fs
@@ -1056,13 +1480,15 @@ async function stopSession(): Promise<{
 
     // Update progress: copying to clipboard (90%)
     windowsTaskbar?.setProgress(0.9);
+    emitProcessingProgress(96, 'complete');
 
     // Copy markdown report path to clipboard (the bridge into AI agents)
-    await clipboardService.copy(saveResult.markdownPath);
+    const clipboardCopied = await copyReportPathToClipboard(saveResult.markdownPath);
 
     // Complete progress and flash taskbar
     windowsTaskbar?.setProgress(1);
     windowsTaskbar?.flashFrame(3);
+    emitProcessingProgress(99, 'complete');
 
     // Clear progress after a brief delay
     setTimeout(() => {
@@ -1072,7 +1498,25 @@ async function stopSession(): Promise<{
     // Build the review session for the SessionReview component
     const reviewSession = adaptSessionForMarkdown(session);
 
-    // Notify renderer
+    await writeProcessingTrace(saveResult.sessionDir, {
+      reportPath: saveResult.markdownPath,
+      totalMs: Date.now() - stopStartedAt,
+      aiMs: aiDurationMs,
+      saveMs: saveDurationMs,
+      postProcessMs: postProcessDurationMs,
+      audioBytes: audioArtifact?.bytesWritten ?? 0,
+      recordingBytes: recordingArtifact?.bytesWritten ?? 0,
+      transcriptBufferEvents: session.transcriptBuffer.length,
+      providedTranscriptSegments: providedTranscriptSegments.length,
+      aiFrameHints: aiFrameHintCount,
+      postProcessSegments: postProcessResult?.transcriptSegments.length ?? 0,
+      extractedFrames: postProcessResult?.extractedFrames.length ?? 0,
+      completedAt: new Date().toISOString(),
+    }).catch((error) => {
+      console.warn('[Main] Failed to write processing trace:', error);
+    });
+
+    // Notify renderer only after final post-processing/trace bookkeeping is finished.
     mainWindow?.webContents.send(IPC_CHANNELS.SESSION_COMPLETE, serializeSession(session));
     mainWindow?.webContents.send(IPC_CHANNELS.OUTPUT_READY, {
       markdown: markdownForPayload,
@@ -1087,10 +1531,12 @@ async function stopSession(): Promise<{
       reviewSession,
     });
 
-    // Show completion notification
+    // Show completion notification only after trace/write pipeline is done.
     showSuccessNotification(
       'Feedback Captured!',
-      `${session.feedbackItems.length} items saved. Report path copied to clipboard.`
+      clipboardCopied
+        ? `${session.feedbackItems.length} items saved. Report path copied to clipboard.`
+        : `${session.feedbackItems.length} items saved. Clipboard copy failed, use Copy Path in the app.`
     );
 
     return {
@@ -1102,6 +1548,7 @@ async function stopSession(): Promise<{
     if (stoppedSessionId) {
       await cleanupRecordingArtifacts(stoppedSessionId);
     }
+    stopStopPhaseTicker();
     sessionController.clearCapturedAudio();
     console.error('[Main] Failed to stop session:', error);
     windowsTaskbar?.clearProgress();
@@ -1259,7 +1706,7 @@ async function validateProviderApiKey(
   service: ApiKeyProvider,
   key: string,
 ): Promise<ApiKeyValidationResult> {
-  const trimmedKey = key.trim();
+  const trimmedKey = typeof key === 'string' ? key.trim() : '';
 
   if (trimmedKey.length < 10) {
     return {
@@ -1273,26 +1720,35 @@ async function validateProviderApiKey(
 
   const requestConfig = service === 'openai'
     ? {
-        url: 'https://api.openai.com/v1/models?limit=1',
+        url: 'https://api.openai.com/v1/audio/transcriptions',
+        method: 'POST' as const,
         headers: {
           Authorization: `Bearer ${trimmedKey}`,
-          'Content-Type': 'application/json',
         } as Record<string, string>,
+        // Intentionally empty form: valid OpenAI keys return 400 for missing file.
+        body: new FormData() as BodyInit,
       }
     : {
         url: 'https://api.anthropic.com/v1/models?limit=1',
+        method: 'GET' as const,
         headers: {
           'x-api-key': trimmedKey,
           'anthropic-version': '2023-06-01',
         } as Record<string, string>,
+        body: undefined as BodyInit | undefined,
       };
 
   try {
     const response = await fetch(requestConfig.url, {
-      method: 'GET',
+      method: requestConfig.method,
       headers: requestConfig.headers,
+      body: requestConfig.body,
       signal: controller.signal,
     });
+
+    if (service === 'openai' && response.status === 400) {
+      return { valid: true };
+    }
 
     if (response.ok) {
       return { valid: true };
@@ -1302,7 +1758,10 @@ async function validateProviderApiKey(
       return {
         valid: false,
         status: response.status,
-        error: 'Invalid OpenAI API key. Please check and try again.',
+        error:
+          response.status === 401
+            ? 'Invalid OpenAI API key. Please check and try again.'
+            : 'OpenAI key is valid but missing required permissions. Enable model/audio access for this project key and try again.',
       };
     }
 
@@ -1454,6 +1913,7 @@ function setupIPC(): void {
           mimeType: mimeType || 'video/webm',
           bytesWritten: 0,
           writeChain: Promise.resolve(),
+          lastChunkAt: Date.now(),
           startTime,
         });
 
@@ -1493,6 +1953,7 @@ function setupIPC(): void {
         .then(() => fs.appendFile(recording.tempPath, buffer))
         .then(() => {
           recording.bytesWritten += buffer.byteLength;
+          recording.lastChunkAt = Date.now();
         });
 
       try {
@@ -1723,8 +2184,37 @@ function setupIPC(): void {
         return false;
       }
 
-      await settingsManager.setApiKey(service, key);
-      return true;
+      try {
+        await settingsManager.setApiKey(service, key);
+
+        // Keychain/safeStorage reads can occasionally lag immediately after write
+        // (especially in unsigned dev builds), so verify with a short retry window
+        // before surfacing a save failure to the renderer.
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const persisted = await settingsManager.getApiKey(service);
+          if (persisted && persisted.trim().length > 0) {
+            return true;
+          }
+
+          if (attempt < 2) {
+            await new Promise((resolve) => setTimeout(resolve, 120 * (attempt + 1)));
+          }
+        }
+
+        // setApiKey only returns without throwing when a storage path accepted
+        // the key. Treat delayed verification as success to avoid false-negative UX.
+        if (key.trim().length > 0) {
+          console.warn(
+            `[Main] ${service} API key write verification timed out; accepting write success.`
+          );
+          return true;
+        }
+
+        return false;
+      } catch (error) {
+        console.error(`[Main] Failed to store ${service} API key:`, error);
+        return false;
+      }
     }
   );
 
@@ -1761,7 +2251,16 @@ function setupIPC(): void {
         };
       }
 
-      return validateProviderApiKey(service, key);
+      try {
+        return await validateProviderApiKey(service, key);
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : 'Unknown validation error';
+        console.error(`[Main] API key validation failed for ${service}:`, error);
+        return {
+          valid: false,
+          error: `Unable to validate ${service} API key (${detail}).`,
+        };
+      }
     }
   );
 

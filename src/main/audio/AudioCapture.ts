@@ -60,7 +60,7 @@ export interface AudioCaptureService {
   setDevice(deviceId: string): void;
   setPaused(paused: boolean): void;
   start(): Promise<void>;
-  stop(): void;
+  stop(): Promise<void>;
   getAudioLevel(): number;
   isCapturing(): boolean;
   getCapturedAudioBuffer(): Buffer | null;
@@ -117,6 +117,10 @@ const DEFAULT_CONFIG: AudioCaptureConfig = {
 class AudioCaptureServiceImpl extends EventEmitter implements AudioCaptureService {
   private config: AudioCaptureConfig;
   private capturing: boolean = false;
+  private stopRequested: boolean = false;
+  private stopFinalizeTimer: NodeJS.Timeout | null = null;
+  private stopPromise: Promise<void> | null = null;
+  private resolveStopPromise: (() => void) | null = null;
   private currentDeviceId: string | null = null;
   private currentAudioLevel: number = 0;
   private voiceActive: boolean = false;
@@ -315,6 +319,12 @@ class AudioCaptureServiceImpl extends EventEmitter implements AudioCaptureServic
         ipcMain.removeListener(AUDIO_IPC_CHANNELS.CAPTURE_ERROR, errorHandler);
 
         this.capturing = true;
+        this.stopRequested = false;
+        this.settleStopPromise();
+        if (this.stopFinalizeTimer) {
+          clearTimeout(this.stopFinalizeTimer);
+          this.stopFinalizeTimer = null;
+        }
         this.paused = false;
         this.sessionAudioChunks = [];
         this.sessionAudioBytes = 0;
@@ -352,26 +362,37 @@ class AudioCaptureServiceImpl extends EventEmitter implements AudioCaptureServic
   /**
    * Stop audio capture
    */
-  stop(): void {
+  async stop(): Promise<void> {
     if (!this.capturing) {
+      this.stopRequested = false;
+      this.settleStopPromise();
       return;
     }
 
-    this.capturing = false;
+    if (this.stopRequested && this.stopPromise) {
+      return this.stopPromise;
+    }
+
+    const stopPromise = this.ensureStopPromise();
+    this.stopRequested = true;
     this.paused = false;
-    this.stopRecoveryBuffer();
 
     if (this.mainWindow) {
       this.mainWindow.webContents.send(AUDIO_IPC_CHANNELS.STOP_CAPTURE);
+    } else {
+      this.finalizeCaptureStop('timeout');
+      return stopPromise;
     }
 
-    // Reset state
-    this.voiceActive = false;
-    this.currentAudioLevel = 0;
-    this.emit('audioLevel', 0);
-    this.emit('voiceActivity', false);
+    if (this.stopFinalizeTimer) {
+      clearTimeout(this.stopFinalizeTimer);
+    }
+    this.stopFinalizeTimer = setTimeout(() => {
+      this.finalizeCaptureStop('timeout');
+    }, 1500);
 
-    console.log('[AudioCapture] Capture stopped');
+    console.log('[AudioCapture] Stop requested; awaiting renderer flush');
+    return stopPromise;
   }
 
   /**
@@ -516,6 +537,11 @@ class AudioCaptureServiceImpl extends EventEmitter implements AudioCaptureServic
 
     // Handle capture stopped (e.g., device disconnected)
     ipcMain.on(AUDIO_IPC_CHANNELS.CAPTURE_STOPPED, () => {
+      if (this.stopRequested) {
+        this.finalizeCaptureStop('normal');
+        return;
+      }
+
       if (this.capturing) {
         this.capturing = false;
         this.stopRecoveryBuffer();
@@ -528,6 +554,49 @@ class AudioCaptureServiceImpl extends EventEmitter implements AudioCaptureServic
         this.emit('error', stopError);
       }
     });
+  }
+
+  private finalizeCaptureStop(reason: 'normal' | 'timeout'): void {
+    if (!this.capturing && !this.stopRequested) {
+      this.settleStopPromise();
+      return;
+    }
+
+    if (this.stopFinalizeTimer) {
+      clearTimeout(this.stopFinalizeTimer);
+      this.stopFinalizeTimer = null;
+    }
+
+    this.stopRequested = false;
+    this.capturing = false;
+    this.stopRecoveryBuffer();
+
+    this.voiceActive = false;
+    this.currentAudioLevel = 0;
+    this.emit('audioLevel', 0);
+    this.emit('voiceActivity', false);
+
+    console.log(`[AudioCapture] Capture stopped (${reason})`);
+    this.settleStopPromise();
+  }
+
+  private ensureStopPromise(): Promise<void> {
+    if (this.stopPromise) {
+      return this.stopPromise;
+    }
+
+    this.stopPromise = new Promise<void>((resolve) => {
+      this.resolveStopPromise = resolve;
+    });
+    return this.stopPromise;
+  }
+
+  private settleStopPromise(): void {
+    if (this.resolveStopPromise) {
+      this.resolveStopPromise();
+      this.resolveStopPromise = null;
+    }
+    this.stopPromise = null;
   }
 
   /**

@@ -17,7 +17,7 @@ import { join } from 'path';
  */
 export const POPOVER_SIZES = {
   idle: { width: 460, height: 680 },
-  recording: { width: 460, height: 700 },
+  recording: { width: 256, height: 84 },
   processing: { width: 440, height: 560 },
   complete: { width: 460, height: 720 },
   settings: { width: 400, height: 520 },
@@ -40,6 +40,7 @@ export class PopoverManager {
   private tray: Tray | null = null;
   private config: PopoverConfig;
   private keepVisibleOnBlur = false;
+  private currentState: PopoverState = 'idle';
 
   constructor(config: PopoverConfig) {
     this.config = config;
@@ -219,6 +220,8 @@ export class PopoverManager {
    * Resize to a predefined state size
    */
   resizeToState(state: PopoverState): void {
+    this.currentState = state;
+    this.applyStateAppearance(state);
     const size = POPOVER_SIZES[state];
     this.resize(size.width, size.height);
   }
@@ -248,5 +251,21 @@ export class PopoverManager {
     }
     this.tray = null;
     console.log('[PopoverManager] Destroyed');
+  }
+
+  private applyStateAppearance(state: PopoverState): void {
+    if (!this.window || process.platform !== 'darwin') {
+      return;
+    }
+
+    const isRecording = state === 'recording';
+    try {
+      // During recording, disable popover vibrancy so the surrounding window
+      // fades away and only the compact HUD appears visually.
+      this.window.setVibrancy(isRecording ? null : 'popover');
+      this.window.setBackgroundColor('#00000000');
+    } catch (error) {
+      console.warn('[PopoverManager] Failed to apply state appearance:', error);
+    }
   }
 }

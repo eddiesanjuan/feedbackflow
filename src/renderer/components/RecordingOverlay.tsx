@@ -1,19 +1,18 @@
 /**
  * Recording Overlay Component
  *
- * A compact, draggable floating indicator showing:
+ * A compact floating indicator showing:
  * - Recording duration (MM:SS)
  * - Pulsing red recording dot
  * - Stop button
  * - +1 badge animation on screenshot capture
  *
- * Design: Premium, minimal, non-intrusive (120x32px approx)
+ * Design: Premium, subtle glass HUD that stays readable without feeling heavy
  * Position persists across sessions via localStorage
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { CompactAudioIndicator } from './AudioWaveform';
-import { HotkeyHint } from './HotkeyHint';
 
 interface RecordingOverlayProps {
   duration: number; // seconds
@@ -24,17 +23,54 @@ interface RecordingOverlayProps {
   isVoiceActive?: boolean;
   manualShortcut?: string;
   toggleShortcut?: string;
+  pauseShortcut?: string;
 }
 
-interface Position {
-  x: number;
-  y: number;
-}
+const DEFAULT_WIDTH = 232;
 
-const STORAGE_KEY = 'markupr-overlay-position';
-const DEFAULT_POSITION: Position = { x: 20, y: 20 };
-const DEFAULT_WIDTH = 360;
-const DEFAULT_HEIGHT = 88;
+function formatCompactShortcut(accelerator: string, isMac: boolean): string {
+  if (!accelerator || accelerator.trim().length === 0) {
+    return isMac ? '⌘⇧?' : 'Ctrl+Shift+?';
+  }
+
+  const normalized = accelerator
+    .replace(/CommandOrControl/gi, isMac ? 'Command' : 'Control')
+    .replace(/CmdOrCtrl/gi, isMac ? 'Command' : 'Control');
+  const keys = normalized.split('+').map((part) => part.trim()).filter(Boolean);
+
+  if (!isMac) {
+    return keys
+      .map((key) => {
+        const lower = key.toLowerCase();
+        if (lower === 'control' || lower === 'ctrl') return 'Ctrl';
+        if (lower === 'alt' || lower === 'option') return 'Alt';
+        if (lower === 'shift') return 'Shift';
+        if (lower === 'command' || lower === 'cmd') return 'Ctrl';
+        return key.length === 1 ? key.toUpperCase() : key;
+      })
+      .join('+');
+  }
+
+  const symbolMap: Record<string, string> = {
+    command: '⌘',
+    cmd: '⌘',
+    control: '⌃',
+    ctrl: '⌃',
+    alt: '⌥',
+    option: '⌥',
+    shift: '⇧',
+    enter: '↩',
+    return: '↩',
+    space: '␣',
+  };
+
+  return keys
+    .map((key) => {
+      const lower = key.toLowerCase();
+      return symbolMap[lower] || (key.length === 1 ? key.toUpperCase() : key);
+    })
+    .join('');
+}
 
 export const RecordingOverlay: React.FC<RecordingOverlayProps> = ({
   duration,
@@ -45,15 +81,13 @@ export const RecordingOverlay: React.FC<RecordingOverlayProps> = ({
   isVoiceActive = false,
   manualShortcut = 'CommandOrControl+Shift+S',
   toggleShortcut = 'CommandOrControl+Shift+F',
+  pauseShortcut = 'CommandOrControl+Shift+P',
 }) => {
-  const [position, setPosition] = useState<Position>(DEFAULT_POSITION);
-  const [isDragging, setIsDragging] = useState(false);
   const [showBadge, setShowBadge] = useState(false);
   const [badgeKey, setBadgeKey] = useState(0);
 
   const prevCountRef = useRef(screenshotCount);
-  const dragStartRef = useRef<{ x: number; y: number; posX: number; posY: number } | null>(null);
-  const overlayRef = useRef<HTMLDivElement>(null);
+  const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
 
   // Format duration as MM:SS
   const formatDuration = useCallback((seconds: number): string => {
@@ -61,39 +95,6 @@ export const RecordingOverlay: React.FC<RecordingOverlayProps> = ({
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }, []);
-
-  // Load persisted position on mount
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved) as Position;
-        // Validate position is within viewport
-        const maxX = Math.max(0, window.innerWidth - DEFAULT_WIDTH - 8);
-        const maxY = Math.max(0, window.innerHeight - DEFAULT_HEIGHT - 8);
-        setPosition({
-          x: Math.min(Math.max(0, parsed.x), maxX),
-          y: Math.min(Math.max(0, parsed.y), maxY),
-        });
-      }
-    } catch {
-      // Use default position on error
-    }
-  }, []);
-
-  // Save position when it changes (debounced)
-  useEffect(() => {
-    if (!isDragging) {
-      const timeout = setTimeout(() => {
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(position));
-        } catch {
-          // Ignore storage errors
-        }
-      }, 100);
-      return () => clearTimeout(timeout);
-    }
-  }, [position, isDragging]);
 
   // Show +1 badge animation when screenshot count increases
   useEffect(() => {
@@ -107,66 +108,15 @@ export const RecordingOverlay: React.FC<RecordingOverlayProps> = ({
     prevCountRef.current = screenshotCount;
   }, [screenshotCount]);
 
-  // Handle mouse down for drag start
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    // Don't start drag if clicking the stop button
-    if ((e.target as HTMLElement).closest('button')) {
-      return;
-    }
-
-    e.preventDefault();
-    setIsDragging(true);
-    dragStartRef.current = {
-      x: e.clientX,
-      y: e.clientY,
-      posX: position.x,
-      posY: position.y,
-    };
-  }, [position]);
-
-  // Handle mouse move for dragging
-  useEffect(() => {
-    if (!isDragging) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!dragStartRef.current) return;
-
-      const deltaX = e.clientX - dragStartRef.current.x;
-      const deltaY = e.clientY - dragStartRef.current.y;
-
-      // Calculate new position with bounds checking
-      const overlayWidth = overlayRef.current?.offsetWidth || DEFAULT_WIDTH;
-      const overlayHeight = overlayRef.current?.offsetHeight || DEFAULT_HEIGHT;
-      const maxX = window.innerWidth - overlayWidth;
-      const maxY = window.innerHeight - overlayHeight;
-
-      setPosition({
-        x: Math.min(Math.max(0, dragStartRef.current.posX + deltaX), maxX),
-        y: Math.min(Math.max(0, dragStartRef.current.posY + deltaY), maxY),
-      });
-    };
-
-    const handleMouseUp = () => {
-      setIsDragging(false);
-      dragStartRef.current = null;
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isDragging]);
-
   // Dynamic styles based on theme
   const theme = {
-    bg: isDarkMode ? 'rgba(17, 24, 39, 0.95)' : 'rgba(255, 255, 255, 0.95)',
-    border: isDarkMode ? 'rgba(75, 85, 99, 0.5)' : 'rgba(209, 213, 219, 0.8)',
-    text: isDarkMode ? '#f3f4f6' : '#1f2937',
-    textMuted: isDarkMode ? '#9ca3af' : '#6b7280',
-    hintBg: isDarkMode ? 'rgba(55, 65, 81, 0.45)' : 'rgba(226, 232, 240, 0.75)',
+    bg: isDarkMode
+      ? 'linear-gradient(142deg, rgba(14, 20, 32, 0.14), rgba(14, 20, 32, 0.06))'
+      : 'linear-gradient(142deg, rgba(252, 254, 255, 0.14), rgba(237, 243, 251, 0.06))',
+    border: isDarkMode ? 'rgba(180, 194, 214, 0.12)' : 'rgba(95, 106, 121, 0.08)',
+    text: isDarkMode ? '#f8fafc' : '#1f2937',
+    textMuted: isDarkMode ? '#b7bfd2' : '#626d7d',
+    hintBg: isDarkMode ? 'rgba(67, 77, 97, 0.15)' : 'rgba(218, 225, 235, 0.18)',
     stopBg: '#ff3b30',
     stopHover: '#d92f25',
     badgeBg: '#10b981',
@@ -174,6 +124,9 @@ export const RecordingOverlay: React.FC<RecordingOverlayProps> = ({
     micActive: '#0a84ff',
     micIdle: '#b6bbc6',
   };
+  const manualShortcutText = formatCompactShortcut(manualShortcut, isMac);
+  const toggleShortcutText = formatCompactShortcut(toggleShortcut, isMac);
+  const pauseShortcutText = formatCompactShortcut(pauseShortcut, isMac);
 
   return (
     <>
@@ -213,33 +166,29 @@ export const RecordingOverlay: React.FC<RecordingOverlayProps> = ({
       </style>
 
       <div
-        ref={overlayRef}
         style={{
           position: 'fixed',
-          left: position.x,
-          top: position.y,
+          left: '50%',
+          top: 8,
+          transform: 'translateX(-50%)',
           zIndex: 9999,
           display: 'grid',
-          gap: 8,
-          padding: '10px 12px',
-          width: 'min(380px, calc(100vw - 24px))',
-          backgroundColor: theme.bg,
-          borderRadius: 16,
-          boxShadow: `
-            0 8px 16px rgba(20, 20, 22, 0.1),
-            0 0 0 1px ${theme.border}
-          `,
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-          cursor: isDragging ? 'grabbing' : 'grab',
+          gap: 3,
+          padding: '4px 7px',
+          width: `min(${DEFAULT_WIDTH - 8}px, calc(100vw - 14px))`,
+          background: theme.bg,
+          border: `1px solid ${theme.border}`,
+          borderRadius: 11,
+          boxShadow: '0 1px 1px rgba(9, 13, 19, 0.06)',
+          backdropFilter: 'blur(18px) saturate(1.08)',
+          WebkitBackdropFilter: 'blur(18px) saturate(1.08)',
           userSelect: 'none',
-          transition: isDragging ? 'none' : 'box-shadow 0.2s ease',
+          transition: 'box-shadow 0.2s ease',
           // Electron-specific: prevent window drag
           WebkitAppRegion: 'no-drag',
         } as React.CSSProperties & { WebkitAppRegion?: string }}
-        onMouseDown={handleMouseDown}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           {/* Recording dot */}
           <div
             style={{
@@ -273,11 +222,11 @@ export const RecordingOverlay: React.FC<RecordingOverlayProps> = ({
           <span
             style={{
               fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
-              fontSize: 13,
+              fontSize: 11,
               fontWeight: 600,
               fontVariantNumeric: 'tabular-nums',
               color: theme.text,
-              minWidth: 42,
+              minWidth: 40,
               textAlign: 'center',
               letterSpacing: '0.02em',
             }}
@@ -290,14 +239,14 @@ export const RecordingOverlay: React.FC<RecordingOverlayProps> = ({
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 5,
+              gap: 4,
               borderRadius: 999,
-              padding: '2px 8px',
+              padding: '2px 5px',
               background: theme.hintBg,
               color: theme.textMuted,
-              fontSize: 11,
+              fontSize: 8.5,
               fontWeight: 600,
-              minWidth: 92,
+              minWidth: 70,
             }}
           >
             <CompactAudioIndicator
@@ -315,14 +264,14 @@ export const RecordingOverlay: React.FC<RecordingOverlayProps> = ({
           <span
             style={{
               marginLeft: 'auto',
-              fontSize: 11,
+              fontSize: 8.5,
               color: theme.textMuted,
               borderRadius: 999,
-              padding: '2px 8px',
+              padding: '2px 5px',
               background: theme.hintBg,
             }}
           >
-            {screenshotCount} shots
+            {screenshotCount} shot{screenshotCount === 1 ? '' : 's'}
           </span>
 
           {/* Stop button */}
@@ -330,12 +279,12 @@ export const RecordingOverlay: React.FC<RecordingOverlayProps> = ({
             type="button"
             onClick={onStop}
             style={{
-              padding: '5px 10px',
+              padding: '3px 6px',
               backgroundColor: theme.stopBg,
               border: 'none',
-              borderRadius: 12,
+              borderRadius: 9,
               color: '#ffffff',
-              fontSize: 11,
+              fontSize: 8.5,
               fontWeight: 700,
               cursor: 'pointer',
               transition: 'all 0.15s ease',
@@ -365,43 +314,47 @@ export const RecordingOverlay: React.FC<RecordingOverlayProps> = ({
         <div
           style={{
             display: 'flex',
-            flexWrap: 'wrap',
             alignItems: 'center',
-            gap: 6,
-            fontSize: 11,
+            gap: 5,
+            fontSize: 8,
             color: theme.textMuted,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
           }}
         >
           <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              borderRadius: 999,
-              padding: '3px 8px',
-              background: theme.hintBg,
-            }}
-          >
-            Screenshot <HotkeyHint keys={manualShortcut} size="small" />
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                borderRadius: 999,
+                padding: '1px 5px',
+                background: theme.hintBg,
+              }}
+            >
+            <strong style={{ fontWeight: 700 }}>Shot {manualShortcutText}</strong>
           </span>
           <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              borderRadius: 999,
-              padding: '3px 8px',
-              background: theme.hintBg,
-            }}
-          >
-            Stop <HotkeyHint keys={toggleShortcut} size="small" />
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                borderRadius: 999,
+                padding: '1px 5px',
+                background: theme.hintBg,
+              }}
+            >
+            <strong style={{ fontWeight: 700 }}>Stop {toggleShortcutText}</strong>
           </span>
           <span
-            style={{
-              borderRadius: 999,
-              padding: '3px 8px',
-              background: theme.hintBg,
-            }}
-          >
-            Auto capture on narration pauses
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                borderRadius: 999,
+                padding: '1px 5px',
+                background: theme.hintBg,
+              }}
+            >
+            <strong style={{ fontWeight: 700 }}>Pause {pauseShortcutText}</strong>
           </span>
         </div>
 

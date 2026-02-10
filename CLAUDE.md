@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-markupr is a standalone Electron desktop app that captures developer feedback through voice narration and intelligent screenshots, generating AI-ready Markdown documents.
+markupr is a macOS menu bar app that intelligently captures developer feedback. It records your screen and voice simultaneously, then uses an intelligent post-processing pipeline to correlate transcript timestamps with the screen recording — extracting the right frames at the right moments and stitching everything into a structured, AI-ready Markdown document. The output is purpose-built for AI coding agents: every screenshot placed exactly where it belongs, every issue clearly documented.
 
 **Version:** 0.1.0 (MVP in development)
 
@@ -50,10 +50,10 @@ All main/renderer communication goes through the preload script. See `src/shared
 ## MVP Scope
 
 1. Global hotkey (Cmd+Shift+F) to start/stop
-2. Voice capture via browser MediaRecorder
-3. Real-time transcription via OpenAI
-4. Screenshot on voice pause (1.5s threshold)
-5. Markdown output to clipboard
+2. Continuous screen recording via MediaRecorder (VP9/VP8, up to 4K@30fps)
+3. Voice capture + real-time transcription (Deepgram/Whisper/macOS Dictation tiers)
+4. Intelligent post-processing: timestamp-correlated frame extraction from screen recording
+5. Structured Markdown output with contextually-placed screenshots
 
 ## Configuration
 

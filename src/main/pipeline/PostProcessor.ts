@@ -16,6 +16,7 @@
 import { whisperService } from '../transcription/WhisperService';
 import { TranscriptAnalyzer, transcriptAnalyzer } from './TranscriptAnalyzer';
 import { FrameExtractor, frameExtractor } from './FrameExtractor';
+import type { KeyMoment } from './TranscriptAnalyzer';
 
 // ============================================================================
 // Types
@@ -51,6 +52,8 @@ export interface PostProcessOptions {
   videoPath: string;
   audioPath: string;
   sessionDir: string;
+  transcriptSegments?: TranscriptSegment[];
+  aiMomentHints?: KeyMoment[];
   onProgress?: (progress: PostProcessProgress) => void;
 }
 
@@ -77,7 +80,7 @@ export class PostProcessor {
    * @returns Combined result with transcript, frames, and report path
    */
   async process(options: PostProcessOptions): Promise<PostProcessResult> {
-    const { videoPath, audioPath, sessionDir, onProgress } = options;
+    const { videoPath, audioPath, sessionDir, transcriptSegments, aiMomentHints, onProgress } = options;
 
     const emitProgress = (progress: PostProcessProgress): void => {
       if (onProgress) {
@@ -94,43 +97,63 @@ export class PostProcessor {
       message: 'Transcribing audio...',
     });
 
-    let segments: TranscriptSegment[];
+    let segments: TranscriptSegment[] = [];
+    const providedSegments = (transcriptSegments || [])
+      .map((segment) => ({
+        text: segment.text?.trim() || '',
+        startTime: Number.isFinite(segment.startTime) ? Math.max(0, segment.startTime) : 0,
+        endTime: Number.isFinite(segment.endTime)
+          ? Math.max(0, segment.endTime)
+          : (Number.isFinite(segment.startTime) ? Math.max(0, segment.startTime) + 1.5 : 1.5),
+        confidence: Number.isFinite(segment.confidence) ? segment.confidence : 0.8,
+      }))
+      .filter((segment) => segment.text.length > 0);
 
-    try {
-      emitProgress({
-        step: 'transcribing',
-        percent: 5,
-        message: 'Loading Whisper model...',
-      });
-
-      // Call WhisperService.transcribeFile() - implemented by Agent B
-      // Returns an array compatible with TranscriptSegment
-      const whisperResults = await whisperService.transcribeFile(audioPath);
-
-      segments = whisperResults.map((result) => ({
-        text: result.text,
-        startTime: result.startTime,
-        endTime: result.endTime,
-        confidence: result.confidence,
-      }));
-
+    if (providedSegments.length > 0) {
+      segments = providedSegments.sort((a, b) => a.startTime - b.startTime);
       emitProgress({
         step: 'transcribing',
         percent: 40,
-        message: `Transcription complete: ${segments.length} segments`,
+        message: `Using captured transcript (${segments.length} segments)`,
       });
+      this.log(`Using provided transcript segments: ${segments.length}`);
+    } else {
+      try {
+        emitProgress({
+          step: 'transcribing',
+          percent: 5,
+          message: 'Loading Whisper model...',
+        });
 
-      this.log(`Transcription complete: ${segments.length} segments`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.log(`Transcription failed: ${message}`);
+        // Call WhisperService.transcribeFile() - implemented by Agent B
+        // Returns an array compatible with TranscriptSegment
+        const whisperResults = await whisperService.transcribeFile(audioPath);
 
-      // Return empty result if transcription fails entirely
-      return {
-        transcriptSegments: [],
-        extractedFrames: [],
-        reportPath: sessionDir,
-      };
+        segments = whisperResults.map((result) => ({
+          text: result.text,
+          startTime: result.startTime,
+          endTime: result.endTime,
+          confidence: result.confidence,
+        }));
+
+        emitProgress({
+          step: 'transcribing',
+          percent: 40,
+          message: `Transcription complete: ${segments.length} segments`,
+        });
+
+        this.log(`Transcription complete: ${segments.length} segments`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.log(`Transcription failed: ${message}`);
+
+        // Return empty result if transcription fails entirely
+        return {
+          transcriptSegments: [],
+          extractedFrames: [],
+          reportPath: sessionDir,
+        };
+      }
     }
 
     if (segments.length === 0) {
@@ -157,7 +180,7 @@ export class PostProcessor {
       message: 'Analyzing transcript for key moments...',
     });
 
-    const keyMoments = this.analyzer.analyze(segments);
+    const keyMoments = this.analyzer.analyze(segments, aiMomentHints || []);
 
     emitProgress({
       step: 'analyzing',

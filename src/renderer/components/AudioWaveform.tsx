@@ -541,6 +541,7 @@ export function CompactAudioIndicator({
   barCount = 5,
 }: CompactAudioIndicatorProps) {
   const [smoothedLevel, setSmoothedLevel] = useState(0);
+  const [phase, setPhase] = useState(0);
   const animationRef = useRef<number>();
   const levelRef = useRef(0);
 
@@ -552,6 +553,7 @@ export function CompactAudioIndicator({
   useEffect(() => {
     const animate = () => {
       setSmoothedLevel((prev) => smoothValue(prev, levelRef.current, 0.2));
+      setPhase((prev) => prev + 0.22);
       animationRef.current = requestAnimationFrame(animate);
     };
     animationRef.current = requestAnimationFrame(animate);
@@ -565,9 +567,16 @@ export function CompactAudioIndicator({
   // Generate bars with staggered thresholds
   const bars = useMemo(() => {
     return Array.from({ length: barCount }, (_, i) => {
+      const motionBoost = isVoiceActive
+        ? Math.max(0, Math.sin(phase + i * 0.92) * 0.16 + 0.18)
+        : 0;
+      const effectiveLevel = Math.min(
+        1,
+        Math.max(0, smoothedLevel + motionBoost + (isVoiceActive ? 0.06 : 0))
+      );
       const threshold = i / barCount;
-      const isActive = smoothedLevel > threshold;
-      const intensity = isActive ? Math.min(1, (smoothedLevel - threshold) * barCount) : 0;
+      const isActive = effectiveLevel > threshold;
+      const intensity = isActive ? Math.min(1, (effectiveLevel - threshold) * barCount) : 0;
 
       // Height varies by position (taller in center)
       const baseHeight = 4;
@@ -581,7 +590,7 @@ export function CompactAudioIndicator({
         intensity,
       };
     });
-  }, [smoothedLevel, barCount]);
+  }, [barCount, isVoiceActive, phase, smoothedLevel]);
 
   return (
     <div

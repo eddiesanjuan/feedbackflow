@@ -49,9 +49,10 @@ export class TranscriptAnalyzer {
    * should be extracted from the video recording.
    *
    * @param segments - Array of transcript segments with timing info
+   * @param aiHints - Optional AI-informed key-moment hints to merge
    * @returns Array of key moments sorted by timestamp, capped at 20
    */
-  analyze(segments: TranscriptSegment[]): KeyMoment[] {
+  analyze(segments: TranscriptSegment[], aiHints: KeyMoment[] = []): KeyMoment[] {
     if (segments.length === 0) {
       return [];
     }
@@ -92,8 +93,9 @@ export class TranscriptAnalyzer {
       });
     }
 
-    // If we found fewer than 3 moments (just start/end), add periodic baseline captures
-    if (moments.length < 3) {
+    // If we found fewer than 3 moments (just start/end), add periodic baseline captures.
+    // When AI hints exist, prefer them over periodic filler captures.
+    if (moments.length < 3 && aiHints.length === 0) {
       const sessionStart = firstSegment.startTime;
       const sessionEnd = lastSegment.endTime;
       const sessionDuration = sessionEnd - sessionStart;
@@ -120,6 +122,19 @@ export class TranscriptAnalyzer {
       }
     }
 
+    // Merge AI hints (when available) so frame extraction can prioritize
+    // narration moments that the analysis pipeline considered important.
+    for (const hint of aiHints) {
+      if (!Number.isFinite(hint.timestamp)) {
+        continue;
+      }
+      moments.push({
+        timestamp: Math.max(0, hint.timestamp),
+        reason: hint.reason?.trim() || 'AI-highlighted context',
+        confidence: Math.max(0, Math.min(1, Number.isFinite(hint.confidence) ? hint.confidence : 0.8)),
+      });
+    }
+
     // Deduplicate moments that are very close together (within 1 second)
     const deduped = this.deduplicateMoments(moments);
 
@@ -133,7 +148,13 @@ export class TranscriptAnalyzer {
       const last = deduped[deduped.length - 1];
       const middle = deduped
         .slice(1, -1)
-        .sort((a, b) => b.confidence - a.confidence)
+        .sort((a, b) => {
+          const priorityDelta = this.momentPriority(b) - this.momentPriority(a);
+          if (priorityDelta !== 0) {
+            return priorityDelta;
+          }
+          return b.confidence - a.confidence;
+        })
         .slice(0, MAX_KEY_MOMENTS - 2);
 
       const capped = [first, ...middle, last];
@@ -162,8 +183,13 @@ export class TranscriptAnalyzer {
       const curr = sorted[i];
 
       if (curr.timestamp - prev.timestamp < 1.0) {
-        // Keep the one with higher confidence
-        if (curr.confidence > prev.confidence) {
+        // Prefer higher-priority moments (AI / semantic captures over periodic).
+        const currPriority = this.momentPriority(curr);
+        const prevPriority = this.momentPriority(prev);
+        if (
+          currPriority > prevPriority ||
+          (currPriority === prevPriority && curr.confidence > prev.confidence)
+        ) {
           result[result.length - 1] = curr;
         }
       } else {
@@ -172,6 +198,23 @@ export class TranscriptAnalyzer {
     }
 
     return result;
+  }
+
+  private momentPriority(moment: KeyMoment): number {
+    const reason = (moment.reason || '').toLowerCase();
+    if (reason.includes('session start') || reason.includes('session end')) {
+      return 4;
+    }
+    if (reason.includes('ai-') || reason.includes('ai ')) {
+      return 3;
+    }
+    if (reason.includes('natural pause')) {
+      return 2;
+    }
+    if (reason.includes('periodic')) {
+      return 0;
+    }
+    return 1;
   }
 }
 

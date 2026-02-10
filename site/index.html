@@ -1,0 +1,1319 @@
+<!--
+  markupR landing page.
+  Neo-brutalist structure, minimalist soul.
+  Thick borders because elements should look intentional.
+  Hard shadows because software should feel tactile.
+  System fonts because they're already on your machine.
+  Warm amber because cold blue is what everyone else picked.
+  No frameworks, no tracking, no cookies, no external requests.
+  The product is the thing that needs to be impressive — not the marketing page.
+  But if the marketing page is also impressive, that's fine too.
+  View the source: github.com/eddiesanjuan/markupr
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>markupR — App feedback, made effortless</title>
+  <meta name="description" content="markupR records your screen while you talk, then assembles structured Markdown with the right screenshots at the right moments. Open source with BYOK cloud transcription and local fallback support.">
+  <meta name="theme-color" content="#0A0A0B" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0A0A0B">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>M</text></svg>">
+  <style>
+    /* ========================================
+       RESET
+       ======================================== */
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    /* ========================================
+       CUSTOM PROPERTIES — DARK MODE (default)
+       ======================================== */
+    :root {
+      color-scheme: dark light;
+
+      /* Typography */
+      --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+      --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', ui-monospace, monospace;
+
+      /* Colors — Dark (default) */
+      --bg-primary: #0A0A0B;
+      --bg-secondary: #141415;
+      --bg-tertiary: #1E1E20;
+      --text-primary: #F5F5F5;
+      --text-secondary: #A0A0A0;
+      --text-tertiary: #666666;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-strong: rgba(255, 255, 255, 0.16);
+
+      /* Accent — Warm Amber */
+      --accent: #F59E0B;
+      --accent-hover: #D97706;
+
+      /* Neo-brutalist shadows */
+      --shadow-sm: 2px 2px 0 rgba(255, 255, 255, 0.12);
+      --shadow-md: 4px 4px 0 rgba(255, 255, 255, 0.12);
+      --shadow-lg: 6px 6px 0 rgba(255, 255, 255, 0.12);
+
+      /* Syntax highlighting */
+      --syn-keyword: #C4B5FD;
+      --syn-string: #86EFAC;
+      --syn-function: #93C5FD;
+      --syn-comment: #525252;
+      --syn-operator: #F9A8D4;
+      --syn-default: #E5E5E5;
+
+      /* Spacing */
+      --section-gap: 160px;
+      --content-max: 720px;
+      --feature-max: 960px;
+      --side-pad: clamp(1.25rem, 5vw, 2.5rem);
+    }
+
+    /* ========================================
+       LIGHT MODE (system preference override)
+       ======================================== */
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg-primary: #FFFFFF;
+        --bg-secondary: #F8F8F8;
+        --bg-tertiary: #F0F0F0;
+        --text-primary: #0A0A0A;
+        --text-secondary: #525252;
+        --text-tertiary: #8B8B8B;
+        --border: rgba(0, 0, 0, 0.08);
+        --border-strong: rgba(0, 0, 0, 0.12);
+
+        --accent: #D97706;
+        --accent-hover: #B45309;
+
+        --shadow-sm: 2px 2px 0 var(--text-primary);
+        --shadow-md: 4px 4px 0 var(--text-primary);
+        --shadow-lg: 6px 6px 0 var(--text-primary);
+      }
+    }
+
+    /* ========================================
+       BASE
+       ======================================== */
+    html {
+      scroll-behavior: smooth;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html {
+        scroll-behavior: auto;
+      }
+    }
+
+    body {
+      font-family: var(--font-sans);
+      font-size: 17px;
+      line-height: 1.65;
+      color: var(--text-secondary);
+      background-color: var(--bg-primary);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      overflow-x: hidden;
+    }
+
+    ::selection {
+      background-color: var(--accent);
+      color: #FFFFFF;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+      transition: color 150ms ease;
+    }
+
+    a:hover {
+      color: var(--accent-hover);
+    }
+
+    img {
+      max-width: 100%;
+      display: block;
+    }
+
+    /* ========================================
+       TYPOGRAPHY
+       ======================================== */
+    h1, h2, h3, h4 {
+      color: var(--text-primary);
+      font-weight: 800;
+      text-wrap: balance;
+    }
+
+    .display {
+      font-size: clamp(36px, 7vw, 56px);
+      line-height: 1.05;
+      letter-spacing: -0.04em;
+      font-weight: 900;
+    }
+
+    h2 {
+      font-size: clamp(28px, 4vw, 44px);
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+    }
+
+    h3 {
+      font-size: clamp(20px, 3vw, 24px);
+      line-height: 1.3;
+      letter-spacing: -0.01em;
+    }
+
+    .overline {
+      font-size: 12px;
+      line-height: 1.4;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    .body-lg {
+      font-size: clamp(17px, 2.5vw, 20px);
+      line-height: 1.6;
+    }
+
+    .body-sm {
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    .caption {
+      font-size: 13px;
+      line-height: 1.5;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      color: var(--text-tertiary);
+    }
+
+    /* ========================================
+       LAYOUT
+       ======================================== */
+    .container {
+      max-width: var(--content-max);
+      margin: 0 auto;
+      padding-left: var(--side-pad);
+      padding-right: var(--side-pad);
+    }
+
+    .container--wide {
+      max-width: var(--feature-max);
+      margin: 0 auto;
+      padding-left: var(--side-pad);
+      padding-right: var(--side-pad);
+    }
+
+    section {
+      padding-top: var(--section-gap);
+      padding-bottom: var(--section-gap);
+    }
+
+    @media (max-width: 768px) {
+      :root {
+        --section-gap: 96px;
+      }
+    }
+
+    /* Section dividers — visible bones */
+    .divider {
+      border: none;
+      height: 3px;
+      background: var(--text-primary);
+      margin: 0;
+      opacity: 0.12;
+    }
+
+    @media (prefers-color-scheme: light) {
+      .divider {
+        opacity: 0.08;
+      }
+    }
+
+    /* ========================================
+       WORDMARK
+       ======================================== */
+    .wordmark {
+      font-family: var(--font-sans);
+      font-weight: 900;
+      font-size: 28px;
+      letter-spacing: -0.04em;
+      color: var(--text-primary);
+      display: inline-block;
+    }
+
+    .wordmark-r {
+      color: var(--accent);
+    }
+
+    /* ========================================
+       BUTTONS — Neo-Brutalist, Tactile
+       ======================================== */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 28px;
+      font-family: var(--font-sans);
+      font-size: 15px;
+      font-weight: 600;
+      line-height: 1;
+      border: 3px solid var(--text-primary);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: transform 150ms ease-out, box-shadow 150ms ease-out, background-color 150ms ease;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .btn--primary {
+      background: var(--text-primary);
+      color: var(--bg-primary);
+      box-shadow: var(--shadow-md);
+    }
+
+    .btn--primary:hover {
+      transform: translate(2px, 2px);
+      box-shadow: var(--shadow-sm);
+      color: var(--bg-primary);
+    }
+
+    .btn--primary:active {
+      transform: translate(4px, 4px);
+      box-shadow: none;
+    }
+
+    .btn--secondary {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      box-shadow: var(--shadow-md);
+    }
+
+    .btn--secondary:hover {
+      transform: translate(2px, 2px);
+      box-shadow: var(--shadow-sm);
+      color: var(--text-primary);
+    }
+
+    .btn--secondary:active {
+      transform: translate(4px, 4px);
+      box-shadow: none;
+    }
+
+    .btn--accent {
+      background: var(--accent);
+      color: #FFFFFF;
+      border-color: var(--text-primary);
+      box-shadow: var(--shadow-md);
+    }
+
+    .btn--accent:hover {
+      transform: translate(2px, 2px);
+      box-shadow: var(--shadow-sm);
+      background: var(--accent-hover);
+      color: #FFFFFF;
+    }
+
+    .btn--accent:active {
+      transform: translate(4px, 4px);
+      box-shadow: none;
+    }
+
+    .btn:focus-visible {
+      outline: 3px solid var(--accent);
+      outline-offset: 3px;
+    }
+
+    /* ========================================
+       KBD — Keyboard Shortcut Badges
+       ======================================== */
+    kbd {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 32px;
+      padding: 4px 10px;
+      font-family: var(--font-mono);
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      background: var(--bg-tertiary);
+      border: 2px solid var(--text-primary);
+      border-radius: 4px;
+      box-shadow: var(--shadow-sm);
+      line-height: 1.4;
+    }
+
+    .kbd-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .kbd-plus {
+      color: var(--text-tertiary);
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    /* ========================================
+       CARDS — Neo-Brutalist
+       ======================================== */
+    .card {
+      background: var(--bg-secondary);
+      border: 3px solid var(--text-primary);
+      border-radius: 4px;
+      padding: 32px;
+      box-shadow: var(--shadow-lg);
+      transition: transform 150ms ease-out, box-shadow 150ms ease-out;
+    }
+
+    .card:hover {
+      transform: translate(2px, 2px);
+      box-shadow: var(--shadow-md);
+    }
+
+    /* ========================================
+       SCROLL REVEAL
+       ======================================== */
+    .reveal {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 500ms cubic-bezier(0.16, 1, 0.3, 1),
+                  transform 500ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .reveal-delay-1 { transition-delay: 75ms; }
+    .reveal-delay-2 { transition-delay: 150ms; }
+    .reveal-delay-3 { transition-delay: 225ms; }
+    .reveal-delay-4 { transition-delay: 300ms; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .reveal {
+        opacity: 1;
+        transform: none;
+        transition: none;
+      }
+    }
+
+    /* ========================================
+       HERO
+       ======================================== */
+    .hero {
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 96px var(--side-pad);
+    }
+
+    .hero__wordmark {
+      font-size: clamp(32px, 5vw, 40px);
+      margin-bottom: 32px;
+    }
+
+    .hero__headline {
+      max-width: 700px;
+      margin-bottom: 24px;
+    }
+
+    .hero__subtext {
+      max-width: 560px;
+      margin-bottom: 48px;
+      color: var(--text-secondary);
+    }
+
+    .hero__ctas {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      justify-content: center;
+      margin-bottom: 32px;
+    }
+
+    .hero__shortcut {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--text-tertiary);
+    }
+
+    .hero__shortcut-label {
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    @media (max-width: 480px) {
+      .hero__ctas {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .hero__ctas .btn {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+
+    /* ========================================
+       CORE LOOP
+       ======================================== */
+    .loop {
+      background: var(--bg-secondary);
+    }
+
+    .loop__grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 24px;
+      max-width: var(--feature-max);
+      margin: 0 auto;
+    }
+
+    .loop__step {
+      text-align: center;
+      position: relative;
+    }
+
+    .loop__icon-box {
+      width: 72px;
+      height: 72px;
+      margin: 0 auto 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 3px solid var(--text-primary);
+      border-radius: 4px;
+      box-shadow: var(--shadow-md);
+      background: var(--bg-primary);
+      color: var(--text-primary);
+    }
+
+    .loop__icon-box svg {
+      width: 28px;
+      height: 28px;
+    }
+
+    .loop__label {
+      font-family: var(--font-mono);
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+
+    .loop__desc {
+      font-size: 14px;
+      line-height: 1.5;
+      color: var(--text-tertiary);
+    }
+
+    /* "you" vs "markupR" role labels */
+    .loop__role {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      height: 20px;
+    }
+
+    .loop__role--you {
+      color: var(--accent);
+    }
+
+    .loop__role--auto {
+      color: var(--text-tertiary);
+    }
+
+    /* Dim automatic steps */
+    .loop__step--auto .loop__icon-box {
+      opacity: 0.45;
+      border-style: dashed;
+      box-shadow: none;
+    }
+
+    .loop__step--auto .loop__label {
+      color: var(--text-secondary);
+    }
+
+    /* Arrow between steps */
+    .loop__step:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      top: 56px; /* shifted down to account for role label */
+      right: -14px;
+      width: 8px;
+      height: 8px;
+      border-right: 3px solid var(--text-primary);
+      border-bottom: 3px solid var(--text-primary);
+      transform: rotate(-45deg);
+      opacity: 0.3;
+    }
+
+    /* The actual workflow — keystrokes */
+    .keystroke-flow {
+      max-width: var(--feature-max);
+      margin: 56px auto 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      flex-wrap: wrap;
+    }
+
+    .keystroke-flow__step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      padding: 0 clamp(12px, 3vw, 32px);
+    }
+
+    .keystroke-flow__keys {
+      font-family: var(--font-mono);
+      font-size: clamp(18px, 3.5vw, 28px);
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+    }
+
+    .keystroke-flow__label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-tertiary);
+    }
+
+    .keystroke-flow__arrow {
+      font-size: clamp(18px, 3vw, 24px);
+      color: var(--text-tertiary);
+      opacity: 0.4;
+      padding: 0 4px;
+      margin-top: -20px; /* align with keys, not labels */
+    }
+
+    .keystroke-flow__ellipsis {
+      font-family: var(--font-mono);
+      font-size: clamp(18px, 3.5vw, 28px);
+      font-weight: 700;
+      color: var(--text-tertiary);
+      letter-spacing: 0.15em;
+      padding: 0 clamp(4px, 1.5vw, 12px);
+      margin-top: -20px;
+    }
+
+    @media (max-width: 640px) {
+      .loop__grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 32px;
+      }
+
+      .loop__step:not(:last-child)::after {
+        display: none;
+      }
+    }
+
+    @media (max-width: 400px) {
+      .loop__grid {
+        grid-template-columns: 1fr;
+        gap: 40px;
+      }
+
+      .loop__role {
+        height: auto;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .keystroke-flow {
+        gap: 8px 0;
+      }
+    }
+
+    /* ========================================
+       WHY IT MATTERS
+       ======================================== */
+    .why__grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 32px;
+      max-width: var(--feature-max);
+      margin: 0 auto;
+    }
+
+    @media (min-width: 768px) {
+      .why__grid {
+        grid-template-columns: 1fr 1fr 1fr;
+      }
+    }
+
+    .why__card h3 {
+      margin-bottom: 16px;
+      font-size: clamp(18px, 2.5vw, 22px);
+      line-height: 1.25;
+    }
+
+    .why__card p {
+      font-size: 15px;
+      line-height: 1.65;
+      color: var(--text-secondary);
+    }
+
+    /* ========================================
+       UNDER THE HOOD
+       ======================================== */
+    .tech {
+      background: var(--bg-secondary);
+    }
+
+    .tech__content {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 64px;
+      max-width: var(--feature-max);
+      margin: 0 auto;
+    }
+
+    @media (min-width: 768px) {
+      .tech__content {
+        grid-template-columns: 1fr 1fr;
+        gap: 48px;
+        align-items: start;
+      }
+    }
+
+    .tech__bullets {
+      list-style: none;
+    }
+
+    .tech__bullets li {
+      padding: 16px 0;
+      border-bottom: 2px solid var(--border);
+    }
+
+    .tech__bullets li:first-child {
+      padding-top: 0;
+    }
+
+    .tech__bullets strong {
+      color: var(--text-primary);
+      font-weight: 700;
+      display: block;
+      margin-bottom: 4px;
+      font-size: 15px;
+    }
+
+    .tech__bullets span {
+      font-size: 15px;
+      line-height: 1.6;
+      color: var(--text-secondary);
+    }
+
+    /* Code Block — Neo-Brutalist */
+    .code-block {
+      background: #0A0A0B;
+      border: 3px solid var(--text-primary);
+      border-radius: 4px;
+      box-shadow: var(--shadow-lg);
+      overflow: hidden;
+    }
+
+    .code-block__header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 20px;
+      border-bottom: 2px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .code-block__dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .code-block__dot--red { background: #FF5F57; }
+    .code-block__dot--yellow { background: #FEBC2E; }
+    .code-block__dot--green { background: #28C840; }
+
+    .code-block__title {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: #666;
+      margin-left: 8px;
+    }
+
+    .code-block pre {
+      padding: 24px 20px;
+      overflow-x: auto;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--syn-default);
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .code-block pre code {
+      font-family: inherit;
+    }
+
+    .syn-kw { color: var(--syn-keyword); }
+    .syn-str { color: var(--syn-string); }
+    .syn-fn { color: var(--syn-function); }
+    .syn-cm { color: var(--syn-comment); }
+    .syn-op { color: var(--syn-operator); }
+
+    /* ========================================
+       PREMIUM TEASER
+       ======================================== */
+    .premium__features {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 24px;
+      max-width: var(--feature-max);
+      margin: 48px auto 0;
+    }
+
+    @media (min-width: 768px) {
+      .premium__features {
+        grid-template-columns: 1fr 1fr 1fr;
+      }
+    }
+
+    .premium__card h3 {
+      margin-bottom: 12px;
+      font-size: 18px;
+    }
+
+    .premium__card p {
+      font-size: 15px;
+      line-height: 1.6;
+      color: var(--text-secondary);
+    }
+
+    .premium__waitlist {
+      max-width: 440px;
+      margin: 48px auto 0;
+      display: flex;
+      gap: 0;
+    }
+
+    .premium__input {
+      flex: 1;
+      padding: 14px 16px;
+      font-family: var(--font-mono);
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+      background: var(--bg-primary);
+      border: 3px solid var(--text-primary);
+      border-right: none;
+      border-radius: 4px 0 0 4px;
+      outline: none;
+      transition: border-color 150ms ease;
+    }
+
+    .premium__input::placeholder {
+      color: var(--text-tertiary);
+    }
+
+    .premium__input:focus {
+      border-color: var(--accent);
+    }
+
+    .premium__input:focus-visible {
+      outline: 3px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .premium__submit {
+      padding: 14px 24px;
+      font-family: var(--font-sans);
+      font-size: 14px;
+      font-weight: 600;
+      color: #FFFFFF;
+      background: var(--accent);
+      border: 3px solid var(--text-primary);
+      border-radius: 0 4px 4px 0;
+      cursor: pointer;
+      box-shadow: var(--shadow-md);
+      transition: transform 150ms ease-out, box-shadow 150ms ease-out, background-color 150ms ease;
+      white-space: nowrap;
+    }
+
+    .premium__submit:hover {
+      transform: translate(2px, 2px);
+      box-shadow: var(--shadow-sm);
+      background: var(--accent-hover);
+    }
+
+    .premium__submit:active {
+      transform: translate(4px, 4px);
+      box-shadow: none;
+    }
+
+    .premium__submit:focus-visible {
+      outline: 3px solid var(--accent);
+      outline-offset: 3px;
+    }
+
+    @media (max-width: 480px) {
+      .premium__waitlist {
+        flex-direction: column;
+      }
+
+      .premium__input {
+        border-right: 3px solid var(--text-primary);
+        border-radius: 4px 4px 0 0;
+        border-bottom: none;
+      }
+
+      .premium__submit {
+        border-radius: 0 0 4px 4px;
+      }
+    }
+
+    /* ========================================
+       FOOTER
+       ======================================== */
+    .footer {
+      padding: 48px var(--side-pad);
+      text-align: center;
+    }
+
+    .footer__divider {
+      height: 3px;
+      background: var(--text-primary);
+      opacity: 0.12;
+      margin-bottom: 48px;
+    }
+
+    @media (prefers-color-scheme: light) {
+      .footer__divider {
+        opacity: 0.08;
+      }
+    }
+
+    .footer__links {
+      display: flex;
+      justify-content: center;
+      gap: 32px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+    }
+
+    .footer__link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      transition: color 150ms ease;
+    }
+
+    .footer__link:hover {
+      color: var(--text-primary);
+    }
+
+    .footer__link:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 4px;
+      border-radius: 4px;
+    }
+
+    .footer__link svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .footer__license {
+      font-size: 14px;
+      color: var(--text-tertiary);
+      margin-bottom: 8px;
+    }
+
+    .footer__built {
+      font-size: 14px;
+      color: var(--text-tertiary);
+    }
+
+    /* ========================================
+       SECTION HEADERS (centered)
+       ======================================== */
+    .section-header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    .section-header .overline {
+      margin-bottom: 16px;
+    }
+
+    .section-header h2 {
+      margin-bottom: 16px;
+    }
+
+    .section-header p {
+      max-width: 540px;
+      margin: 0 auto;
+    }
+
+    /* ========================================
+       UTILITIES
+       ======================================== */
+    .text-center { text-align: center; }
+    .text-left { text-align: left; }
+    .mt-0 { margin-top: 0; }
+  </style>
+</head>
+<body>
+
+  <!-- ==========================================
+       HERO
+       ========================================== -->
+  <section class="hero" aria-label="Hero">
+    <div class="wordmark hero__wordmark" aria-label="markupR">
+      markup<span class="wordmark-r">R</span>
+    </div>
+
+    <h1 class="display hero__headline">
+      You found the bug.<br>markup<span class="wordmark-r">R</span> writes it up.
+    </h1>
+
+    <p class="body-lg hero__subtext">
+      AI writes your code. You still have to review it. markupR records your screen while you talk through what you see, then assembles a structured Markdown document your AI agent can act on immediately.
+    </p>
+
+    <div class="hero__ctas">
+      <a href="https://github.com/eddiesanjuan/markupr/releases" class="btn btn--primary">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.16 19.5l.9-3.5h4.52l.9 3.5A10 10 0 0 0 12 2Z"/><path d="M12 2v7"/><path d="M8 9h8"/></svg>
+        Download for macOS
+      </a>
+      <a href="https://github.com/eddiesanjuan/markupr" class="btn btn--secondary">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+        View on GitHub
+      </a>
+    </div>
+
+    <div class="hero__shortcut">
+      <span class="hero__shortcut-label">Start with</span>
+      <div class="kbd-group">
+        <kbd>&#8984;</kbd>
+        <span class="kbd-plus">+</span>
+        <kbd>&#8679;</kbd>
+        <span class="kbd-plus">+</span>
+        <kbd>F</kbd>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider" aria-hidden="true">
+
+  <!-- ==========================================
+       CORE LOOP
+       ========================================== -->
+  <section class="loop" aria-label="How it works">
+    <div class="container--wide">
+      <div class="section-header reveal">
+        <p class="overline">How it works</p>
+        <h2>You talk. markup<span class="wordmark-r">R</span> handles the rest.</h2>
+      </div>
+
+      <div class="loop__grid">
+        <!-- Speak -->
+        <div class="loop__step reveal reveal-delay-1">
+          <div class="loop__role loop__role--you">you</div>
+          <div class="loop__icon-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" y1="19" x2="12" y2="22"/>
+            </svg>
+          </div>
+          <div class="loop__label">Speak</div>
+          <div class="loop__desc">Say what you see</div>
+        </div>
+
+        <!-- Record -->
+        <div class="loop__step loop__step--auto reveal reveal-delay-2">
+          <div class="loop__role loop__role--auto">markupR</div>
+          <div class="loop__icon-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="2" y="3" width="20" height="14" rx="2"/>
+              <circle cx="12" cy="10" r="3" fill="currentColor" stroke="none"/>
+              <line x1="8" y1="21" x2="16" y2="21"/>
+              <line x1="12" y1="17" x2="12" y2="21"/>
+            </svg>
+          </div>
+          <div class="loop__label">Record</div>
+          <div class="loop__desc">Captures your screen automatically</div>
+        </div>
+
+        <!-- Process -->
+        <div class="loop__step loop__step--auto reveal reveal-delay-3">
+          <div class="loop__role loop__role--auto">markupR</div>
+          <div class="loop__icon-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>
+            </svg>
+          </div>
+          <div class="loop__label">Assemble</div>
+          <div class="loop__desc">Matches frames to your words</div>
+        </div>
+
+        <!-- Act -->
+        <div class="loop__step reveal reveal-delay-4">
+          <div class="loop__role loop__role--you">you</div>
+          <div class="loop__icon-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/>
+              <path d="M14 2v6h6"/>
+              <line x1="9" y1="13" x2="15" y2="13"/>
+              <line x1="9" y1="17" x2="13" y2="17"/>
+            </svg>
+          </div>
+          <div class="loop__label">Paste</div>
+          <div class="loop__desc">Feed it to your AI agent</div>
+        </div>
+      </div>
+
+      <!-- The actual user experience -->
+      <div class="keystroke-flow reveal">
+        <div class="keystroke-flow__step">
+          <span class="keystroke-flow__keys">&#8984;&#8679;F</span>
+          <span class="keystroke-flow__label">start</span>
+        </div>
+        <span class="keystroke-flow__arrow" aria-hidden="true">&#8594;</span>
+        <div class="keystroke-flow__step">
+          <span class="keystroke-flow__ellipsis" aria-hidden="true">...</span>
+          <span class="keystroke-flow__label">talk</span>
+        </div>
+        <span class="keystroke-flow__arrow" aria-hidden="true">&#8594;</span>
+        <div class="keystroke-flow__step">
+          <span class="keystroke-flow__keys">&#8984;&#8679;F</span>
+          <span class="keystroke-flow__label">stop</span>
+        </div>
+        <span class="keystroke-flow__arrow" aria-hidden="true">&#8594;</span>
+        <div class="keystroke-flow__step">
+          <span class="keystroke-flow__keys">&#8984;V</span>
+          <span class="keystroke-flow__label">paste into your agent</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider" aria-hidden="true">
+
+  <!-- ==========================================
+       WHY IT MATTERS
+       ========================================== -->
+  <section aria-label="Why it matters">
+    <div class="container--wide">
+      <div class="section-header reveal">
+        <p class="overline">Why it matters</p>
+        <h2>Feedback without the friction.</h2>
+      </div>
+
+      <div class="why__grid">
+        <!-- Card 1 -->
+        <div class="card why__card reveal reveal-delay-1">
+          <h3>Stop retyping what you already see.</h3>
+          <p>
+            You found the bug. You can see it right there. Now you have to context-switch into writing mode, describe it in text, screenshot it, crop it, drag it into the right spot. markupR lets you just say it. The documentation happens behind you.
+          </p>
+        </div>
+
+        <!-- Card 2 -->
+        <div class="card why__card reveal reveal-delay-2">
+          <h3>You talk at 150 wpm. You type at 60.</h3>
+          <p>
+            A five-minute narration produces more structured output than twenty minutes of writing. And the result is better — markupR places screenshots at the exact moments you were describing something, not wherever you remembered to paste them.
+          </p>
+        </div>
+
+        <!-- Card 3 -->
+        <div class="card why__card reveal reveal-delay-3">
+          <h3>Choose local privacy or cloud convenience.</h3>
+          <p>
+            markupr supports both local Whisper transcription and OpenAI BYOK transcription. Stay fully local when privacy is critical, or use cloud transcription when you want fast setup and reliable results.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider" aria-hidden="true">
+
+  <!-- ==========================================
+       UNDER THE HOOD
+       ========================================== -->
+  <section class="tech" aria-label="Technical details">
+    <div class="container--wide">
+      <div class="section-header reveal">
+        <p class="overline">Under the hood</p>
+        <h2>Built for developers who read source.</h2>
+      </div>
+
+      <div class="tech__content">
+        <!-- Bullets -->
+        <ul class="tech__bullets reveal">
+          <li>
+            <strong>Dual transcription paths</strong>
+            <span>Use local Whisper for on-device processing, or OpenAI BYOK for fast, reliable post-session transcription.</span>
+          </li>
+          <li>
+            <strong>Intelligent frame extraction</strong>
+            <span>Records your full screen, then uses transcript timestamps to pull the exact frames that match what you were describing.</span>
+          </li>
+          <li>
+            <strong>macOS native</strong>
+            <span>Lives in your menu bar. No dock icon. No browser tab. Launches at login if you want it to.</span>
+          </li>
+          <li>
+            <strong>Structured Markdown output</strong>
+            <span>Sections, headings, and images assembled into a document your tools already understand. Paste into GitHub, feed to Claude Code, drop into Slack.</span>
+          </li>
+          <li>
+            <strong>Open source, MIT licensed</strong>
+            <span>Read the code, fork it, break it, fix it. No telemetry, no tracking, no analytics.</span>
+          </li>
+        </ul>
+
+        <!-- Code Block -->
+        <div class="code-block reveal reveal-delay-1">
+          <div class="code-block__header">
+            <span class="code-block__dot code-block__dot--red"></span>
+            <span class="code-block__dot code-block__dot--yellow"></span>
+            <span class="code-block__dot code-block__dot--green"></span>
+            <span class="code-block__title">session-output.md</span>
+          </div>
+          <pre><code><span class="syn-kw">## Feedback Session</span> <span class="syn-cm">— Feb 5, 2026</span>
+
+<span class="syn-kw">### Button sizing issue</span>
+The submit button is way too small on mobile.
+I'm trying to tap it and keep hitting the cancel
+link underneath. Needs more vertical padding,
+maybe 12px minimum tap target.
+<span class="syn-fn">![Screenshot at 0:34]</span><span class="syn-str">(screenshots/fb-001.png)</span>
+
+<span class="syn-kw">### Loading state feels janky</span>
+After the spinner disappears, the content just
+pops in with no transition. There's a visible
+layout shift — the sidebar jumps left by about
+20 pixels.
+<span class="syn-fn">![Screenshot at 1:12]</span><span class="syn-str">(screenshots/fb-002.png)</span>
+
+<span class="syn-kw">### Nav highlight is wrong</span>
+I'm on the Settings page but the Dashboard tab
+is still highlighted. Looks like the active state
+isn't updating on route change.
+<span class="syn-fn">![Screenshot at 1:45]</span><span class="syn-str">(screenshots/fb-003.png)</span></code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider" aria-hidden="true">
+
+  <!-- ==========================================
+       PREMIUM TEASER
+       ========================================== -->
+  <section aria-label="Premium features">
+    <div class="container--wide">
+      <div class="section-header reveal">
+        <p class="overline">Coming soon</p>
+        <h2>For when you want the machine to think, too.</h2>
+        <p class="body-lg" style="margin-top: 16px;">
+          markupR is free and open source. Everything above works without an account. The premium tier adds AI analysis — it reads your document, finds the patterns you missed, and tells you what to fix first.
+        </p>
+      </div>
+
+      <div class="premium__features">
+        <div class="card premium__card reveal reveal-delay-1">
+          <h3>AI-generated summaries</h3>
+          <p>Your session distilled into prioritized action items. Paste into a ticket and assign it.</p>
+        </div>
+        <div class="card premium__card reveal reveal-delay-2">
+          <h3>Pattern detection</h3>
+          <p>Spots recurring issues across sessions. "You've flagged spacing inconsistencies in 4 of your last 6 sessions."</p>
+        </div>
+        <div class="card premium__card reveal reveal-delay-3">
+          <h3>Zero configuration</h3>
+          <p>No API key. No model selection. No token budgets. Toggle it on, and it works.</p>
+        </div>
+      </div>
+
+      <form class="premium__waitlist reveal" onsubmit="return false;">
+        <input type="email" class="premium__input" placeholder="you@dev.email" aria-label="Email address for waitlist" required>
+        <button type="submit" class="premium__submit">Join the waitlist</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- ==========================================
+       FOOTER
+       ========================================== -->
+  <footer class="footer" aria-label="Footer">
+    <div class="footer__divider"></div>
+
+    <nav class="footer__links" aria-label="Footer navigation">
+      <a href="https://github.com/eddiesanjuan/markupr" class="footer__link" target="_blank" rel="noopener noreferrer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+        GitHub
+      </a>
+      <a href="https://ko-fi.com/eddiesanjuan" class="footer__link" target="_blank" rel="noopener noreferrer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78Z"/></svg>
+        Fund Eddie's taco habit
+      </a>
+    </nav>
+
+    <p class="footer__license">MIT License. Free as in freedom, free as in beer.</p>
+    <p class="footer__built">Built by <a href="https://github.com/eddiesanjuan">Eddie San Juan</a>.</p>
+  </footer>
+
+  <!-- ==========================================
+       SCROLL REVEAL — Minimal JS
+       ========================================== -->
+  <script>
+    (function() {
+      // Respect reduced motion preference
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+      var observer = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+            observer.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.15 });
+
+      document.querySelectorAll('.reveal').forEach(function(el) {
+        observer.observe(el);
+      });
+    })();
+  </script>
+
+</body>
+</html>
