@@ -16,7 +16,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>markupR — App feedback, made effortless</title>
-  <meta name="description" content="markupR records your screen while you talk, then assembles structured Markdown with the right screenshots at the right moments. Open source with BYOK cloud transcription and local fallback support.">
+  <meta name="description" content="markupR records your screen while you talk, then assembles structured Markdown with the right screenshots at the right moments. Launch includes both BYOK open source mode and touchless premium mode with hosted keys.">
   <meta name="theme-color" content="#0A0A0B" media="(prefers-color-scheme: dark)">
   <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#0A0A0B">
@@ -810,85 +810,24 @@
       color: var(--text-secondary);
     }
 
-    .premium__waitlist {
-      max-width: 440px;
+    .premium__cta {
+      max-width: 640px;
       margin: 48px auto 0;
       display: flex;
-      gap: 0;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 16px;
     }
 
-    .premium__input {
-      flex: 1;
-      padding: 14px 16px;
-      font-family: var(--font-mono);
-      font-size: 14px;
-      font-weight: 500;
-      color: var(--text-primary);
-      background: var(--bg-primary);
-      border: 3px solid var(--text-primary);
-      border-right: none;
-      border-radius: 4px 0 0 4px;
-      outline: none;
-      transition: border-color 150ms ease;
-    }
-
-    .premium__input::placeholder {
-      color: var(--text-tertiary);
-    }
-
-    .premium__input:focus {
-      border-color: var(--accent);
-    }
-
-    .premium__input:focus-visible {
-      outline: 3px solid var(--accent);
-      outline-offset: 2px;
-    }
-
-    .premium__submit {
-      padding: 14px 24px;
-      font-family: var(--font-sans);
-      font-size: 14px;
-      font-weight: 600;
-      color: #FFFFFF;
-      background: var(--accent);
-      border: 3px solid var(--text-primary);
-      border-radius: 0 4px 4px 0;
-      cursor: pointer;
-      box-shadow: var(--shadow-md);
-      transition: transform 150ms ease-out, box-shadow 150ms ease-out, background-color 150ms ease;
-      white-space: nowrap;
-    }
-
-    .premium__submit:hover {
-      transform: translate(2px, 2px);
-      box-shadow: var(--shadow-sm);
-      background: var(--accent-hover);
-    }
-
-    .premium__submit:active {
-      transform: translate(4px, 4px);
-      box-shadow: none;
-    }
-
-    .premium__submit:focus-visible {
-      outline: 3px solid var(--accent);
-      outline-offset: 3px;
+    .premium__note {
+      margin-top: 18px;
+      text-align: center;
     }
 
     @media (max-width: 480px) {
-      .premium__waitlist {
-        flex-direction: column;
-      }
-
-      .premium__input {
-        border-right: 3px solid var(--text-primary);
-        border-radius: 4px 4px 0 0;
-        border-bottom: none;
-      }
-
-      .premium__submit {
-        border-radius: 0 0 4px 4px;
+      .premium__cta .btn {
+        width: 100%;
+        justify-content: center;
       }
     }
 
@@ -1242,32 +1181,33 @@ isn't updating on route change.
   <section aria-label="Premium features">
     <div class="container--wide">
       <div class="section-header reveal">
-        <p class="overline">Coming soon</p>
-        <h2>For when you want the machine to think, too.</h2>
+        <p class="overline">Launch Modes</p>
+        <h2>Same markupr output. Two ways to run it.</h2>
         <p class="body-lg" style="margin-top: 16px;">
-          markupR is free and open source. Everything above works without an account. The premium tier adds AI analysis — it reads your document, finds the patterns you missed, and tells you what to fix first.
+          markupr open source and markupr premium run the same core pipeline: record screen + narration, transcribe, extract the right frames, and generate agent-ready markdown. Premium is the touchless path with hosted keys preconfigured. BYOK stays fully supported.
         </p>
       </div>
 
       <div class="premium__features">
         <div class="card premium__card reveal reveal-delay-1">
-          <h3>AI-generated summaries</h3>
-          <p>Your session distilled into prioritized action items. Paste into a ticket and assign it.</p>
+          <h3>Open source (BYOK)</h3>
+          <p>Bring your own OpenAI + Anthropic keys. Full control, same report quality, fully transparent stack.</p>
         </div>
         <div class="card premium__card reveal reveal-delay-2">
-          <h3>Pattern detection</h3>
-          <p>Spots recurring issues across sessions. "You've flagged spacing inconsistencies in 4 of your last 6 sessions."</p>
+          <h3>Premium (touchless)</h3>
+          <p>Exactly the same workflow and output, but keys are hosted for you. No API setup screens, no key management.</p>
         </div>
         <div class="card premium__card reveal reveal-delay-3">
-          <h3>Zero configuration</h3>
-          <p>No API key. No model selection. No token budgets. Toggle it on, and it works.</p>
+          <h3>Switch anytime</h3>
+          <p>Start with BYOK tonight, move to premium when you want convenience. No workflow migration required.</p>
         </div>
       </div>
 
-      <form class="premium__waitlist reveal" onsubmit="return false;">
-        <input type="email" class="premium__input" placeholder="you@dev.email" aria-label="Email address for waitlist" required>
-        <button type="submit" class="premium__submit">Join the waitlist</button>
-      </form>
+      <div class="premium__cta reveal">
+        <a class="btn btn--primary" href="https://github.com/eddiesanjuan/markupr" target="_blank" rel="noopener noreferrer">Use BYOK Open Source</a>
+        <a class="btn btn--accent" href="mailto:premium@markupr.com?subject=markupr%20premium%20access">Get Premium Access</a>
+      </div>
+      <p class="caption premium__note reveal">Launch plan: both BYOK and premium are available on day one. Premium is convenience, not extra capability.</p>
     </div>
   </section>
 
