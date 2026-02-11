@@ -1,5 +1,5 @@
-# GitHub Pages deployment workflow for markupr Landing Page
-# Automatically deploys docs/landing to GitHub Pages on push to main
+# GitHub Pages deployment workflow for markupr landing page
+# Automatically deploys site/ to GitHub Pages on push to main
 
 name: Deploy Landing Page
 
@@ -8,7 +8,7 @@ on:
     branches:
       - main
     paths:
-      - 'docs/landing/**'
+      - 'site/**'
       - '.github/workflows/deploy-landing.yml'
   workflow_dispatch:
 
@@ -35,16 +35,10 @@ jobs:
 
       - name: Build static site
         run: |
-          # Create the output directory
           mkdir -p _site
 
-          # Copy landing page files
-          cp -r docs/landing/* _site/
-
-          # Add cache-busting to CSS and JS references
-          TIMESTAMP=$(date +%s)
-          sed -i "s/styles.css/styles.css?v=$TIMESTAMP/g" _site/index.html
-          sed -i "s/script.js/script.js?v=$TIMESTAMP/g" _site/index.html
+          # Copy current landing page source
+          cp -r site/* _site/
 
           # Generate sitemap
           cat > _site/sitemap.xml << 'EOF'
