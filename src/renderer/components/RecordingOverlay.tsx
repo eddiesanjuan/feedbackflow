@@ -21,6 +21,7 @@ interface RecordingOverlayProps {
   isDarkMode?: boolean;
   audioLevel?: number;
   isVoiceActive?: boolean;
+  isPaused?: boolean;
   manualShortcut?: string;
   toggleShortcut?: string;
   pauseShortcut?: string;
@@ -79,6 +80,7 @@ export const RecordingOverlay: React.FC<RecordingOverlayProps> = ({
   isDarkMode = false,
   audioLevel = 0,
   isVoiceActive = false,
+  isPaused = false,
   manualShortcut = 'CommandOrControl+Shift+S',
   toggleShortcut = 'CommandOrControl+Shift+F',
   pauseShortcut = 'CommandOrControl+Shift+P',
@@ -121,6 +123,7 @@ export const RecordingOverlay: React.FC<RecordingOverlayProps> = ({
     hintBg: isDarkMode ? 'rgba(67, 77, 97, 0.22)' : 'rgba(218, 225, 235, 0.24)',
     stopBg: '#ff3b30',
     stopHover: '#d92f25',
+    pauseBg: isDarkMode ? 'rgba(255, 159, 10, 0.26)' : 'rgba(255, 159, 10, 0.2)',
     badgeBg: '#10b981',
     recordingDot: '#ef4444',
     micActive: '#0a84ff',
@@ -130,10 +133,12 @@ export const RecordingOverlay: React.FC<RecordingOverlayProps> = ({
   const toggleShortcutText = formatCompactShortcut(toggleShortcut, isMac);
   const pauseShortcutText = formatCompactShortcut(pauseShortcut, isMac);
   const normalizedAudioLevel = Math.max(0, Math.min(1, audioLevel));
-  const visualAudioLevel = isVoiceActive
+  const visualAudioLevel = isPaused
+    ? 0
+    : isVoiceActive
     ? Math.max(0.08, 1 - Math.exp(-normalizedAudioLevel * 2.4))
     : normalizedAudioLevel * 0.35;
-  const micPercentTarget = isVoiceActive
+  const micPercentTarget = !isPaused && isVoiceActive
     ? Math.min(96, Math.max(8, Math.round(visualAudioLevel * 100)))
     : 0;
 
@@ -284,7 +289,7 @@ export const RecordingOverlay: React.FC<RecordingOverlayProps> = ({
               gap: 5,
               borderRadius: 999,
               padding: '2px 5px',
-              background: theme.hintBg,
+              background: isPaused ? theme.pauseBg : theme.hintBg,
               color: theme.textMuted,
               fontSize: 8,
               fontWeight: 600,
@@ -305,13 +310,13 @@ export const RecordingOverlay: React.FC<RecordingOverlayProps> = ({
             />
             <span
               style={{
-                color: isVoiceActive ? theme.text : theme.textMuted,
+                color: isPaused ? '#f2bd66' : isVoiceActive ? theme.text : theme.textMuted,
                 fontVariantNumeric: 'tabular-nums',
                 minWidth: 36,
                 textAlign: 'right',
               }}
             >
-              {isVoiceActive ? `${Math.round(displayedMicPercent)}%` : 'Mic'}
+              {isPaused ? 'Paused' : isVoiceActive ? `${Math.round(displayedMicPercent)}%` : 'Mic'}
             </span>
           </div>
 

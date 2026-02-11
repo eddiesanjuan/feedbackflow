@@ -1085,6 +1085,7 @@ const App: React.FC = () => {
             }}
             audioLevel={audioLevel}
             isVoiceActive={isVoiceActive}
+            isPaused={isPaused}
             manualShortcut={settings?.hotkeys?.manualScreenshot}
             toggleShortcut={settings?.hotkeys?.toggleRecording}
             pauseShortcut={settings?.hotkeys?.pauseResume}
