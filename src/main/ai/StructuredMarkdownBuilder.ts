@@ -123,6 +123,7 @@ export class StructuredMarkdownBuilder {
       Low: 'Suggestions',
     };
 
+    let sequentialIndex = 0;
     for (const priority of priorityOrder) {
       const items = grouped[priority];
       if (!items || items.length === 0) continue;
@@ -130,10 +131,11 @@ export class StructuredMarkdownBuilder {
       lines.push(`## ${sectionTitles[priority]}`);
       lines.push('');
 
-      for (const { item, originalIndex } of items) {
+      for (const { item } of items) {
         lines.push(
-          this.buildSingleItem(item, originalIndex, session, options),
+          this.buildSingleItem(item, sequentialIndex, session, options),
         );
+        sequentialIndex++;
       }
     }
 

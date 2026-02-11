@@ -52,7 +52,7 @@ export const STATE_TIMEOUTS: Record<SessionState, number | null> = {
   recording: 30 * 60_000,  // 30 minutes max recording
   stopping: 3_000,         // 3 seconds to stop services
   processing: 5 * 60_000,  // 5 minutes for post-processing pipeline
-  complete: 30_000,        // 30 seconds to show completion
+  complete: 5 * 60_000,    // 5 minutes for post-processing to finish
   error: 5_000,            // 5 seconds to show error
 } as const;
 
