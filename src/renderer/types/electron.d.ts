@@ -59,7 +59,7 @@ interface SessionAPI {
  */
 interface CaptureAPI {
   getSources: () => Promise<CaptureSource[]>;
-  manualScreenshot: () => Promise<{ success: boolean }>;
+  manualScreenshot: () => Promise<{ success: boolean; error?: string }>;
   onScreenshot: (callback: (data: ScreenshotCapturedPayload) => void) => Unsubscribe;
   onManualTrigger: (callback: (data: { timestamp: number }) => void) => Unsubscribe;
 }

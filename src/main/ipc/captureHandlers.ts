@@ -148,8 +148,11 @@ export function registerCaptureHandlers(ctx: IpcContext): void {
   });
 
   ipcMain.handle(IPC_CHANNELS.CAPTURE_MANUAL_SCREENSHOT, async () => {
-    console.log('[Main] Manual screenshot IPC called (no-op in post-process architecture)');
-    return { success: false };
+    const cue = sessionController.registerCaptureCue('manual');
+    if (!cue) {
+      return { success: false, error: 'Manual capture is only available while recording and not paused.' };
+    }
+    return { success: true };
   });
 
   ipcMain.handle(

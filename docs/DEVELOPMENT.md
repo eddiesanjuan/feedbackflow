@@ -54,7 +54,11 @@ cd markupr
 ### 2. Install Dependencies
 
 ```bash
+# npm
 npm install
+
+# bun
+bun install
 ```
 
 This installs:
@@ -79,7 +83,11 @@ DEBUG=markupr:*
 ### 4. Start Development Server
 
 ```bash
+# npm
 npm run dev
+
+# bun
+bun run dev
 ```
 
 This starts:

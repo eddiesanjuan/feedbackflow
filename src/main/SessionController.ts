@@ -99,6 +99,7 @@ export interface SessionStatus {
   state: SessionState;
   duration: number;
   feedbackCount: number;
+  screenshotCount: number;
   isPaused: boolean;
   /** Post-processing progress (only set when state === 'processing') */
   processingProgress?: PostProcessProgress;
@@ -162,6 +163,9 @@ export class SessionController {
   // Core state
   private state: SessionState = 'idle';
   private isPaused = false;
+  private pausedAtMs: number | null = null;
+  private accumulatedPausedMs = 0;
+  private captureCount = 0;
   private session: Session | null = null;
   private events: SessionControllerEvents | null = null;
   private mainWindow: BrowserWindow | null = null;
@@ -192,6 +196,38 @@ export class SessionController {
   private readonly WATCHDOG_CHECK_INTERVAL_MS = 1000;  // 1 second
   private readonly MAX_RECENT_SESSIONS = 10;
   private readonly MAX_TRANSCRIPT_BUFFER_EVENTS = 2000;
+
+  private getActiveDurationMs(nowMs: number = Date.now()): number {
+    if (!this.session) {
+      return 0;
+    }
+
+    const activePauseWindowMs =
+      this.isPaused && this.pausedAtMs !== null
+        ? Math.max(0, nowMs - this.pausedAtMs)
+        : 0;
+
+    return Math.max(
+      0,
+      nowMs - this.session.startTime - this.accumulatedPausedMs - activePauseWindowMs
+    );
+  }
+
+  private closeActivePauseWindow(nowMs: number = Date.now()): void {
+    if (this.pausedAtMs === null) {
+      return;
+    }
+    this.accumulatedPausedMs += Math.max(0, nowMs - this.pausedAtMs);
+    this.pausedAtMs = null;
+  }
+
+  private resetSessionRuntimeState(): void {
+    this.isPaused = false;
+    this.pausedAtMs = null;
+    this.accumulatedPausedMs = 0;
+    this.captureCount = 0;
+  }
+
   constructor() {
     // Use singleton instances
     this.audioCaptureService = audioCapture;
@@ -365,7 +401,7 @@ export class SessionController {
 
     // Reset counters
     this.audioChunkCount = 0;
-    this.isPaused = false;
+    this.resetSessionRuntimeState();
     this.postProcessResult = null;
     this.currentProcessingProgress = null;
 
@@ -523,6 +559,7 @@ export class SessionController {
 
     // Set end time
     this.session.endTime = Date.now();
+    this.closeActivePauseWindow(this.session.endTime);
     this.isPaused = false;
     this.currentProcessingProgress = null;
 
@@ -564,7 +601,7 @@ export class SessionController {
 
     // Clear session
     this.session = null;
-    this.isPaused = false;
+    this.resetSessionRuntimeState();
     store.set('currentSession', null);
 
     // Force transition to idle (bypass normal validation since we're cancelling)
@@ -579,7 +616,7 @@ export class SessionController {
     this.session = null;
     this.postProcessResult = null;
     this.currentProcessingProgress = null;
-    this.isPaused = false;
+    this.resetSessionRuntimeState();
     this.state = 'idle';
     this.emitStateChange();
   }
@@ -592,12 +629,13 @@ export class SessionController {
    * Get current session status
    */
   getStatus(): SessionStatus {
-    const duration = this.session ? Date.now() - this.session.startTime : 0;
+    const duration = this.getActiveDurationMs();
 
     const status: SessionStatus = {
       state: this.state,
       duration,
       feedbackCount: this.session?.feedbackItems.length ?? 0,
+      screenshotCount: this.session ? this.captureCount : 0,
       isPaused: this.state === 'recording' && this.isPaused,
     };
 
@@ -618,6 +656,7 @@ export class SessionController {
     }
 
     this.isPaused = true;
+    this.pausedAtMs = Date.now();
     this.audioCaptureService.setPaused(true);
     this.emitToRenderer(IPC_CHANNELS.SESSION_VOICE_ACTIVITY, { active: false });
     this.emitStatus();
@@ -629,10 +668,31 @@ export class SessionController {
       return false;
     }
 
+    this.closeActivePauseWindow();
     this.isPaused = false;
     this.audioCaptureService.setPaused(false);
     this.emitStatus();
     return true;
+  }
+
+  registerCaptureCue(
+    trigger: 'pause' | 'manual' | 'voice-command' = 'manual'
+  ): { id: string; timestamp: number; count: number; trigger: 'pause' | 'manual' | 'voice-command' } | null {
+    if (this.state !== 'recording' || this.isPaused || !this.session) {
+      return null;
+    }
+
+    this.captureCount += 1;
+    const payload = {
+      id: randomUUID(),
+      timestamp: Date.now(),
+      count: this.captureCount,
+      trigger,
+    };
+
+    this.emitToRenderer(IPC_CHANNELS.SCREENSHOT_CAPTURED, payload);
+    this.emitStatus();
+    return payload;
   }
 
   /**
@@ -1017,8 +1077,8 @@ export class SessionController {
     const elapsed = Date.now() - this.stateEnteredAt;
     const timeout = STATE_TIMEOUTS[this.state];
 
-    // Check state timeout
-    if (timeout !== null && elapsed > timeout) {
+    // Check state timeout (recording uses active-duration checks below)
+    if (this.state !== 'recording' && timeout !== null && elapsed > timeout) {
       console.error(
         `[SessionController] WATCHDOG: State '${this.state}' exceeded ${timeout}ms timeout (elapsed: ${elapsed}ms). Forcing recovery.`
       );
@@ -1028,14 +1088,16 @@ export class SessionController {
 
     // Check recording-specific limits
     if (this.state === 'recording') {
-      this.checkRecordingDuration(elapsed);
+      this.checkRecordingDuration();
     }
   }
 
   /**
    * Check recording duration and emit warnings/force stop.
    */
-  private checkRecordingDuration(elapsed: number): void {
+  private checkRecordingDuration(): void {
+    const elapsed = this.getActiveDurationMs();
+
     // Warning at 25 minutes
     if (!this.recordingWarningShown && elapsed >= RECORDING_LIMITS.WARNING_DURATION_MS) {
       this.recordingWarningShown = true;
@@ -1301,6 +1363,7 @@ export class SessionController {
    * Clean up all services and timers (synchronous version for backwards compatibility)
    */
   private cleanupServices(): void {
+    this.closeActivePauseWindow();
     this.isPaused = false;
     // Stop timers
     this.stopAutoSave();
@@ -1325,6 +1388,7 @@ export class SessionController {
    */
   private async cleanupServicesAsync(): Promise<void> {
     console.log('[SessionController] Cleaning up services...');
+    this.closeActivePauseWindow();
     this.isPaused = false;
 
     // Stop timers first (fast, non-blocking)
@@ -1380,6 +1444,7 @@ export class SessionController {
 
     // Clear state
     this.session = null;
+    this.resetSessionRuntimeState();
     this.postProcessResult = null;
     this.currentProcessingProgress = null;
     this.events = null;

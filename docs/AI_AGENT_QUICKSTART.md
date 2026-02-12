@@ -28,6 +28,8 @@ After setup:
 
 ```bash
 npm run dev
+# or
+bun run dev
 ./scripts/one-click-clean-test.sh --skip-checks
 ```
 

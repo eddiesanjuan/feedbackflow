@@ -31,7 +31,7 @@ export const GeneralTab: React.FC<{
       />
       <ToggleSetting
         label="Check for Updates"
-        description="Automatically check for new versions"
+        description="Automatically check on launch and while the app is running"
         value={settings.checkForUpdates}
         onChange={(value) => onSettingChange('checkForUpdates', value)}
       />

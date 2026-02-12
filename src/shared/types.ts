@@ -154,7 +154,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   // General
   outputDirectory: '', // Set dynamically by SettingsManager
   launchAtLogin: false,
-  checkForUpdates: false,
+  checkForUpdates: true,
 
   // Recording
   defaultCountdown: 0,

@@ -166,7 +166,7 @@ const markuprApi = {
     /**
      * Trigger a manual screenshot during recording
      */
-    manualScreenshot: (): Promise<{ success: boolean }> => {
+    manualScreenshot: (): Promise<{ success: boolean; error?: string }> => {
       return ipcRenderer.invoke(IPC_CHANNELS.CAPTURE_MANUAL_SCREENSHOT);
     },
 

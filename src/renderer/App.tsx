@@ -54,11 +54,11 @@ function formatRelativeTime(timestamp: number): string {
 function formatCaptureTrigger(trigger?: 'pause' | 'manual' | 'voice-command'): string {
   switch (trigger) {
     case 'manual':
-      return 'Manual Capture';
+      return 'Manual Shot Marker';
     case 'voice-command':
-      return 'Voice Cue Capture';
+      return 'Voice Cue Marker';
     default:
-      return 'Auto Pause Capture';
+      return 'AI Frame Marker';
   }
 }
 
@@ -283,7 +283,7 @@ const App: React.FC = () => {
 
         <section className="ff-shell__meta">
           <span>{formatDuration(recording.duration)}</span>
-          <span>{recording.screenshotCount} screenshots</span>
+          <span>{recording.screenshotCount} shots marked</span>
           <span className={recording.hasTranscriptionCapability ? 'is-ready' : 'is-optional'}>
             {recording.hasTranscriptionCapability ? 'Transcript Ready' : 'Add OpenAI Key'}
           </span>
@@ -357,7 +357,7 @@ const App: React.FC = () => {
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
               <span className="ff-shell__meta-pill">
-                Screenshot: <ManualScreenshotHint inline />
+                Mark Shot: <ManualScreenshotHint inline />
               </span>
               <span className="ff-shell__meta-pill">
                 Stop: <ToggleRecordingHint inline />
@@ -367,7 +367,7 @@ const App: React.FC = () => {
               </span>
             </div>
             <p className="ff-shell__transcript-placeholder" style={{ marginTop: 8 }}>
-              Transcript will be generated after you stop recording.
+              Manual shots are confirmed instantly above. After stop, AI analyzes your transcript + screen frames and assembles an AI-ready report.
             </p>
           </section>
         )}

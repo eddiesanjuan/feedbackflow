@@ -148,6 +148,7 @@ let isQuitting = false;
 let hasCompletedOnboarding = false;
 const rendererRecoveryAttempts = new WeakMap<BrowserWindow, number>();
 let teardownAudioTelemetry: Array<() => void> = [];
+let teardownSettingsListeners: Array<() => void> = [];
 
 // Windows taskbar integration (Windows only)
 let windowsTaskbar: WindowsTaskbar | null = null;
@@ -449,7 +450,7 @@ function handleFeedbackItem(item: {
 
     crashRecovery.updateSession({
       feedbackItems: recoverableFeedbackItems,
-      screenshotCount: 0,
+      screenshotCount: sessionController.getStatus().screenshotCount,
     });
   }
 }
@@ -648,10 +649,14 @@ async function handlePauseResume(): Promise<void> {
 }
 
 async function handleManualScreenshot(): Promise<void> {
-  // Manual screenshots are no longer captured during recording.
-  // In the post-process architecture, frames are extracted from the
-  // video recording after the session stops.
-  console.log('[Main] Manual screenshot requested (no-op in post-process architecture)');
+  const cue = sessionController.registerCaptureCue('manual');
+  if (!cue) {
+    return;
+  }
+
+  crashRecovery.updateSession({
+    screenshotCount: cue.count,
+  });
 }
 
 function pauseSession(): { success: boolean; error?: string } {
@@ -1441,6 +1446,16 @@ app.whenReady().then(async () => {
   settingsManager = new SettingsManager();
   console.log('[Main] Settings loaded');
 
+  teardownSettingsListeners.forEach((teardown) => teardown());
+  teardownSettingsListeners = [];
+  teardownSettingsListeners.push(
+    settingsManager.onChange((key, newValue) => {
+      if (key === 'checkForUpdates') {
+        autoUpdaterManager.setAutoCheckEnabled(Boolean(newValue));
+      }
+    }),
+  );
+
   // 3. Determine onboarding readiness from persisted flag or BYOK keys + transcription path
   const [hasOpenAiKey, hasAnthropicKey] = await Promise.all([
     settingsManager.hasApiKey('openai'),
@@ -1558,6 +1573,7 @@ app.whenReady().then(async () => {
 
   // 12. Initialize auto-updater (only in production)
   if (process.env.NODE_ENV !== 'development') {
+    autoUpdaterManager.setAutoCheckEnabled(settingsManager.get('checkForUpdates'));
     autoUpdaterManager.initialize(mainWindow!);
     console.log('[Main] Auto-updater initialized');
   } else {
@@ -1628,6 +1644,8 @@ app.on('will-quit', async () => {
   // Cleanup services
   teardownAudioTelemetry.forEach((teardown) => teardown());
   teardownAudioTelemetry = [];
+  teardownSettingsListeners.forEach((teardown) => teardown());
+  teardownSettingsListeners = [];
   hotkeyManager.unregisterAll();
   popover?.destroy();
   trayManager.destroy();

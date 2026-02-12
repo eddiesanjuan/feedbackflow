@@ -37,11 +37,7 @@ export function registerSessionHandlers(ctx: IpcContext, actions: SessionActions
   });
 
   ipcMain.handle(IPC_CHANNELS.SESSION_GET_STATUS, (): SessionStatusPayload => {
-    const status = sessionController.getStatus();
-    return {
-      ...status,
-      screenshotCount: 0,
-    };
+    return sessionController.getStatus();
   });
 
   ipcMain.handle(IPC_CHANNELS.SESSION_GET_CURRENT, (): SessionPayload | null => {

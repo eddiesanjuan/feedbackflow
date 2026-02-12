@@ -82,7 +82,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   // General
   outputDirectory: '', // Set dynamically in constructor
   launchAtLogin: false,
-  checkForUpdates: false,
+  checkForUpdates: true,
 
   // Recording
   defaultCountdown: 0,

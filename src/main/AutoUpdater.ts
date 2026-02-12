@@ -51,6 +51,12 @@ class AutoUpdaterManager {
   private state: UpdateManagerState;
   private initialized = false;
   private updaterAvailable = false;
+  private autoCheckEnabled = true;
+  private isChecking = false;
+  private startupCheckTimer: NodeJS.Timeout | null = null;
+  private periodicCheckTimer: NodeJS.Timeout | null = null;
+  private readonly STARTUP_CHECK_DELAY_MS = 5000;
+  private readonly PERIODIC_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
 
   constructor() {
     this.state = {
@@ -95,12 +101,47 @@ class AutoUpdaterManager {
     // Set up event handlers
     this.setupEventHandlers();
 
-    // Check for updates on startup (with delay to not slow app launch)
-    setTimeout(() => {
-      this.checkForUpdates();
-    }, 5000);
+    this.scheduleAutoChecks();
 
     log.info('[AutoUpdater] Initialized successfully');
+  }
+
+  setAutoCheckEnabled(enabled: boolean): void {
+    this.autoCheckEnabled = enabled;
+    log.info(`[AutoUpdater] Auto-check ${enabled ? 'enabled' : 'disabled'}`);
+
+    if (!this.initialized || !this.updaterAvailable) {
+      return;
+    }
+
+    this.scheduleAutoChecks();
+  }
+
+  private scheduleAutoChecks(): void {
+    this.clearAutoCheckTimers();
+
+    if (!this.autoCheckEnabled) {
+      return;
+    }
+
+    this.startupCheckTimer = setTimeout(() => {
+      void this.checkForUpdates();
+    }, this.STARTUP_CHECK_DELAY_MS);
+
+    this.periodicCheckTimer = setInterval(() => {
+      void this.checkForUpdates();
+    }, this.PERIODIC_CHECK_INTERVAL_MS);
+  }
+
+  private clearAutoCheckTimers(): void {
+    if (this.startupCheckTimer) {
+      clearTimeout(this.startupCheckTimer);
+      this.startupCheckTimer = null;
+    }
+    if (this.periodicCheckTimer) {
+      clearInterval(this.periodicCheckTimer);
+      this.periodicCheckTimer = null;
+    }
   }
 
   /**
@@ -196,9 +237,16 @@ class AutoUpdaterManager {
       this.updateState('not-available');
       return null;
     }
+    if (this.isChecking) {
+      return null;
+    }
+    if (this.state.status === 'downloading') {
+      return null;
+    }
 
     try {
-      log.info('[AutoUpdater] Manual check for updates');
+      this.isChecking = true;
+      log.info('[AutoUpdater] Checking for updates');
       const result = await autoUpdater.checkForUpdates();
       return result;
     } catch (error) {
@@ -213,6 +261,8 @@ class AutoUpdaterManager {
         message: error instanceof Error ? error.message : 'Failed to check for updates',
       });
       return null;
+    } finally {
+      this.isChecking = false;
     }
   }
 
@@ -328,6 +378,7 @@ class AutoUpdaterManager {
    * Clean up resources
    */
   destroy(): void {
+    this.clearAutoCheckTimers();
     this.mainWindow = null;
     this.initialized = false;
     log.info('[AutoUpdater] Destroyed');

@@ -48,11 +48,15 @@ By participating in this project, you agree to maintain a respectful and inclusi
 4. **Install dependencies**:
    ```bash
    npm install
+   # or
+   bun install
    ```
 
 5. **Start development**:
    ```bash
    npm run dev
+   # or
+   bun run dev
    ```
 
 See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for detailed development instructions.
@@ -112,6 +116,10 @@ Use descriptive branch names:
    npm test
    npm run lint
    npm run typecheck
+   # bun equivalents:
+   # bun run test
+   # bun run lint
+   # bun run typecheck
    ```
 
 4. **Update documentation** if needed

@@ -570,7 +570,7 @@ export const RecordingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (state !== 'recording' || isPaused || isMutating) return;
     const result = await window.markupr.capture.manualScreenshot();
     if (!result.success) {
-      setErrorMessage('Manual capture failed.');
+      setErrorMessage(result.error || 'Manual capture failed.');
     }
   }, [state, isPaused, isMutating]);
 

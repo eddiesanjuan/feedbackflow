@@ -302,8 +302,9 @@ export const RecordingOverlay: React.FC<RecordingOverlayProps> = ({
               padding: '2px 5px',
               background: theme.hintBg,
             }}
+            title="Manual shot markers confirmed in this session"
           >
-            {screenshotCount} shot{screenshotCount === 1 ? '' : 's'}
+            {screenshotCount} marked
           </span>
 
           {/* Stop button */}
@@ -367,7 +368,7 @@ export const RecordingOverlay: React.FC<RecordingOverlayProps> = ({
                 background: theme.hintBg,
               }}
             >
-            <strong style={{ fontWeight: 700 }}>Shot {manualShortcutText}</strong>
+            <strong style={{ fontWeight: 700 }}>Mark {manualShortcutText}</strong>
           </span>
           <span
               style={{

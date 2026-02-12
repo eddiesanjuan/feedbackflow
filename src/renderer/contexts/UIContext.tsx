@@ -210,7 +210,7 @@ export const UIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           title: 'Recording Live',
           detail: recording.isPaused
             ? 'Session paused. Resume to continue capturing screen and narration.'
-            : 'Speak while testing. Transcript is generated after you stop recording.',
+            : 'Mark shots while you narrate. After stop, AI aligns frames + transcript and assembles an AI-ready report.',
         };
       case 'stopping':
       case 'processing':

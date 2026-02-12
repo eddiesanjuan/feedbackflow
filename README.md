@@ -376,12 +376,24 @@ markupr/
 # Clone the repository
 git clone https://github.com/eddiesanjuan/markupr.git
 cd markupr
+```
 
-# Install dependencies
+Use either npm or bun:
+
+```bash
+# npm
 npm install
 
 # Start development mode
 npm run dev
+```
+
+```bash
+# bun
+bun install
+
+# Start development mode
+bun run dev
 ```
 
 ### Scripts
@@ -401,6 +413,8 @@ npm run dev
 | `npm run lint` | Lint code |
 | `npm run lint:fix` | Auto-fix lint issues |
 | `npm run typecheck` | TypeScript type checking |
+
+You can run the same scripts with bun (`bun run dev`, `bun run test`, etc.).
 
 ### Running Tests
 
