@@ -27,7 +27,7 @@ const StatusIndicator: React.FC<StatusIndicatorProps> = ({ status, error }) => {
       case 'error':
         return colors.status.error;
       default:
-        return colors.text.tertiary;
+        return '#8e8e93';
     }
   };
 
@@ -77,7 +77,7 @@ const styles: Record<string, React.CSSProperties> = {
     transition: 'all 0.2s ease',
   },
   text: {
-    color: 'var(--text-primary)',
+    color: '#eef3ff',
     fontSize: 13,
     fontWeight: 500,
   },
