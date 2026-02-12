@@ -68,6 +68,13 @@ jobs:
     name: Build macOS
     runs-on: macos-latest
     needs: validate-tag
+    env:
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -95,11 +102,7 @@ jobs:
 
       # Install certificates for code signing
       - name: Install Apple certificates
-        if: ${{ secrets.APPLE_CERTIFICATE != '' }}
-        env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        if: ${{ env.APPLE_CERTIFICATE != '' }}
         run: |
           # Create variables
           CERTIFICATE_PATH=$RUNNER_TEMP/certificate.p12
@@ -122,7 +125,7 @@ jobs:
 
       # Build and sign for macOS
       - name: Package macOS (signed)
-        if: ${{ secrets.APPLE_ID != '' && secrets.APPLE_CERTIFICATE != '' }}
+        if: ${{ env.APPLE_ID != '' && env.APPLE_CERTIFICATE != '' }}
         run: npx electron-builder --mac --publish never --config electron-builder.yml
         env:
           # Code signing
@@ -136,7 +139,7 @@ jobs:
 
       # Build unsigned if no signing credentials
       - name: Package macOS (unsigned)
-        if: ${{ secrets.APPLE_ID == '' || secrets.APPLE_CERTIFICATE == '' }}
+        if: ${{ env.APPLE_ID == '' || env.APPLE_CERTIFICATE == '' }}
         run: CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --mac --publish never --config electron-builder.yml
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
@@ -163,6 +166,9 @@ jobs:
     name: Build Windows
     runs-on: windows-latest
     needs: validate-tag
+    env:
+      WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+      WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -190,7 +196,7 @@ jobs:
 
       # Build and sign for Windows
       - name: Package Windows (signed)
-        if: ${{ secrets.WIN_CSC_LINK != '' }}
+        if: ${{ env.WIN_CSC_LINK != '' }}
         run: npx electron-builder --win --x64 --publish never --config electron-builder.yml
         env:
           WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
@@ -198,7 +204,7 @@ jobs:
 
       # Build unsigned if no signing credentials
       - name: Package Windows (unsigned)
-        if: ${{ secrets.WIN_CSC_LINK == '' }}
+        if: ${{ env.WIN_CSC_LINK == '' }}
         run: npx electron-builder --win --x64 --publish never --config electron-builder.yml
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
