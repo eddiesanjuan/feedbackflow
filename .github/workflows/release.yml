@@ -167,8 +167,7 @@ jobs:
     runs-on: windows-latest
     needs: validate-tag
     env:
-      WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
-      WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+      WIN_SIGNING_AVAILABLE: ${{ secrets.WIN_CSC_LINK != '' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -196,7 +195,7 @@ jobs:
 
       # Build and sign for Windows
       - name: Package Windows (signed)
-        if: ${{ env.WIN_CSC_LINK != '' }}
+        if: ${{ env.WIN_SIGNING_AVAILABLE == 'true' }}
         run: npx electron-builder --win --x64 --publish never --config electron-builder.yml
         env:
           WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
@@ -204,7 +203,7 @@ jobs:
 
       # Build unsigned if no signing credentials
       - name: Package Windows (unsigned)
-        if: ${{ env.WIN_CSC_LINK == '' }}
+        if: ${{ env.WIN_SIGNING_AVAILABLE != 'true' }}
         run: npx electron-builder --win --x64 --publish never --config electron-builder.yml
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
