@@ -35,6 +35,8 @@ markupr is a menu bar app that intelligently captures developer feedback. Press 
 
 One hotkey to start. One hotkey to stop. A Markdown file with your words, contextually-placed screenshots, and intelligent structure -- ready to hand to your AI coding agent, paste into a GitHub issue, or drop in a Slack thread.
 
+If markupr saves you hours, consider supporting development on [Ko-fi](https://ko-fi.com/eddiesanjuan) so updates and fixes ship faster.
+
 ## Features
 
 ### Voice-Driven Capture
@@ -485,6 +487,14 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for full guidelines.
 - markupr gracefully degrades to transcript-only output without ffmpeg
 
 See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for more solutions.
+
+## Support markupr
+
+If markupr is useful in your workflow and you want to keep it improving quickly:
+
+- [Support on Ko-fi](https://ko-fi.com/eddiesanjuan)
+- Share the project with a teammate who writes bug reports
+- Open issues with reproducible feedback sessions so fixes land faster
 
 ## License
 

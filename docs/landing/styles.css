@@ -1234,6 +1234,19 @@ section {
     margin-bottom: var(--space-xl);
 }
 
+.cta-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-md);
+    justify-content: center;
+}
+
+.cta-support-note {
+    margin-top: var(--space-md);
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
 /* ============================================
    Footer
    ============================================ */

@@ -354,6 +354,21 @@ const WelcomeStep: React.FC<{ onNext: () => void; onSkip: () => void }> = ({
         AI-ready documentation in seconds.
       </p>
 
+      <div style={styles.quickSteps}>
+        <div style={styles.quickStep}>
+          <span style={styles.quickStepNumber}>1</span>
+          <span style={styles.quickStepText}>Record and narrate your walkthrough.</span>
+        </div>
+        <div style={styles.quickStep}>
+          <span style={styles.quickStepNumber}>2</span>
+          <span style={styles.quickStepText}>Mark shots when needed. Markers confirm instantly.</span>
+        </div>
+        <div style={styles.quickStep}>
+          <span style={styles.quickStepNumber}>3</span>
+          <span style={styles.quickStepText}>Stop recording. AI aligns transcript + frames into a report.</span>
+        </div>
+      </div>
+
       {/* Get Started Button */}
       <button style={styles.primaryButton} onClick={onNext}>
         Get Started
@@ -997,7 +1012,8 @@ const SuccessStep: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
         <p style={styles.stepDescription}>
           markupr is ready to capture your feedback. Press{' '}
           <kbd style={styles.kbd}>Cmd+Shift+F</kbd> to start recording, and speak
-          naturally as you walk through your feedback.
+          naturally as you walk through your feedback. Mark shots as needed, then stop
+          to let AI assemble transcript + frames into a clean report.
         </p>
 
         {/* Feature Summary */}
@@ -1022,7 +1038,7 @@ const SuccessStep: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
                 strokeLinecap="round"
               />
             </svg>
-            <span>Intelligent screenshots</span>
+            <span>Manual shot markers confirmed instantly</span>
           </div>
           <div style={styles.featureItem}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -1033,7 +1049,7 @@ const SuccessStep: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
                 strokeLinecap="round"
               />
             </svg>
-            <span>AI-ready markdown output</span>
+            <span>AI assembles transcript + frames after stop</span>
           </div>
         </div>
 
@@ -1436,8 +1452,48 @@ const styles: Record<string, ExtendedCSSProperties> = {
     fontSize: 15,
     lineHeight: 1.6,
     color: 'var(--text-secondary)',
-    marginBottom: 32,
+    marginBottom: 20,
     maxWidth: 360,
+  },
+
+  quickSteps: {
+    width: '100%',
+    maxWidth: 360,
+    marginBottom: 28,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 10,
+    textAlign: 'left',
+  },
+
+  quickStep: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    padding: '8px 10px',
+    border: '1px solid var(--border-subtle)',
+    borderRadius: 10,
+    backgroundColor: 'var(--surface-inset)',
+  },
+
+  quickStepNumber: {
+    width: 20,
+    height: 20,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: '50%',
+    backgroundColor: 'var(--accent-default)',
+    color: 'var(--text-inverse)',
+    fontSize: 12,
+    fontWeight: 700,
+    flexShrink: 0,
+  },
+
+  quickStepText: {
+    fontSize: 13,
+    lineHeight: 1.45,
+    color: 'var(--text-secondary)',
   },
 
   stepTitle: {
