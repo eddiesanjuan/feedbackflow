@@ -17,8 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **npm package trimmed from 509KB to 86KB** by removing Electron bloat from the published package
+- Landing page repositioned with new tagline: "You see it. You say it. Your AI fixes it." (#23)
 
 ### Fixed
+- Restored Electron main entry point removed by CLI feature addition (#25)
 - Windows NSIS installer: resolved macro collision, simplified custom hooks
 - Windows release packaging: fixed unsigned builds, limited to x64
 - Release workflow conditionals for tag-based builds
@@ -26,6 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Landing page download links now always point to latest release
 - Download CTA no longer points to old v0.4.0 FeedbackFlow release
 - Direct DMG download link instead of releases page redirect
+
+### Dependencies
+- Bumped `@electron/notarize` from 2.2.1 to 3.1.1 (#18)
+- Bumped npm minor/patch dependencies (#22)
 
 ## [2.1.0] - 2026-02-08
 
