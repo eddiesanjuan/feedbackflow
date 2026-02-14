@@ -7,56 +7,30 @@
 | 2.x     | Yes                |
 | < 2.0   | No                 |
 
-Only the latest release in the 2.x line receives security patches. Upgrade to the latest version before reporting.
-
 ## Reporting a Vulnerability
 
-**Do not create public GitHub issues for security vulnerabilities.**
+**Do not open a public issue for security vulnerabilities.**
 
-Email **eddie@efsanjuan.com** with:
+Please email security concerns directly to **eddie@efsanjuan.com** with:
 
-- Description of the vulnerability
-- Steps to reproduce
-- Potential impact
-- Suggested fix (if any)
+- A description of the vulnerability
+- Steps to reproduce or a proof-of-concept
+- The affected version(s)
+- Any suggested remediation (optional)
 
-You may also use [GitHub's private vulnerability reporting](https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing-information-about-vulnerabilities/privately-reporting-a-security-vulnerability) if you prefer.
+### Response Timeline
 
-## Response Timeline
+- **Acknowledgment:** Within 48 hours of your report.
+- **Fix target:** Within 7 days for confirmed vulnerabilities.
+- **Disclosure:** Coordinated with the reporter once a fix is released.
 
-- **Acknowledgment**: Within 48 hours
-- **Fix timeline provided**: Within 7 days
-- **Fix target**: Within 30 days for critical issues
-- **Public disclosure**: 90 days after report (coordinated disclosure)
+### What Counts as a Security Issue
 
-## What Qualifies as a Security Issue
+- Data leaks (session recordings, transcripts, or settings exposed unintentionally)
+- Code injection (XSS, command injection, or unsafe eval paths)
+- Permission escalation (bypassing macOS permission checks)
+- Credential exposure (API keys written to logs, unencrypted storage, or clipboard leaks)
 
-**In scope:**
+### Credit
 
-- Data leaks (audio recordings, screenshots, transcriptions, API keys)
-- Code injection or remote code execution
-- Permission escalation beyond granted macOS entitlements
-- Authentication or authorization bypass
-- Clipboard injection attacks
-- Insecure storage of sensitive data (API keys, credentials)
-
-**Out of scope:**
-
-- Social engineering attacks
-- Physical access attacks
-- Vulnerabilities in upstream dependencies (report those to the dependency maintainer)
-- Denial of service against a local desktop application
-
-## Credit Policy
-
-Security reporters will be credited by name in the CHANGELOG for the release that includes the fix, unless they prefer to remain anonymous. Let us know your preference when reporting.
-
-## Safe Harbor
-
-We will not take legal action against researchers who:
-
-- Act in good faith
-- Avoid privacy violations
-- Do not exploit vulnerabilities beyond proof-of-concept
-- Report vulnerabilities promptly
-- Allow 90 days before public disclosure
+Security reporters will be credited in the CHANGELOG unless they prefer to remain anonymous. Let us know your preference when reporting.
