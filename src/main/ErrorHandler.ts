@@ -65,6 +65,8 @@ class ErrorHandler {
   private flushTimer: NodeJS.Timeout | null = null;
   private rotationTimer: NodeJS.Timeout | null = null;
   private isInitialized: boolean = false;
+  private lastNotificationAt: number = 0;
+  private readonly NOTIFICATION_RATE_LIMIT_MS = 3000; // Min 3s between notifications
 
   constructor() {
     this.logPath = path.join(app.getPath('logs'), 'markupr.log');
@@ -88,7 +90,13 @@ class ErrorHandler {
       );
 
       // Start flush timer for buffered logs
-      this.flushTimer = setInterval(() => this.flushLogs(), 5000);
+      this.flushTimer = setInterval(() => {
+        try {
+          this.flushLogs();
+        } catch {
+          // Ignore flush errors to prevent crashing the interval
+        }
+      }, 5000);
 
       this.isInitialized = true;
       this.log('info', 'ErrorHandler initialized', { component: 'ErrorHandler' });
@@ -112,22 +120,30 @@ class ErrorHandler {
    * Handle permission errors and guide user to system settings
    */
   async handlePermissionError(type: 'microphone' | 'screen'): Promise<boolean> {
+    const settingsName = process.platform === 'darwin'
+      ? 'System Settings'
+      : process.platform === 'win32'
+        ? 'Windows Settings'
+        : 'system settings';
+
     const messages = {
       microphone: {
         title: 'Microphone Access Required',
         message: 'markupr needs microphone access to capture your voice feedback.',
         detail:
-          'Click "Open Settings" to grant microphone permission in System Settings.' +
+          `Click "Open Settings" to grant microphone permission in ${settingsName}.` +
           '\n\nAfter enabling, you may need to restart the app.',
         pane: 'Privacy_Microphone',
+        winSettings: 'ms-settings:privacy-microphone',
       },
       screen: {
         title: 'Screen Recording Required',
         message: 'markupr needs screen recording permission to capture screenshots.',
         detail:
-          'Click "Open Settings" to grant screen recording permission in System Settings.' +
+          `Click "Open Settings" to grant screen recording permission in ${settingsName}.` +
           '\n\nYou will need to restart the app after enabling.',
         pane: 'Privacy_ScreenCapture',
+        winSettings: 'ms-settings:privacy-screencapture',
       },
     };
 
@@ -150,15 +166,15 @@ class ErrorHandler {
     });
 
     if (response === 0) {
-      // Open system preferences
+      // Open system preferences / settings
       if (process.platform === 'darwin') {
         await shell.openExternal(
           `x-apple.systempreferences:com.apple.preference.security?${config.pane}`
         );
         this.log('info', `Opened system preferences for ${type}`);
       } else if (process.platform === 'win32') {
-        // Windows: Open Settings app to privacy section
-        await shell.openExternal('ms-settings:privacy-microphone');
+        await shell.openExternal(config.winSettings);
+        this.log('info', `Opened Windows settings for ${type}`);
       }
       return true;
     }
@@ -445,6 +461,13 @@ class ErrorHandler {
    * Show a non-blocking notification to the user
    */
   notifyUser(title: string, message: string): void {
+    // Rate limit notifications to prevent spam
+    const now = Date.now();
+    if (now - this.lastNotificationAt < this.NOTIFICATION_RATE_LIMIT_MS) {
+      return;
+    }
+    this.lastNotificationAt = now;
+
     // First try to use renderer notification
     this.emitToRenderer(IPC_CHANNELS.NOTIFICATION, { title, message });
 

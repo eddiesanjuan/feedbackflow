@@ -5,6 +5,90 @@ All notable changes to markupr will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2026-02-14
+
+### Security
+- Removed `dangerouslySetInnerHTML` XSS vector from UpdateNotification (React component rendering)
+- Enabled `sandbox: true` on all BrowserWindow instances
+- Added IPC input validation across all handler files (type checks, range checks, whitelists)
+- Added prototype pollution prevention on settings import
+- Added API key service whitelist (openai, anthropic only)
+- Added path containment checks on session deletion and folder opening
+- Added Whisper model name whitelist
+- Restricted child process environment variables (no API key leakage)
+- Added `window.open` protocol validation (https/http only)
+- Tightened CSP with explicit `connect-src`, `img-src`, `media-src`, `frame-ancestors`
+- Set `chmod 0600` on temp audio files and plaintext API key fallback
+
+### Robustness
+- Added double-start race condition guard on recording toggle
+- Fixed watchdog timer to only run during active sessions (saves 86,400 CPU wake-ups/day)
+- Added `isDestroyed()` checks on all BrowserWindow access (12 instances)
+- Added `safeSendToRenderer()` helper for crash-safe IPC sends
+- Added 200MB audio memory cap to prevent OOM on long sessions
+- Added synchronous crash logging for reliable persistence
+- Added per-chunk Whisper timeout (60s) to prevent infinite hangs
+- Added error boundaries on all IPC session handlers
+- Added write chain error resilience in capture handlers
+- Fixed `forceRecovery` re-entry guard
+- Fixed session state consistency after forced transitions
+- Added recovery buffer cleanup on normal app quit
+
+### CLI
+- Added proper signal handling (SIGINT/SIGTERM kill child processes, clean up temp files)
+- Added video file validation (exists, is file, non-empty, contains video stream via ffprobe)
+- Added ffmpeg availability check at startup with platform-specific install hints
+- Added temp file cleanup in `finally` block (no more leaked WAV files)
+- Added machine-parseable `OUTPUT:` prefix line for AI agent consumption
+- Added meaningful exit codes (0=success, 1=user error, 2=system error)
+- Added `OPENAI_API_KEY` env var support (primary) with CLI flag as override with security warning
+- Added progress indicators visible in non-verbose mode
+
+### Output Quality
+- Fixed timestamp unit mismatch in AI-enhanced documents (seconds vs milliseconds)
+- Restored FB-XXX IDs in AI-enhanced markdown (consistent with free tier)
+- Fixed `wrapTranscription` malformed blockquotes for 2-sentence transcripts
+- Fixed PDF export for image-heavy sessions (temp file approach vs data: URL limit)
+- Added buffer-to-base64 fallback in HTML export for missing screenshot data
+- Added short-circuit for Claude API on empty sessions (saves API calls)
+- Fixed `inferCategory` over-matching ("address" no longer matches "add")
+- Added deterministic date formatting (consistent across platforms)
+- Added rich metadata to markdown output (segment count, frame count, duration, platform)
+- Improved error messages across the codebase (actionable guidance, no stack trace leaks)
+
+### Accessibility (Landing Page)
+- Added skip-to-content link
+- Added `<main>` landmark element
+- Added focus trap on donate modal with focus return
+- Fixed ARIA radiogroup pattern (role="radio" + aria-checked)
+- Added screen reader text for external links
+- Added focus-visible styles with amber outline
+- Fixed color contrast ratios (dark mode tertiary, light mode tertiary, light mode accent)
+- Fixed donate modal light mode (text was invisible on dark background)
+- Added noscript fallback for scroll-reveal content
+
+### Platform Compatibility
+- Added Windows environment variables (USERPROFILE, TEMP) to child process environments
+- Fixed WhisperService models directory fallback (os.homedir() instead of /tmp)
+- Made tooltip shortcuts platform-aware (Cmd on macOS, Ctrl on Windows/Linux)
+- Made permission error messages reference correct OS settings panels
+- Added platform-specific ffmpeg install hints (brew/winget/apt/dnf)
+
+### Documentation
+- Rewrote CONTRIBUTING.md with pipeline explanation, architecture reference, testing guide
+- Added "Why markupr?" positioning section to README
+- Fixed AI_AGENT_QUICKSTART.md critical broken commands
+- Fixed stale version references across docs and templates
+- Removed documented-but-unimplemented --openai-key flag from README
+
+### Testing
+- Added 126 new tests across 5 new test files (389 to 515 total)
+  - CrashRecovery (31 tests): serialization, crash detection, log sanitization, session detection
+  - ErrorHandler (31 tests): categorization, rotation, buffering, rate limiting
+  - MarkdownGenerator (21 tests): output format, heading structure, input combinations
+  - FrameExtractor (24 tests): command building, timestamp distribution, normalization
+  - ExportService (19 tests): all formats, error handling, filename generation
+
 ## [2.2.0] - 2026-02-13
 
 ### Highlights
@@ -177,6 +261,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| 2.3.0 | 2026-02-14 | **Hardening** - security, robustness, a11y, 126 new tests |
 | 2.2.0 | 2026-02-13 | **CLI mode**, npm distribution, package size reduction |
 | 2.1.0 | 2026-02-08 | Architecture refactor, theme system, a11y |
 | 2.0.0 | 2026-02-05 | **Public launch** - post-processing pipeline, markupr rebrand |
@@ -186,6 +271,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 | 0.2.0 | 2026-01-01 | Window selector, manual screenshots |
 | 0.1.0 | 2025-12-15 | Initial scaffold |
 
+[2.3.0]: https://github.com/eddiesanjuan/markupr/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/eddiesanjuan/markupr/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/eddiesanjuan/markupr/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/eddiesanjuan/markupr/compare/v1.0.0...v2.0.0

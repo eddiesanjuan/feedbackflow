@@ -39,6 +39,7 @@ Your job is to transform this raw narration into a structured, actionable feedba
 6. **Categorize.** Use exactly one of: Bug, UX Issue, Performance, Suggestion, Question, Positive Note.
 7. **Write a summary.** 2-3 sentences capturing the most important findings.
 8. **Be concise.** Developers will paste this into AI coding tools. Every word must earn its place.
+9. **Handle sparse input.** If the transcript is very short or absent, focus on describing what you see in screenshots. If neither transcript nor screenshots are available, return a minimal result with an empty items array.
 
 ## Output Format
 
@@ -192,8 +193,15 @@ export class ClaudeAnalyzer {
     imageOptions?: Partial<ImageOptimizeOptions>,
   ): Promise<AIAnalysisResult | null> {
     try {
-      // Optimize screenshots for the API
+      // Short-circuit: skip API call when there's nothing useful to analyze.
+      // The free tier produces better output for empty sessions.
+      const transcriptText = buildTranscriptText(session);
       const optimizedImages = optimizeForAPI(session.screenshotBuffer, imageOptions);
+
+      if (transcriptText === '[No transcript available]' && optimizedImages.length === 0) {
+        console.log('[ClaudeAnalyzer] Skipping API call: no transcript and no screenshots');
+        return null;
+      }
 
       // Build message content
       const userContent = buildUserContent(session, optimizedImages);

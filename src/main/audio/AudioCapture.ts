@@ -137,6 +137,11 @@ class AudioCaptureServiceImpl extends EventEmitter implements AudioCaptureServic
   private recoveryInterval: NodeJS.Timeout | null = null;
 
   // Full-session audio capture (used for post-session transcription + retry workflows)
+  // Memory cap prevents unbounded growth during long sessions. At 16kHz mono
+  // with 4 bytes/sample, a 30-minute session produces ~115MB of PCM data plus
+  // encoded chunks in parallel. The cap ensures total audio memory stays under
+  // control, especially on machines with limited RAM.
+  private static readonly MAX_SESSION_AUDIO_BYTES = 200 * 1024 * 1024; // 200MB
   private sessionAudioChunks: Buffer[] = [];
   private sessionAudioBytes: number = 0;
   private sessionAudioDurationMs: number = 0;
@@ -145,6 +150,7 @@ class AudioCaptureServiceImpl extends EventEmitter implements AudioCaptureServic
   private encodedAudioBytes: number = 0;
   private encodedAudioDurationMs: number = 0;
   private encodedAudioMimeType: string | null = null;
+  private sessionAudioCapWarningLogged: boolean = false;
 
   constructor(config: Partial<AudioCaptureConfig> = {}) {
     super();
@@ -335,6 +341,7 @@ class AudioCaptureServiceImpl extends EventEmitter implements AudioCaptureServic
         this.encodedAudioBytes = 0;
         this.encodedAudioDurationMs = 0;
         this.encodedAudioMimeType = null;
+        this.sessionAudioCapWarningLogged = false;
         this.startRecoveryBuffer();
         console.log('[AudioCapture] Capture started');
         resolve();
@@ -648,6 +655,9 @@ class AudioCaptureServiceImpl extends EventEmitter implements AudioCaptureServic
       this.sessionAudioDurationMs += Math.max(0, data.duration || this.config.chunkDurationMs);
       this.sessionAudioMimeType = 'audio/wav';
 
+      // Enforce memory cap: drop oldest PCM chunks when exceeding limit
+      this.enforceSessionAudioCap();
+
       this.emit('audioChunk', chunk);
       return;
     }
@@ -662,6 +672,9 @@ class AudioCaptureServiceImpl extends EventEmitter implements AudioCaptureServic
     this.encodedAudioDurationMs += Math.max(0, data.duration || this.config.chunkDurationMs);
     this.encodedAudioMimeType = data.mimeType || this.encodedAudioMimeType || 'audio/webm';
     this.recoveryChunks.push(encodedBuffer);
+
+    // Enforce memory cap on encoded chunks as well
+    this.enforceSessionAudioCap();
 
     // Prefer renderer-provided live RMS/level from real audio analysis.
     const level =
@@ -719,6 +732,48 @@ class AudioCaptureServiceImpl extends EventEmitter implements AudioCaptureServic
           this.silenceStartTime = 0;
           console.log('[AudioCapture] Voice activity ended');
         }
+      }
+    }
+  }
+
+  // ==========================================================================
+  // Memory Management
+  // ==========================================================================
+
+  /**
+   * Enforce the session audio memory cap across both PCM and encoded buffers.
+   * Drops oldest chunks from whichever buffer is larger until total is under
+   * 80% of the cap, preserving the most recent audio for transcription quality.
+   */
+  private enforceSessionAudioCap(): void {
+    const totalBytes = this.sessionAudioBytes + this.encodedAudioBytes;
+    if (totalBytes <= AudioCaptureServiceImpl.MAX_SESSION_AUDIO_BYTES) {
+      return;
+    }
+
+    if (!this.sessionAudioCapWarningLogged) {
+      console.warn(
+        `[AudioCapture] Session audio memory cap reached (${Math.round(totalBytes / 1024 / 1024)}MB). ` +
+        `Dropping oldest chunks to stay under ${Math.round(AudioCaptureServiceImpl.MAX_SESSION_AUDIO_BYTES / 1024 / 1024)}MB.`
+      );
+      this.sessionAudioCapWarningLogged = true;
+    }
+
+    const targetBytes = Math.floor(AudioCaptureServiceImpl.MAX_SESSION_AUDIO_BYTES * 0.8);
+
+    // Drop from whichever buffer is larger first
+    while (
+      this.sessionAudioBytes + this.encodedAudioBytes > targetBytes &&
+      (this.sessionAudioChunks.length > 1 || this.encodedAudioChunks.length > 1)
+    ) {
+      if (this.sessionAudioBytes >= this.encodedAudioBytes && this.sessionAudioChunks.length > 1) {
+        const removed = this.sessionAudioChunks.shift()!;
+        this.sessionAudioBytes -= removed.byteLength;
+      } else if (this.encodedAudioChunks.length > 1) {
+        const removed = this.encodedAudioChunks.shift()!;
+        this.encodedAudioBytes -= removed.byteLength;
+      } else {
+        break;
       }
     }
   }

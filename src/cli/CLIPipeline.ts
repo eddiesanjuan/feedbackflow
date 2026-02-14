@@ -7,10 +7,9 @@
  */
 
 import { existsSync, mkdirSync } from 'fs';
-import { writeFile } from 'fs/promises';
+import { stat, unlink, writeFile, chmod } from 'fs/promises';
 import { join, basename } from 'path';
-import { execFile as execFileCb } from 'child_process';
-import { promisify } from 'util';
+import { execFile as execFileCb, type ChildProcess } from 'child_process';
 import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
 
@@ -20,8 +19,6 @@ import { MarkdownGenerator } from '../main/output/MarkdownGenerator';
 import { WhisperService } from '../main/transcription/WhisperService';
 
 import type { PostProcessResult, TranscriptSegment } from '../main/pipeline/PostProcessor';
-
-const execFile = promisify(execFileCb);
 
 // ============================================================================
 // Types
@@ -47,16 +44,29 @@ export interface CLIPipelineResult {
 type LogFn = (message: string) => void;
 
 // ============================================================================
+// Exit code constants
+// ============================================================================
+
+export const EXIT_SUCCESS = 0;
+export const EXIT_USER_ERROR = 1;
+export const EXIT_SYSTEM_ERROR = 2;
+export const EXIT_SIGINT = 130;
+
+// ============================================================================
 // CLIPipeline Class
 // ============================================================================
 
 export class CLIPipeline {
   private options: CLIPipelineOptions;
   private log: LogFn;
+  private progress: LogFn;
+  private tempFiles: string[] = [];
+  private activeProcesses: Set<ChildProcess> = new Set();
 
-  constructor(options: CLIPipelineOptions, log: LogFn) {
+  constructor(options: CLIPipelineOptions, log: LogFn, progress?: LogFn) {
     this.options = options;
     this.log = log;
+    this.progress = progress ?? (() => {});
   }
 
   /**
@@ -64,33 +74,67 @@ export class CLIPipeline {
    * frame extraction -> markdown generation.
    */
   async run(): Promise<CLIPipelineResult> {
+    try {
+      return await this.runPipeline();
+    } finally {
+      await this.cleanup();
+    }
+  }
+
+  private async runPipeline(): Promise<CLIPipelineResult> {
     const startTime = Date.now();
 
-    // Step 1: Ensure output directory exists
-    if (!existsSync(this.options.outputDir)) {
-      mkdirSync(this.options.outputDir, { recursive: true });
+    // Step 0: Validate video file
+    await this.validateVideoFile();
+
+    // Step 1: Check ffmpeg availability (required unless --audio + --no-frames)
+    if (!(this.options.audioPath && this.options.skipFrames)) {
+      await this.checkFfmpegAvailable();
     }
 
-    // Step 2: Resolve audio path - extract from video if not provided
+    // Step 2: Ensure output directory exists
+    try {
+      if (!existsSync(this.options.outputDir)) {
+        mkdirSync(this.options.outputDir, { recursive: true });
+      }
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === 'EACCES') {
+        throw new CLIPipelineError(
+          `Permission denied: cannot create output directory: ${this.options.outputDir}`,
+          'user'
+        );
+      }
+      throw new CLIPipelineError(
+        `Cannot create output directory: ${this.options.outputDir} (${code})`,
+        'system'
+      );
+    }
+
+    // Step 3: Resolve audio path - extract from video if not provided
+    this.progress('Extracting audio...');
     const audioPath = await this.resolveAudioPath();
 
-    // Step 3: Transcribe audio
+    // Step 4: Transcribe audio
+    this.progress('Transcribing (this may take a while)...');
     const segments = await this.transcribe(audioPath);
 
-    // Step 4: Analyze transcript for key moments
+    // Step 5: Analyze transcript for key moments
     const analyzer = new TranscriptAnalyzer();
     const keyMoments = analyzer.analyze(segments);
     this.log(`  Found ${keyMoments.length} key moment(s)`);
 
-    // Step 5: Extract frames (unless --no-frames)
+    // Step 6: Extract frames (unless --no-frames)
     let extractedFrames: PostProcessResult['extractedFrames'] = [];
     if (!this.options.skipFrames) {
+      this.progress('Extracting frames...');
       extractedFrames = await this.extractFrames(keyMoments, segments);
     } else {
       this.log('  Frame extraction skipped (--no-frames)');
     }
 
-    // Step 6: Generate markdown
+    // Step 7: Generate markdown
+    this.progress('Generating report...');
     const result: PostProcessResult = {
       transcriptSegments: segments,
       extractedFrames,
@@ -100,10 +144,19 @@ export class CLIPipeline {
     const generator = new MarkdownGenerator();
     const markdown = generator.generateFromPostProcess(result, this.options.outputDir);
 
-    // Step 7: Write output
+    // Step 8: Write output
     const outputFilename = this.generateOutputFilename();
     const outputPath = join(this.options.outputDir, outputFilename);
-    await writeFile(outputPath, markdown, 'utf-8');
+    try {
+      await writeFile(outputPath, markdown, 'utf-8');
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      throw new CLIPipelineError(
+        `Failed to write output file: ${outputPath}\n` +
+        `  Reason: ${code === 'ENOSPC' ? 'Disk is full' : (error as Error).message}`,
+        'system'
+      );
+    }
 
     const durationSeconds = (Date.now() - startTime) / 1000;
 
@@ -115,9 +168,128 @@ export class CLIPipeline {
     };
   }
 
+  /**
+   * Abort the pipeline: kill active child processes and clean up temp files.
+   */
+  async abort(): Promise<void> {
+    for (const proc of this.activeProcesses) {
+      proc.kill('SIGTERM');
+    }
+    this.activeProcesses.clear();
+    await this.cleanup();
+  }
+
+  /**
+   * Clean up temp files created during the pipeline run.
+   */
+  async cleanup(): Promise<void> {
+    for (const file of this.tempFiles) {
+      try {
+        await unlink(file);
+      } catch {
+        // Ignore cleanup errors — file may already be removed
+      }
+    }
+    this.tempFiles = [];
+  }
+
   // ==========================================================================
   // Private Methods
   // ==========================================================================
+
+  /**
+   * Execute a child process while tracking it for cleanup on abort.
+   */
+  private static readonly SAFE_CHILD_ENV = {
+    PATH: process.env.PATH,
+    HOME: process.env.HOME || process.env.USERPROFILE,
+    USERPROFILE: process.env.USERPROFILE,
+    LANG: process.env.LANG,
+    TMPDIR: process.env.TMPDIR || process.env.TEMP,
+    TEMP: process.env.TEMP,
+  };
+
+  private execFileTracked(
+    command: string,
+    args: string[]
+  ): Promise<{ stdout: string; stderr: string }> {
+    return new Promise((resolve, reject) => {
+      const child = execFileCb(command, args, { env: CLIPipeline.SAFE_CHILD_ENV }, (error, stdout, stderr) => {
+        this.activeProcesses.delete(child);
+        if (error) reject(error);
+        else resolve({ stdout: stdout?.toString() ?? '', stderr: stderr?.toString() ?? '' });
+      });
+      this.activeProcesses.add(child);
+    });
+  }
+
+  /**
+   * Validate the video file is a real, non-empty file with a video stream.
+   */
+  private async validateVideoFile(): Promise<void> {
+    const { videoPath } = this.options;
+
+    let stats;
+    try {
+      stats = await stat(videoPath);
+    } catch {
+      throw new CLIPipelineError(`Video file not found: ${videoPath}`, 'user');
+    }
+
+    if (!stats.isFile()) {
+      throw new CLIPipelineError(`Not a regular file: ${videoPath}`, 'user');
+    }
+
+    if (stats.size === 0) {
+      throw new CLIPipelineError(`Video file is empty (0 bytes): ${videoPath}`, 'user');
+    }
+
+    // Probe with ffprobe to confirm it contains a video stream
+    try {
+      const { stdout } = await this.execFileTracked('ffprobe', [
+        '-v', 'error',
+        '-select_streams', 'v',
+        '-show_entries', 'stream=codec_type',
+        '-of', 'csv=p=0',
+        videoPath,
+      ]);
+      if (!stdout.trim().includes('video')) {
+        throw new CLIPipelineError(
+          `No video stream found in file: ${videoPath}`,
+          'user'
+        );
+      }
+    } catch (error) {
+      if (error instanceof CLIPipelineError) throw error;
+      throw new CLIPipelineError(
+        `Cannot read video file (is ffprobe installed?): ${videoPath}`,
+        'system'
+      );
+    }
+  }
+
+  /**
+   * Check that ffmpeg is available on PATH.
+   */
+  private async checkFfmpegAvailable(): Promise<void> {
+    try {
+      await this.execFileTracked('ffmpeg', ['-version']);
+    } catch {
+      const platform = process.platform;
+      const installHint =
+        platform === 'darwin'
+          ? 'brew install ffmpeg'
+          : platform === 'win32'
+            ? 'winget install ffmpeg (or download from https://ffmpeg.org)'
+            : 'apt install ffmpeg (or your package manager)';
+      throw new CLIPipelineError(
+        `ffmpeg is required but not found on your system.\n` +
+        `  Install via: ${installHint}\n` +
+        `  Or provide a separate audio file with --audio <file> and --no-frames`,
+        'system'
+      );
+    }
+  }
 
   /**
    * Resolve the audio path. If no separate audio file was provided, probe
@@ -126,7 +298,10 @@ export class CLIPipeline {
   private async resolveAudioPath(): Promise<string | null> {
     if (this.options.audioPath) {
       if (!existsSync(this.options.audioPath)) {
-        throw new Error(`Audio file not found: ${this.options.audioPath}`);
+        throw new CLIPipelineError(
+          `Audio file not found: ${this.options.audioPath}`,
+          'user'
+        );
       }
       this.log(`  Using provided audio: ${this.options.audioPath}`);
       return this.options.audioPath;
@@ -142,9 +317,10 @@ export class CLIPipeline {
     // Extract audio from video
     this.log('  Extracting audio from video...');
     const tempAudioPath = join(tmpdir(), `markupr-cli-audio-${randomUUID()}.wav`);
+    this.tempFiles.push(tempAudioPath);
 
     try {
-      await execFile('ffmpeg', [
+      await this.execFileTracked('ffmpeg', [
         '-i', this.options.videoPath,
         '-vn',
         '-ar', '16000',
@@ -154,6 +330,7 @@ export class CLIPipeline {
         '-y',
         tempAudioPath,
       ]);
+      await chmod(tempAudioPath, 0o600).catch(() => {});
       this.log('  Audio extraction complete');
       return tempAudioPath;
     } catch (error) {
@@ -168,7 +345,7 @@ export class CLIPipeline {
    */
   private async videoHasAudioTrack(videoPath: string): Promise<boolean> {
     try {
-      const { stdout } = await execFile('ffprobe', [
+      const { stdout } = await this.execFileTracked('ffprobe', [
         '-v', 'error',
         '-select_streams', 'a',
         '-show_entries', 'stream=codec_type',
@@ -191,8 +368,6 @@ export class CLIPipeline {
       return [];
     }
 
-    // If an OpenAI key is provided, we could use cloud transcription in the
-    // future. For now the CLI only supports local Whisper.
     const whisper = new WhisperService(
       this.options.whisperModelPath ? { modelPath: this.options.whisperModelPath } : undefined
     );
@@ -314,9 +489,9 @@ export class CLIPipeline {
   }
 
   /**
-   * Generate the output filename based on the video filename and current date.
+   * Generate the output filename based on the video filename and current date (UTC).
    */
-  private generateOutputFilename(): string {
+  generateOutputFilename(): string {
     const videoName = basename(this.options.videoPath)
       .replace(/\.[^.]+$/, '')
       .replace(/[^a-zA-Z0-9_-]/g, '-')
@@ -324,16 +499,30 @@ export class CLIPipeline {
 
     const now = new Date();
     const dateStr = [
-      now.getFullYear(),
-      String(now.getMonth() + 1).padStart(2, '0'),
-      String(now.getDate()).padStart(2, '0'),
+      now.getUTCFullYear(),
+      String(now.getUTCMonth() + 1).padStart(2, '0'),
+      String(now.getUTCDate()).padStart(2, '0'),
     ].join('');
     const timeStr = [
-      String(now.getHours()).padStart(2, '0'),
-      String(now.getMinutes()).padStart(2, '0'),
-      String(now.getSeconds()).padStart(2, '0'),
+      String(now.getUTCHours()).padStart(2, '0'),
+      String(now.getUTCMinutes()).padStart(2, '0'),
+      String(now.getUTCSeconds()).padStart(2, '0'),
     ].join('');
 
     return `${videoName}-feedback-${dateStr}-${timeStr}.md`;
+  }
+}
+
+// ============================================================================
+// Error class with severity for exit code distinction
+// ============================================================================
+
+export class CLIPipelineError extends Error {
+  public readonly severity: 'user' | 'system';
+
+  constructor(message: string, severity: 'user' | 'system') {
+    super(message);
+    this.name = 'CLIPipelineError';
+    this.severity = severity;
   }
 }

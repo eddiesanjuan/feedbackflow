@@ -1,12 +1,12 @@
 # Contributing to markupr
 
-Thank you for your interest in contributing to markupr! This document provides guidelines and information about contributing.
+Thank you for your interest in contributing to markupr! This document covers everything you need to get started.
 
 ## Table of Contents
 
 - [Code of Conduct](#code-of-conduct)
 - [Getting Started](#getting-started)
-- [How to Contribute](#how-to-contribute)
+- [How the Pipeline Works](#how-the-pipeline-works)
 - [Development Workflow](#development-workflow)
 - [Pull Request Process](#pull-request-process)
 - [Style Guide](#style-guide)
@@ -25,10 +25,19 @@ By participating in this project, you agree to maintain a respectful and inclusi
 
 ### Prerequisites
 
-- Node.js 18+
-- npm 9+
-- Git
+- **Node.js** 18+ (check with `node --version`)
+- **npm** 9+ (comes with Node.js)
+- **Git**
+- **ffmpeg** -- required for frame extraction and audio processing
+  - macOS: `brew install ffmpeg`
+  - Ubuntu/Debian: `sudo apt install ffmpeg`
+  - Windows: `choco install ffmpeg` or download from [ffmpeg.org](https://ffmpeg.org/)
 - A code editor (VS Code recommended)
+
+**Optional:**
+- **Whisper model** -- downloaded automatically on first run (~75MB for tiny, ~500MB for base)
+- **OpenAI API key** -- for cloud transcription (configured in-app, not required for development)
+- **Anthropic API key** -- for AI-enhanced analysis (configured in-app, not required for development)
 
 ### Setup
 
@@ -48,45 +57,44 @@ By participating in this project, you agree to maintain a respectful and inclusi
 4. **Install dependencies**:
    ```bash
    npm install
-   # or
-   bun install
    ```
 
 5. **Start development**:
    ```bash
    npm run dev
-   # or
-   bun run dev
    ```
 
-See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for detailed development instructions.
+### Key Commands
 
-## How to Contribute
+| Command | Purpose |
+|---------|---------|
+| `npm run dev` | Start development mode with hot reload |
+| `npm test` | Run all tests |
+| `npm run test:unit` | Run unit tests only |
+| `npm run test:watch` | Run tests in watch mode |
+| `npm run lint` | Lint code |
+| `npm run lint:fix` | Auto-fix lint issues |
+| `npm run typecheck` | TypeScript type checking |
+| `npm run build` | Build for production |
 
-### Types of Contributions
+### Architecture Reference
 
-We welcome many types of contributions:
+See [CLAUDE.md](CLAUDE.md) for the most up-to-date architecture reference, including the full directory structure, key design decisions, and conventions. This file is also used by AI coding assistants (Claude Code, Cursor, etc.) for codebase context.
 
-- **Bug fixes**: Fix issues in existing code
-- **Features**: Add new functionality
-- **Documentation**: Improve or add documentation
-- **Tests**: Add or improve test coverage
-- **Performance**: Optimize existing code
-- **Accessibility**: Improve accessibility
-- **Translations**: Help translate the UI
+For detailed development setup and debugging instructions, see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
-### Finding Issues to Work On
+## How the Pipeline Works
 
-- Check [issues labeled "good first issue"](https://github.com/eddiesanjuan/markupr/labels/good%20first%20issue) for beginner-friendly tasks
-- Check [issues labeled "help wanted"](https://github.com/eddiesanjuan/markupr/labels/help%20wanted) for tasks where we need help
-- Feel free to propose your own ideas by opening an issue first
+Understanding the post-processing pipeline helps when contributing to any part of the codebase. When recording stops, four stages run in sequence:
 
-### Before Starting Work
+1. **Transcribe** (`src/main/transcription/`) -- Audio is transcribed using local Whisper (or OpenAI API). Produces timestamped transcript segments.
+2. **Analyze** (`src/main/pipeline/TranscriptAnalyzer.ts`) -- Transcript is analyzed to identify key moments, topic changes, and important observations using heuristic scoring.
+3. **Extract** (`src/main/pipeline/FrameExtractor.ts`) -- ffmpeg extracts video frames at the exact timestamps of each key moment.
+4. **Generate** (`src/main/output/MarkdownGenerator.ts`) -- Everything is stitched into a structured Markdown document with screenshots placed at the correct positions.
 
-1. **Check existing issues** to avoid duplicate work
-2. **Comment on the issue** to let others know you're working on it
-3. **For significant changes**, open an issue first to discuss the approach
-4. **For new features**, wait for approval before starting implementation
+Each step degrades gracefully: if transcription fails, frame extraction still runs on a timer; if ffmpeg is missing, a transcript-only document is generated.
+
+The pipeline orchestrator lives at `src/main/pipeline/PostProcessor.ts`.
 
 ## Development Workflow
 
@@ -106,32 +114,21 @@ Use descriptive branch names:
    git checkout -b feature/my-feature
    ```
 
-2. **Make your changes**:
-   - Follow the [style guide](#style-guide)
-   - Keep commits focused and atomic
-   - Write clear commit messages
+2. **Make your changes** following the [style guide](#style-guide)
 
 3. **Test your changes**:
    ```bash
    npm test
    npm run lint
    npm run typecheck
-   # bun equivalents:
-   # bun run test
-   # bun run lint
-   # bun run typecheck
    ```
 
-4. **Update documentation** if needed
-
-5. **Commit your changes**:
+4. **Commit your changes** using [Conventional Commits](https://www.conventionalcommits.org/):
    ```bash
-   git commit -m "feat: add new export format"
+   git commit -m "feat(export): add PDF export format"
    ```
 
 ### Commit Message Format
-
-We use [Conventional Commits](https://www.conventionalcommits.org/):
 
 ```
 <type>(<scope>): <description>
@@ -141,7 +138,7 @@ We use [Conventional Commits](https://www.conventionalcommits.org/):
 [optional footer]
 ```
 
-**Types**:
+**Types:**
 - `feat`: New feature
 - `fix`: Bug fix
 - `docs`: Documentation only
@@ -151,7 +148,7 @@ We use [Conventional Commits](https://www.conventionalcommits.org/):
 - `test`: Adding or updating tests
 - `chore`: Maintenance tasks
 
-**Examples**:
+**Examples:**
 ```
 feat(export): add PDF export format
 fix(hotkey): resolve conflict with system shortcuts
@@ -174,77 +171,39 @@ git push origin main
 
 Ensure your PR:
 
-1. **Follows the style guide**
-2. **Passes all tests**: `npm test`
-3. **Passes linting**: `npm run lint`
-4. **Passes type checking**: `npm run typecheck`
-5. **Has been tested manually**
-6. **Includes documentation updates** (if applicable)
-7. **Has a clear description**
+1. **Passes all tests**: `npm test`
+2. **Passes linting**: `npm run lint`
+3. **Passes type checking**: `npm run typecheck`
+4. **Has been tested manually**
+5. **Includes documentation updates** (if applicable)
 
 ### Submitting a PR
 
-1. **Push your branch**:
-   ```bash
-   git push origin feature/my-feature
-   ```
-
-2. **Open a Pull Request** on GitHub
-
-3. **Fill out the PR template**:
-   - Describe what the PR does
-   - Link related issues
-   - List any breaking changes
-   - Include screenshots for UI changes
-
-4. **Request review** if not automatically assigned
-
-### PR Template
-
-```markdown
-## Description
-Brief description of changes.
-
-## Related Issues
-Fixes #123
-
-## Type of Change
-- [ ] Bug fix
-- [ ] New feature
-- [ ] Documentation
-- [ ] Refactoring
-- [ ] Other (describe)
-
-## Testing
-Describe how you tested the changes.
-
-## Screenshots
-(If applicable)
-
-## Checklist
-- [ ] Tests pass (`npm test`)
-- [ ] Lint passes (`npm run lint`)
-- [ ] Types check (`npm run typecheck`)
-- [ ] Documentation updated
-- [ ] Manually tested
-```
+1. Push your branch: `git push origin feature/my-feature`
+2. Open a Pull Request on GitHub
+3. Fill out the [PR template](.github/PULL_REQUEST_TEMPLATE.md) -- describe what the PR does, link related issues, and include screenshots for UI changes
+4. Request review if not automatically assigned
 
 ### Review Process
 
-1. **Automated checks** must pass
-2. **At least one maintainer** must approve
-3. **All comments** must be resolved
-4. **No merge conflicts** with main
+1. Automated checks (CI) must pass
+2. At least one maintainer must approve
+3. All comments must be resolved
+4. No merge conflicts with main
 
 ### After Merging
 
 - Delete your branch
 - Pull changes to your local main
-- Celebrate your contribution! 🎉
 
 ## Style Guide
 
 ### TypeScript
+
+- Use explicit types for function parameters and return values
+- Use interfaces for object shapes
+- Use `as const` assertions for literal objects
+- Strict mode is enabled -- no `any` without justification
 
 ```typescript
 // Use explicit types
@@ -267,52 +226,40 @@ const STATUS = {
 
 ### React
 
+- Functional components only
+- Named exports preferred
+- Clean up effects with return functions
+
 ```tsx
-// Use functional components
 export function SessionStatus({ state }: SessionStatusProps) {
   const [isActive, setIsActive] = useState(false);
 
   useEffect(() => {
-    // Cleanup subscriptions
     return () => cleanup();
   }, []);
 
   return <div className="status">{state}</div>;
 }
-
-// Prefer named exports
-export { SessionStatus };
 ```
 
 ### CSS / Tailwind
 
-```tsx
-// Use Tailwind utilities
-<div className="bg-gray-900 text-white p-4 rounded-lg shadow-md">
+- Use Tailwind utilities for styling
+- Use `cn()` helper for conditional classes
 
-// For complex styles, use cn() helper
+```tsx
 <div className={cn(
-  "base-styles",
-  isActive && "active-styles",
+  "bg-gray-900 text-white p-4 rounded-lg",
+  isActive && "ring-2 ring-blue-500",
   className
 )}>
 ```
 
-### File Organization
+### Testing
 
-```
-src/
-├── main/
-│   ├── services/      # Service classes
-│   ├── utils/         # Utility functions
-│   └── types/         # Main-specific types
-├── renderer/
-│   ├── components/    # React components
-│   ├── hooks/         # Custom hooks
-│   └── utils/         # Utility functions
-└── shared/
-    └── types.ts       # Shared types
-```
+- **Framework:** Vitest
+- **Convention:** Test files mirror source structure in `tests/unit/`, `tests/integration/`, `tests/e2e/`
+- **Expectation:** New features should include tests; bug fixes should include a regression test
 
 ### Naming Conventions
 
@@ -328,63 +275,28 @@ src/
 
 ### Before Reporting
 
-1. **Check existing issues** for duplicates
-2. **Try latest version** - issue may be fixed
-3. **Collect information**:
-   - OS and version
-   - markupr version
-   - Steps to reproduce
-   - Error messages/logs
+1. **Search existing issues** for duplicates
+2. **Try the latest version** -- the issue may already be fixed
+3. **Collect information**: OS, markupr version (visible in Settings footer), steps to reproduce, error messages or logs
 
-### Bug Report Template
+### Filing a Bug
 
-```markdown
-## Description
-Clear description of the bug.
+Use the [bug report template](.github/ISSUE_TEMPLATE/bug_report.md) when opening a new issue. Include your OS, markupr version, and steps to reproduce.
 
-## Steps to Reproduce
-1. Go to '...'
-2. Click on '...'
-3. See error
+### Requesting a Feature
 
-## Expected Behavior
-What should happen.
+Use the [feature request template](.github/ISSUE_TEMPLATE/feature_request.md). Describe the problem you're trying to solve, not just the solution you want.
 
-## Actual Behavior
-What actually happens.
+## Finding Issues to Work On
 
-## Environment
-- OS: macOS 14.0
-- markupr: 0.4.0
-- Node: 18.19.0
-
-## Screenshots/Logs
-(If applicable)
-
-## Additional Context
-Any other relevant information.
-```
-
-### Feature Request Template
-
-```markdown
-## Problem
-Describe the problem this feature would solve.
-
-## Proposed Solution
-How you envision the feature working.
-
-## Alternatives Considered
-Other approaches you've thought about.
-
-## Additional Context
-Mockups, examples, or references.
-```
+- Check [issues labeled "good first issue"](https://github.com/eddiesanjuan/markupr/labels/good%20first%20issue) for beginner-friendly tasks
+- Check [issues labeled "help wanted"](https://github.com/eddiesanjuan/markupr/labels/help%20wanted) for tasks where we need help
+- For significant changes, open an issue first to discuss the approach
 
 ## Questions?
 
 - Open a [discussion](https://github.com/eddiesanjuan/markupr/discussions)
-- Check [documentation](docs/)
+- Check the [documentation](docs/)
 - Review existing [issues](https://github.com/eddiesanjuan/markupr/issues)
 
 Thank you for contributing to markupr!

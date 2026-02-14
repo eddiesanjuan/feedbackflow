@@ -12,45 +12,90 @@ import type { IpcContext, SessionActions } from './types';
 
 export function registerSessionHandlers(ctx: IpcContext, actions: SessionActions): void {
   ipcMain.handle(IPC_CHANNELS.SESSION_START, async (_, sourceId?: string, sourceName?: string) => {
-    console.log('[Main] Starting session');
-    return actions.startSession(sourceId, sourceName);
+    try {
+      console.log('[Main] Starting session');
+      return await actions.startSession(sourceId, sourceName);
+    } catch (error) {
+      console.error('[IPC] SESSION_START failed:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to start session' };
+    }
   });
 
   ipcMain.handle(IPC_CHANNELS.SESSION_STOP, async () => {
-    console.log('[Main] Stopping session');
-    return actions.stopSession();
+    try {
+      console.log('[Main] Stopping session');
+      return await actions.stopSession();
+    } catch (error) {
+      console.error('[IPC] SESSION_STOP failed:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to stop session' };
+    }
   });
 
   ipcMain.handle(IPC_CHANNELS.SESSION_PAUSE, async () => {
-    console.log('[Main] Pausing session');
-    return actions.pauseSession();
+    try {
+      console.log('[Main] Pausing session');
+      return await actions.pauseSession();
+    } catch (error) {
+      console.error('[IPC] SESSION_PAUSE failed:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to pause session' };
+    }
   });
 
   ipcMain.handle(IPC_CHANNELS.SESSION_RESUME, async () => {
-    console.log('[Main] Resuming session');
-    return actions.resumeSession();
+    try {
+      console.log('[Main] Resuming session');
+      return await actions.resumeSession();
+    } catch (error) {
+      console.error('[IPC] SESSION_RESUME failed:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to resume session' };
+    }
   });
 
   ipcMain.handle(IPC_CHANNELS.SESSION_CANCEL, async () => {
-    console.log('[Main] Cancelling session');
-    return actions.cancelSession();
+    try {
+      console.log('[Main] Cancelling session');
+      return await actions.cancelSession();
+    } catch (error) {
+      console.error('[IPC] SESSION_CANCEL failed:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to cancel session' };
+    }
   });
 
   ipcMain.handle(IPC_CHANNELS.SESSION_GET_STATUS, (): SessionStatusPayload => {
-    return sessionController.getStatus();
+    try {
+      return sessionController.getStatus();
+    } catch (error) {
+      console.error('[IPC] SESSION_GET_STATUS failed:', error);
+      return { state: 'idle', duration: 0, feedbackCount: 0, screenshotCount: 0, isPaused: false };
+    }
   });
 
   ipcMain.handle(IPC_CHANNELS.SESSION_GET_CURRENT, (): SessionPayload | null => {
-    const session = sessionController.getSession();
-    return session ? actions.serializeSession(session) : null;
+    try {
+      const session = sessionController.getSession();
+      return session ? actions.serializeSession(session) : null;
+    } catch (error) {
+      console.error('[IPC] SESSION_GET_CURRENT failed:', error);
+      return null;
+    }
   });
 
   // Legacy session handlers (for backwards compatibility)
   ipcMain.handle(IPC_CHANNELS.START_SESSION, async (_, sourceId?: string) => {
-    return actions.startSession(sourceId);
+    try {
+      return await actions.startSession(sourceId);
+    } catch (error) {
+      console.error('[IPC] START_SESSION failed:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to start session' };
+    }
   });
 
   ipcMain.handle(IPC_CHANNELS.STOP_SESSION, async () => {
-    return actions.stopSession();
+    try {
+      return await actions.stopSession();
+    } catch (error) {
+      console.error('[IPC] STOP_SESSION failed:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to stop session' };
+    }
   });
 }

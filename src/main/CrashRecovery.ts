@@ -12,6 +12,7 @@
 import { app, BrowserWindow } from 'electron';
 import Store from 'electron-store';
 import * as fs from 'fs/promises';
+import * as fsSync from 'fs';
 import * as path from 'path';
 import { IPC_CHANNELS } from '../shared/types';
 import { errorHandler } from './ErrorHandler';
@@ -237,8 +238,8 @@ class CrashRecoveryManager {
       stack: error.stack,
     });
 
-    // Save crash log
-    this.logCrash(error, { type });
+    // Save crash log synchronously to ensure it completes before process exits
+    this.logCrashSync(error, { type });
 
     // Force save current session state
     if (this.currentSession) {
@@ -336,19 +337,23 @@ class CrashRecoveryManager {
 
     this.saveInterval = setInterval(() => {
       if (this.currentSession) {
-        this.currentSession.lastSaveTime = Date.now();
-        this.currentSession.metadata.sessionDurationMs =
-          Date.now() - this.currentSession.startTime;
-        store.set('activeSession', this.currentSession);
+        try {
+          this.currentSession.lastSaveTime = Date.now();
+          this.currentSession.metadata.sessionDurationMs =
+            Date.now() - this.currentSession.startTime;
+          store.set('activeSession', this.currentSession);
 
-        errorHandler.log('debug', 'Auto-saved session state', {
-          component: 'CrashRecovery',
-          operation: 'autoSave',
-          data: {
-            sessionId: this.currentSession.id,
-            feedbackCount: this.currentSession.feedbackItems.length,
-          },
-        });
+          errorHandler.log('debug', 'Auto-saved session state', {
+            component: 'CrashRecovery',
+            operation: 'autoSave',
+            data: {
+              sessionId: this.currentSession.id,
+              feedbackCount: this.currentSession.feedbackItems.length,
+            },
+          });
+        } catch (err) {
+          console.error('[CrashRecovery] Auto-save failed:', err);
+        }
       }
     }, intervalMs);
   }
@@ -447,6 +452,64 @@ class CrashRecoveryManager {
 
     // Also write to file for external access
     await this.writeCrashLogToFile(crashLog);
+  }
+
+  /**
+   * Synchronous crash logging for use in uncaughtException handlers.
+   * Uses writeFileSync to ensure data is written before process exits.
+   */
+  private logCrashSync(
+    error: Error,
+    context?: Record<string, unknown>
+  ): void {
+    const crashLog: CrashLog = {
+      timestamp: new Date().toISOString(),
+      error: {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+      },
+      appVersion: app.getVersion(),
+      platform: process.platform,
+      arch: process.arch,
+      sessionId: this.currentSession?.id,
+      context,
+    };
+
+    // Store in electron-store (already synchronous)
+    try {
+      const settings = this.getSettings();
+      const logs = store.get('crashLogs') || [];
+      logs.push(crashLog);
+      while (logs.length > settings.maxCrashLogs) {
+        logs.shift();
+      }
+      store.set('crashLogs', logs);
+    } catch {
+      // Ignore store errors in crash handler
+    }
+
+    // Write to file synchronously
+    try {
+      const logDir = path.dirname(this.crashLogPath);
+      if (!fsSync.existsSync(logDir)) {
+        fsSync.mkdirSync(logDir, { recursive: true });
+      }
+      let logs: CrashLog[] = [];
+      try {
+        const existing = fsSync.readFileSync(this.crashLogPath, 'utf-8');
+        logs = JSON.parse(existing);
+      } catch {
+        // File doesn't exist or is invalid
+      }
+      logs.push(crashLog);
+      while (logs.length > 50) {
+        logs.shift();
+      }
+      fsSync.writeFileSync(this.crashLogPath, JSON.stringify(logs, null, 2));
+    } catch {
+      // Ignore file write errors in crash handler
+    }
   }
 
   /**

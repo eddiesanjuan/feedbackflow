@@ -184,6 +184,7 @@ export class SessionController {
   // Watchdog state
   private stateEnteredAt: number = Date.now();
   private recordingWarningShown: boolean = false;
+  private recoveryInProgress: boolean = false;
 
   // Post-processing result (available after processing completes)
   private postProcessResult: PostProcessResult | null = null;
@@ -304,8 +305,8 @@ export class SessionController {
   async initialize(): Promise<void> {
     console.log('[SessionController] Initializing...');
 
-    // Start watchdog immediately
-    this.startWatchdog();
+    // Watchdog is started on-demand when leaving idle state (see transition())
+    // to avoid unnecessary CPU wake-ups while idle.
 
     console.log('[SessionController] Initialization complete');
   }
@@ -355,6 +356,17 @@ export class SessionController {
     }
 
     const oldState = this.state;
+
+    // Start watchdog when leaving idle (active session needs monitoring)
+    if (oldState === 'idle' && newState !== 'idle') {
+      this.startWatchdog();
+    }
+
+    // Stop watchdog when entering idle (no need to monitor idle state)
+    if (newState === 'idle') {
+      this.stopWatchdog();
+    }
+
     this.state = newState;
     this.stateEnteredAt = Date.now();
     this.recordingWarningShown = false; // Reset for new state
@@ -389,7 +401,7 @@ export class SessionController {
    */
   async start(sourceId: string, sourceName?: string): Promise<void> {
     if (this.state !== 'idle') {
-      throw new Error(`Cannot start session from state: ${this.state}`);
+      throw new Error(`Cannot start a new session while in "${this.state}" state. Wait for the current session to finish or cancel it first.`);
     }
 
     console.log(`[SessionController] Starting session for source: ${sourceId}`);
@@ -539,8 +551,10 @@ export class SessionController {
       console.error('[SessionController] Failed to transition to processing state');
       // Force complete with partial data
       this.transitionForced('complete');
+      if (this.session) this.session.state = 'complete';
+    } else {
+      this.session.state = 'processing';
     }
-    this.session.state = 'processing';
 
     // NOTE: The full PostProcessor pipeline (transcribe -> analyze -> extract frames)
     // is NOT run here because recordingPath and audioPath are not yet available on
@@ -617,8 +631,7 @@ export class SessionController {
     this.postProcessResult = null;
     this.currentProcessingProgress = null;
     this.resetSessionRuntimeState();
-    this.state = 'idle';
-    this.emitStateChange();
+    this.transitionForced('idle');
   }
 
   // ===========================================================================
@@ -761,7 +774,7 @@ export class SessionController {
    */
   addFeedbackItem(item: Partial<FeedbackItem>): FeedbackItem {
     if (!this.session) {
-      throw new Error('No active session');
+      throw new Error('No active session. Start a recording before adding feedback items.');
     }
 
     const feedbackItem: FeedbackItem = {
@@ -1025,16 +1038,20 @@ export class SessionController {
    */
   private persistSession(): void {
     if (this.session) {
-      const persisted: PersistedSession = {
-        id: this.session.id,
-        startTime: this.session.startTime,
-        endTime: this.session.endTime,
-        state: this.session.state,
-        sourceId: this.session.sourceId,
-        feedbackItemCount: this.session.feedbackItems.length,
-        metadata: this.session.metadata,
-      };
-      store.set('currentSession', persisted);
+      try {
+        const persisted: PersistedSession = {
+          id: this.session.id,
+          startTime: this.session.startTime,
+          endTime: this.session.endTime,
+          state: this.session.state,
+          sourceId: this.session.sourceId,
+          feedbackItemCount: this.session.feedbackItems.length,
+          metadata: this.session.metadata,
+        };
+        store.set('currentSession', persisted);
+      } catch (err) {
+        console.error('[SessionController] Failed to persist session:', err);
+      }
     }
   }
 
@@ -1130,6 +1147,9 @@ export class SessionController {
    * Called by watchdog when a state exceeds its timeout.
    */
   private forceRecovery(): void {
+    if (this.recoveryInProgress) return;
+    this.recoveryInProgress = true;
+
     console.log(`[SessionController] Force recovery from state: ${this.state}`);
 
     switch (this.state) {
@@ -1138,16 +1158,21 @@ export class SessionController {
         this.handleTimeoutError('Service initialization timed out');
         this.cleanupServicesForced();
         this.transitionForced('idle');
+        this.recoveryInProgress = false;
         break;
 
       case 'recording':
         // Recording hit 30 minute limit - force stop
-        this.stop().catch((error) => {
-          console.error('[SessionController] Force stop failed:', error);
-          this.handleTimeoutError('Recording auto-stop failed');
-          this.cleanupServicesForced();
-          this.transitionForced('error');
-        });
+        this.stop()
+          .catch((error) => {
+            console.error('[SessionController] Force stop failed:', error);
+            this.handleTimeoutError('Recording auto-stop failed');
+            this.cleanupServicesForced();
+            this.transitionForced('error');
+          })
+          .finally(() => {
+            this.recoveryInProgress = false;
+          });
         break;
 
       case 'stopping':
@@ -1157,6 +1182,7 @@ export class SessionController {
         this.transitionForced('processing');
         // Reset state entry time for processing timeout
         this.stateEnteredAt = Date.now();
+        this.recoveryInProgress = false;
         break;
 
       case 'processing':
@@ -1170,6 +1196,7 @@ export class SessionController {
         }
         this.transitionForced('complete');
         this.stateEnteredAt = Date.now();
+        this.recoveryInProgress = false;
         break;
 
       case 'complete':
@@ -1177,6 +1204,7 @@ export class SessionController {
         console.log('[SessionController] Complete timeout, resetting to idle');
         this.session = null;
         this.transitionForced('idle');
+        this.recoveryInProgress = false;
         break;
 
       case 'error':
@@ -1184,11 +1212,13 @@ export class SessionController {
         console.log('[SessionController] Error timeout, resetting to idle');
         this.session = null;
         this.transitionForced('idle');
+        this.recoveryInProgress = false;
         break;
 
       case 'idle':
         // Should never happen (idle has no timeout)
         console.warn('[SessionController] Unexpected watchdog trigger in idle state');
+        this.recoveryInProgress = false;
         break;
     }
   }
@@ -1199,6 +1229,12 @@ export class SessionController {
    */
   private transitionForced(newState: SessionState): void {
     const oldState = this.state;
+
+    // Stop watchdog when forcing to idle
+    if (newState === 'idle') {
+      this.stopWatchdog();
+    }
+
     this.state = newState;
     this.stateEnteredAt = Date.now();
 

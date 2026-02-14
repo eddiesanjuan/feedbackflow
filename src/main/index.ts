@@ -52,6 +52,7 @@ import {
   type TrayState,
 } from '../shared/types';
 import { hotkeyManager, type HotkeyAction } from './HotkeyManager';
+import { formatHotkeyForDisplay } from '../shared/hotkeys';
 import { sessionController, type Session } from './SessionController';
 import { trayManager } from './TrayManager';
 import { audioCapture } from './audio/AudioCapture';
@@ -160,6 +161,16 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * Safely send an IPC message to the renderer.
+ * Guards against destroyed windows (e.g., renderer crash during async processing).
+ */
+function safeSendToRenderer(channel: string, ...args: unknown[]): void {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(channel, ...args);
+  }
+}
+
 function attachRendererDiagnostics(window: BrowserWindow, label: string): void {
   window.on('unresponsive', () => {
     console.error(`[Main] ${label} window became unresponsive`);
@@ -216,11 +227,11 @@ function wireAudioTelemetry(): void {
   teardownAudioTelemetry = [];
 
   const sendAudioLevel = (level: number) => {
-    mainWindow?.webContents.send(IPC_CHANNELS.AUDIO_LEVEL, level);
+    safeSendToRenderer(IPC_CHANNELS.AUDIO_LEVEL, level);
   };
 
   const sendVoiceActivity = (active: boolean) => {
-    mainWindow?.webContents.send(IPC_CHANNELS.AUDIO_VOICE_ACTIVITY, active);
+    safeSendToRenderer(IPC_CHANNELS.AUDIO_VOICE_ACTIVITY, active);
   };
 
   teardownAudioTelemetry.push(
@@ -290,7 +301,7 @@ function createWindow(): void {
       preload: preloadPath,
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: false, // Required for preload to work with contextBridge
+      sandbox: true,
     },
   });
 
@@ -321,9 +332,18 @@ function createWindow(): void {
     mainWindow = null;
   });
 
-  // Handle external links
+  // Handle external links - only allow http/https protocols
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+        shell.openExternal(url);
+      } else {
+        console.warn(`[Main] Blocked external URL with protocol: ${parsed.protocol}`);
+      }
+    } catch {
+      console.warn(`[Main] Blocked invalid external URL`);
+    }
     return { action: 'deny' };
   });
 
@@ -388,7 +408,7 @@ function handleSessionStateChange(state: SessionState, session: Session | null):
   // Update tray icon
   trayManager.setState(mapToTrayState(state));
   if (state === 'recording' && sessionController.isSessionPaused()) {
-    trayManager.setTooltip('markupr - Paused (Cmd+Shift+P to resume)');
+    trayManager.setTooltip(`markupr - Paused (${formatHotkeyForDisplay('pauseResume')} to resume)`);
   }
 
   const keepVisibleOnBlur =
@@ -411,13 +431,13 @@ function handleSessionStateChange(state: SessionState, session: Session | null):
   windowsTaskbar?.updateSessionState(state);
 
   // Notify renderer
-  mainWindow?.webContents.send(IPC_CHANNELS.SESSION_STATE_CHANGED, {
+  safeSendToRenderer(IPC_CHANNELS.SESSION_STATE_CHANGED, {
     state,
     session: session ? serializeSession(session) : null,
   });
 
   // Also send status update
-  mainWindow?.webContents.send(IPC_CHANNELS.SESSION_STATUS, sessionController.getStatus());
+  safeSendToRenderer(IPC_CHANNELS.SESSION_STATUS, sessionController.getStatus());
 }
 
 /**
@@ -429,7 +449,7 @@ function handleFeedbackItem(item: {
   text: string;
   confidence: number;
 }): void {
-  mainWindow?.webContents.send(IPC_CHANNELS.SESSION_FEEDBACK_ITEM, {
+  safeSendToRenderer(IPC_CHANNELS.SESSION_FEEDBACK_ITEM, {
     id: item.id,
     timestamp: item.timestamp,
     text: item.text,
@@ -466,7 +486,7 @@ function handleSessionError(error: Error): void {
   trayManager.setTooltip(`markupr - Error: ${error.message}`);
 
   // Notify renderer
-  mainWindow?.webContents.send(IPC_CHANNELS.SESSION_ERROR, {
+  safeSendToRenderer(IPC_CHANNELS.SESSION_ERROR, {
     message: error.message,
   });
 
@@ -621,17 +641,25 @@ function handleHotkeyAction(action: HotkeyAction): void {
   }
 }
 
-async function handleToggleRecording(): Promise<void> {
-  const currentState = sessionController.getState();
+let toggleRecordingInFlight = false;
 
-  if (currentState === 'recording') {
-    // Stop recording
-    await stopSession();
-  } else if (currentState === 'idle') {
-    const result = await startSession();
-    if (!result.success && result.error) {
-      showErrorNotification('Unable to Start Recording', result.error);
+async function handleToggleRecording(): Promise<void> {
+  if (toggleRecordingInFlight) return;
+  toggleRecordingInFlight = true;
+  try {
+    const currentState = sessionController.getState();
+
+    if (currentState === 'recording') {
+      // Stop recording
+      await stopSession();
+    } else if (currentState === 'idle') {
+      const result = await startSession();
+      if (!result.success && result.error) {
+        showErrorNotification('Unable to Start Recording', result.error);
+      }
     }
+  } finally {
+    toggleRecordingInFlight = false;
   }
 }
 
@@ -669,7 +697,7 @@ function pauseSession(): { success: boolean; error?: string } {
     return { success: false, error: 'Session is already paused.' };
   }
 
-  trayManager.setTooltip('markupr - Paused (Cmd+Shift+P to resume)');
+  trayManager.setTooltip(`markupr - Paused (${formatHotkeyForDisplay('pauseResume')} to resume)`);
   return { success: true };
 }
 
@@ -683,7 +711,7 @@ function resumeSession(): { success: boolean; error?: string } {
     return { success: false, error: 'Session is not paused.' };
   }
 
-  trayManager.setTooltip('markupr - Recording... (Cmd+Shift+F to stop)');
+  trayManager.setTooltip(`markupr - Recording... (${formatHotkeyForDisplay('toggleRecording')} to stop)`);
   return { success: true };
 }
 
@@ -702,7 +730,12 @@ async function resolveDefaultCaptureSource(): Promise<{ sourceId: string; source
   });
 
   if (!sources.length) {
-    throw new Error('No screen capture source is available.');
+    const settingsHint = process.platform === 'darwin'
+      ? 'System Settings > Privacy & Security > Screen Recording'
+      : process.platform === 'win32'
+        ? 'Windows Settings > Privacy > Screen capture'
+        : 'your system settings';
+    throw new Error(`No screen capture source is available. Check that markupr has screen recording permission in ${settingsHint}.`);
   }
 
   const primaryDisplayId = String(screen.getPrimaryDisplay().id);
@@ -858,10 +891,15 @@ async function startSession(sourceId?: string, sourceName?: string): Promise<{
     ]);
 
     if (!microphoneGranted || !screenGranted) {
+      const settingsName = process.platform === 'darwin'
+        ? 'macOS System Settings'
+        : process.platform === 'win32'
+          ? 'Windows Settings > Privacy'
+          : 'your system settings';
       return {
         success: false,
         error:
-          'Microphone and screen recording permissions are required. Enable both in macOS System Settings, then retry.',
+          `Microphone and screen recording permissions are required. Enable both in ${settingsName}, then retry.`,
       };
     }
 
@@ -945,7 +983,7 @@ async function stopSession(): Promise<{
 
   const emitProcessingProgress = (percent: number, step: string): void => {
     const boundedPercent = Math.max(0, Math.min(100, Math.round(percent)));
-    mainWindow?.webContents.send(IPC_CHANNELS.PROCESSING_PROGRESS, {
+    safeSendToRenderer(IPC_CHANNELS.PROCESSING_PROGRESS, {
       percent: boundedPercent,
       step,
     });
@@ -1161,7 +1199,7 @@ async function stopSession(): Promise<{
         );
 
         // Notify renderer that post-processing is complete
-        mainWindow?.webContents.send(IPC_CHANNELS.PROCESSING_COMPLETE, postProcessResult);
+        safeSendToRenderer(IPC_CHANNELS.PROCESSING_COMPLETE, postProcessResult);
       } catch (postProcessError) {
         console.warn('[Main:stopSession] Step 5/6 FAILED: Post-processing pipeline error, continuing with basic output:', postProcessError);
         // Non-fatal: we still have the basic markdown report from the AI/rule-based pipeline
@@ -1244,8 +1282,8 @@ async function stopSession(): Promise<{
     );
 
     // Notify renderer only after final post-processing/trace bookkeeping is finished.
-    mainWindow?.webContents.send(IPC_CHANNELS.SESSION_COMPLETE, serializeSession(session));
-    mainWindow?.webContents.send(IPC_CHANNELS.OUTPUT_READY, {
+    safeSendToRenderer(IPC_CHANNELS.SESSION_COMPLETE, serializeSession(session));
+    safeSendToRenderer(IPC_CHANNELS.OUTPUT_READY, {
       markdown: markdownForPayload,
       sessionId: session.id,
       path: saveResult.markdownPath,
@@ -1640,6 +1678,12 @@ app.on('will-quit', async () => {
     await fs.unlink(artifact.tempPath).catch(() => {});
   }
   getFinalizedScreenRecordings().clear();
+
+  // Clean up orphaned audio recovery buffer files (only on normal exit;
+  // crash recovery relies on these files still being present after a crash).
+  await audioCapture.clearRecoveryBuffers().catch((err) => {
+    console.warn('[Main] Failed to clear audio recovery buffers:', err);
+  });
 
   // Cleanup services
   teardownAudioTelemetry.forEach((teardown) => teardown());

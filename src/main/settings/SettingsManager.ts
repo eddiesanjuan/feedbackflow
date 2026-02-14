@@ -20,6 +20,7 @@ import Store from 'electron-store';
 import * as keytar from 'keytar';
 import { app, ipcMain, safeStorage } from 'electron';
 import { join } from 'path';
+import { chmod } from 'fs/promises';
 import { IPC_CHANNELS, type AppSettings, type HotkeyConfig } from '../../shared/types';
 
 // AppSettings is imported from '../../shared/types' (single source of truth)
@@ -349,7 +350,7 @@ export class SettingsManager implements ISettingsManager {
 
   private setFallbackApiKey(service: string, key: string): void {
     if (!this.canUseEncryptedFallback()) {
-      throw new Error('safeStorage encryption is unavailable');
+      throw new Error('Secure storage is unavailable. API keys cannot be saved until the app is fully initialized. Try restarting markupr.');
     }
 
     const encrypted = safeStorage.encryptString(key).toString('base64');
@@ -391,6 +392,8 @@ export class SettingsManager implements ISettingsManager {
   private setInsecureApiKey(service: string, key: string): void {
     const storeKey = this.getInsecureStoreKey(service);
     this.secureStore.set(storeKey, key);
+    // Restrict plaintext fallback file to owner-only access
+    chmod(this.secureStore.path, 0o600).catch(() => {});
 
     // Best-effort cleanup of legacy fallback map entry.
     const legacyMap = (this.store.get(
@@ -493,9 +496,9 @@ export class SettingsManager implements ISettingsManager {
           console.log(`[SettingsManager] Stored API key for ${service} via plaintext fallback`);
         } catch (insecureError) {
           throw new Error(
-            `Unable to store API key for ${service}: ${
-              insecureError instanceof Error ? insecureError.message : String(insecureError)
-            }`
+            `Unable to store API key for ${service}. All storage methods failed. ` +
+            `Try restarting markupr or check filesystem permissions. ` +
+            `(${insecureError instanceof Error ? insecureError.message : String(insecureError)})`
           );
         }
       }
@@ -640,13 +643,19 @@ export class SettingsManager implements ISettingsManager {
   // --------------------------------------------------------------------------
 
   /**
-   * Register IPC handlers for renderer communication
+   * Register IPC handlers for renderer communication.
+   *
+   * @deprecated Use registerSettingsHandlers() from src/main/ipc/settingsHandlers.ts instead.
+   * This method is retained for interface compatibility but should not be called directly.
+   * The handlers in settingsHandlers.ts include input validation and service name whitelisting.
    */
   registerIpcHandlers(): void {
     if (this.ipcRegistered) {
       console.warn('[SettingsManager] IPC handlers already registered');
       return;
     }
+
+    const ALLOWED_API_SERVICES = new Set(['openai', 'anthropic']);
 
     // Get single setting
     ipcMain.handle(IPC_CHANNELS.SETTINGS_GET, (_, key: keyof AppSettings) => {
@@ -664,25 +673,29 @@ export class SettingsManager implements ISettingsManager {
       return this.get(key);
     });
 
-    // Get API key (secure)
+    // Get API key (secure) - with service name whitelist
     ipcMain.handle(IPC_CHANNELS.SETTINGS_GET_API_KEY, async (_, service: string) => {
+      if (!ALLOWED_API_SERVICES.has(service)) return null;
       return this.getApiKey(service);
     });
 
-    // Set API key (secure)
+    // Set API key (secure) - with service name whitelist
     ipcMain.handle(IPC_CHANNELS.SETTINGS_SET_API_KEY, async (_, service: string, key: string) => {
+      if (!ALLOWED_API_SERVICES.has(service)) return false;
       await this.setApiKey(service, key);
       return true;
     });
 
-    // Delete API key (secure)
+    // Delete API key (secure) - with service name whitelist
     ipcMain.handle(IPC_CHANNELS.SETTINGS_DELETE_API_KEY, async (_, service: string) => {
+      if (!ALLOWED_API_SERVICES.has(service)) return false;
       await this.deleteApiKey(service);
       return true;
     });
 
-    // Check if API key exists
+    // Check if API key exists - with service name whitelist
     ipcMain.handle(IPC_CHANNELS.SETTINGS_HAS_API_KEY, async (_, service: string) => {
+      if (!ALLOWED_API_SERVICES.has(service)) return false;
       return this.hasApiKey(service);
     });
 

@@ -31,7 +31,7 @@ If applicable, add screenshots to help explain the problem.
 ## Environment
 
 - **OS**: [e.g., macOS 14.0, Windows 11]
-- **markupr Version**: [e.g., 0.4.0]
+- **markupr Version**: [from Settings footer, e.g., 2.2.0]
 - **Installation Method**: [e.g., DMG, installer, AppImage]
 
 ## Logs

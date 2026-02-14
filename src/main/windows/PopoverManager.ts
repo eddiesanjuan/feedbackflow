@@ -85,7 +85,7 @@ export class PopoverManager {
         preload: preloadPath,
         nodeIntegration: false,
         contextIsolation: true,
-        sandbox: false,
+        sandbox: true,
       },
     });
 
@@ -111,7 +111,7 @@ export class PopoverManager {
    * Show the popover anchored to the tray icon
    */
   show(): void {
-    if (!this.window || !this.tray) return;
+    if (!this.window || this.window.isDestroyed() || !this.tray) return;
 
     const position = this.calculatePosition();
     this.window.setPosition(position.x, position.y, false);
@@ -125,7 +125,7 @@ export class PopoverManager {
    * Hide the popover
    */
   hide(): void {
-    if (!this.window) return;
+    if (!this.window || this.window.isDestroyed()) return;
     this.window.hide();
     console.log('[PopoverManager] Popover hidden');
   }
@@ -134,7 +134,7 @@ export class PopoverManager {
    * Toggle popover visibility
    */
   toggle(): void {
-    if (!this.window) return;
+    if (!this.window || this.window.isDestroyed()) return;
 
     if (this.window.isVisible()) {
       this.hide();
@@ -148,7 +148,7 @@ export class PopoverManager {
    * Handles multi-monitor setups and taskbar positions
    */
   private calculatePosition(): { x: number; y: number } {
-    if (!this.tray || !this.window) {
+    if (!this.tray || !this.window || this.window.isDestroyed()) {
       return { x: 0, y: 0 };
     }
 
@@ -205,7 +205,7 @@ export class PopoverManager {
    * Check if popover is visible
    */
   isVisible(): boolean {
-    return this.window?.isVisible() ?? false;
+    return (this.window && !this.window.isDestroyed()) ? this.window.isVisible() : false;
   }
 
   /**
@@ -213,7 +213,7 @@ export class PopoverManager {
    * Re-anchors to tray if visible
    */
   resize(width: number, height: number): void {
-    if (!this.window) return;
+    if (!this.window || this.window.isDestroyed()) return;
 
     this.window.setSize(width, height, true);
 
@@ -264,7 +264,7 @@ export class PopoverManager {
   }
 
   private applyStateAppearance(state: PopoverState): void {
-    if (!this.window || process.platform !== 'darwin') {
+    if (!this.window || this.window.isDestroyed() || process.platform !== 'darwin') {
       return;
     }
 

@@ -151,7 +151,7 @@ export class StructuredMarkdownBuilder {
     const timestamp = this.estimateItemTimestamp(item, session);
     const lines: string[] = [];
 
-    lines.push(`### ${index + 1}. ${item.title}`);
+    lines.push(`### ${this.formatItemId(index)}: ${item.title}`);
     lines.push(`> "${item.quote}"`);
     lines.push('');
 
@@ -253,14 +253,17 @@ export class StructuredMarkdownBuilder {
       : 'In Progress';
     const screenshotCount = session.screenshotBuffer.length;
     const modelLabel = options.modelId ?? 'Claude';
+    const platform = process?.platform ?? 'Unknown';
 
     const lines: string[] = [
       '## Session Info',
       '',
       `- **Session ID:** \`${session.id}\``,
       `- **Source:** ${session.metadata.sourceName ?? 'Unknown'} (${session.metadata.windowTitle ? 'window' : 'screen'})`,
+      `- **Platform:** ${platform}`,
       `- **Duration:** ${duration}`,
       `- **Screenshots:** ${screenshotCount}`,
+      `- **Segments:** ${session.transcriptBuffer.length}`,
     ];
 
     if (options.hasRecording) {
@@ -324,7 +327,9 @@ export class StructuredMarkdownBuilder {
     );
 
     if (matchingSegment) {
-      const relativeMs = matchingSegment.timestamp * 1000 - session.startTime;
+      // TranscriptEvent.timestamp is in epoch seconds; convert to ms first
+      const tsMs = Math.round(matchingSegment.timestamp * 1000);
+      const relativeMs = tsMs - session.startTime;
       return this.formatTimestamp(relativeMs);
     }
 
