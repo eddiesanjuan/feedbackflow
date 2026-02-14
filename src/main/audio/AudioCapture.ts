@@ -323,7 +323,7 @@ class AudioCaptureServiceImpl extends EventEmitter implements AudioCaptureServic
       const successHandler = () => {
         clearTimeout(timeout);
         ipcMain.removeListener(AUDIO_IPC_CHANNELS.CAPTURE_STARTED, successHandler);
-        ipcMain.removeListener(AUDIO_IPC_CHANNELS.CAPTURE_ERROR, errorHandler);
+        ipcMain.removeListener(AUDIO_IPC_CHANNELS.CAPTURE_ERROR, captureErrorHandler);
 
         this.capturing = true;
         this.stopRequested = false;
@@ -347,15 +347,15 @@ class AudioCaptureServiceImpl extends EventEmitter implements AudioCaptureServic
         resolve();
       };
 
-      const errorHandler = (_event: Electron.IpcMainEvent, error: string) => {
+      const captureErrorHandler = (_event: Electron.IpcMainEvent, error: string) => {
         clearTimeout(timeout);
         ipcMain.removeListener(AUDIO_IPC_CHANNELS.CAPTURE_STARTED, successHandler);
-        ipcMain.removeListener(AUDIO_IPC_CHANNELS.CAPTURE_ERROR, errorHandler);
+        ipcMain.removeListener(AUDIO_IPC_CHANNELS.CAPTURE_ERROR, captureErrorHandler);
         reject(new Error(error));
       };
 
       ipcMain.once(AUDIO_IPC_CHANNELS.CAPTURE_STARTED, successHandler);
-      ipcMain.once(AUDIO_IPC_CHANNELS.CAPTURE_ERROR, errorHandler);
+      ipcMain.once(AUDIO_IPC_CHANNELS.CAPTURE_ERROR, captureErrorHandler);
 
       // Send start command to renderer with config
       this.mainWindow!.webContents.send(AUDIO_IPC_CHANNELS.START_CAPTURE, {

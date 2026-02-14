@@ -6,7 +6,7 @@
  * This is the foundational context that other contexts depend on.
  */
 
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { SessionPayload, SessionState, ReviewSession } from '../../shared/types';
 import { getScreenRecordingRenderer } from '../capture/ScreenRecordingRenderer';
 import { useCrashRecovery } from '../components';
@@ -633,7 +633,7 @@ export const RecordingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // ---------------------------------------------------------------------------
   // Context value
   // ---------------------------------------------------------------------------
-  const value: RecordingContextValue = {
+  const value: RecordingContextValue = useMemo(() => ({
     state,
     duration,
     screenshotCount,
@@ -671,7 +671,47 @@ export const RecordingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     discardSession,
     reviewSave,
     reviewClose,
-  };
+  }), [
+    state,
+    duration,
+    screenshotCount,
+    isPaused,
+    isMutating,
+    audioLevel,
+    isVoiceActive,
+    lastCapture,
+    reportPath,
+    recordingPath,
+    audioPath,
+    sessionDir,
+    reviewSession,
+    errorMessage,
+    hasTranscriptionCapability,
+    recentSessions,
+    loadRecentSessions,
+    rawProcessingProgress,
+    // processingStartedAtRef.current is intentionally excluded from deps:
+    // it only changes when state changes (which is in deps), and ref.current
+    // is not a valid React dependency (mutations don't trigger re-renders).
+    showReviewEditor,
+    setShowReviewEditor,
+    incompleteSession,
+    isCheckingRecovery,
+    startSession,
+    stopSession,
+    togglePause,
+    manualCapture,
+    copyReportPath,
+    openReportFolder,
+    copyRecordingPath,
+    copyAudioPath,
+    openRecent,
+    copyRecentPath,
+    recoverSession,
+    discardSession,
+    reviewSave,
+    reviewClose,
+  ]);
 
   return (
     <RecordingContext.Provider value={value}>

@@ -1091,6 +1091,9 @@ export class SessionController {
    * Monitors state timeouts and recording duration.
    */
   private watchdogCheck(): void {
+    // Skip checks while recovery is in progress to prevent re-entrance
+    if (this.recoveryInProgress) return;
+
     const elapsed = Date.now() - this.stateEnteredAt;
     const timeout = STATE_TIMEOUTS[this.state];
 
@@ -1138,7 +1141,10 @@ export class SessionController {
         type: 'maxDuration',
         message: 'Maximum recording duration reached. Stopping automatically.',
       });
-      this.stop(); // Will be wrapped with its own timeouts
+      void this.stop().catch((error) => {
+        console.error('[SessionController] Auto-stop at max duration failed:', error);
+        this.handleTimeoutError('Recording auto-stop failed');
+      });
     }
   }
 
@@ -1468,7 +1474,7 @@ export class SessionController {
     console.log('[SessionController] Destroying...');
 
     // Save any active session
-    if (this.session && (this.state === 'recording' || this.state === 'starting')) {
+    if (this.session && this.state !== 'idle' && this.state !== 'complete' && this.state !== 'error') {
       this.session.state = 'complete';
       this.session.endTime = Date.now();
       this.addToRecentSessions(this.session);
