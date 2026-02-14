@@ -16,6 +16,21 @@ const VERSION =
 
 log(`markupr MCP server v${VERSION} starting...`);
 
-const server = createServer();
-const transport = new StdioServerTransport();
-await server.connect(transport);
+process.on('uncaughtException', (error) => {
+  log(`Uncaught exception: ${error instanceof Error ? error.message : String(error)}`);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason) => {
+  log(`Unhandled rejection: ${reason instanceof Error ? reason.message : String(reason)}`);
+  process.exit(1);
+});
+
+try {
+  const server = createServer();
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+} catch (error) {
+  log(`Failed to start MCP server: ${error instanceof Error ? error.message : String(error)}`);
+  process.exit(1);
+}
