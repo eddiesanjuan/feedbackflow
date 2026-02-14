@@ -48,6 +48,7 @@ export interface TranscriptEvent {
   text: string;
   isFinal: boolean;
   confidence: number;
+  /** Timestamp in epoch seconds (not milliseconds). Multiply by 1000 for ms. */
   timestamp: number;
   tier: TranscriptionTier;
 }

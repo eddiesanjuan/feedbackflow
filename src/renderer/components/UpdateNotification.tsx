@@ -173,10 +173,7 @@ export function UpdateNotification(): React.ReactElement | null {
               <h5 className="font-medium text-xs text-white/70 uppercase tracking-wide mb-2">
                 {"What's New"}
               </h5>
-              <div
-                className="prose prose-sm prose-invert max-w-none text-white/90"
-                dangerouslySetInnerHTML={{ __html: formatReleaseNotes(update.releaseNotes) }}
-              />
+              <ReleaseNotes notes={update.releaseNotes} />
             </div>
           )}
 
@@ -337,28 +334,59 @@ export function UpdateNotification(): React.ReactElement | null {
 // =============================================================================
 
 /**
- * Format release notes for display
- * Handles markdown-like formatting and converts to safe HTML
+ * Safe release notes renderer using React elements instead of dangerouslySetInnerHTML.
+ * Prevents XSS from compromised update feeds.
  */
-function formatReleaseNotes(notes: string): string {
-  // Simple markdown-like formatting
-  return notes
-    // Escape HTML
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    // Convert markdown headers
-    .replace(/^### (.+)$/gm, '<h3 class="font-semibold mt-2">$1</h3>')
-    .replace(/^## (.+)$/gm, '<h2 class="font-semibold mt-2 text-base">$1</h2>')
-    .replace(/^# (.+)$/gm, '<h1 class="font-bold mt-2 text-lg">$1</h1>')
-    // Convert bold
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    // Convert italic
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    // Convert bullet points
-    .replace(/^[-*] (.+)$/gm, '<li class="ml-4">$1</li>')
-    // Convert newlines to breaks
-    .replace(/\n/g, '<br />');
+function ReleaseNotes({ notes }: { notes: string }): React.ReactElement {
+  const lines = notes.split('\n');
+  return (
+    <div className="prose prose-sm prose-invert max-w-none text-white/90">
+      {lines.map((line, i) => {
+        const trimmed = line.trimEnd();
+        if (trimmed.startsWith('### ')) return <h3 key={i} className="font-semibold mt-2">{trimmed.slice(4)}</h3>;
+        if (trimmed.startsWith('## ')) return <h2 key={i} className="font-semibold mt-2 text-base">{trimmed.slice(3)}</h2>;
+        if (trimmed.startsWith('# ')) return <h1 key={i} className="font-bold mt-2 text-lg">{trimmed.slice(2)}</h1>;
+        if (/^[-*] /.test(trimmed)) return <li key={i} className="ml-4">{formatInlineText(trimmed.slice(2))}</li>;
+        if (trimmed.length === 0) return <br key={i} />;
+        return <p key={i}>{formatInlineText(trimmed)}</p>;
+      })}
+    </div>
+  );
+}
+
+function formatInlineText(text: string): React.ReactNode {
+  const parts: React.ReactNode[] = [];
+  let remaining = text;
+  let key = 0;
+
+  while (remaining.length > 0) {
+    const boldMatch = remaining.match(/\*\*(.+?)\*\*/);
+    const italicMatch = remaining.match(/\*(.+?)\*/);
+
+    const match = boldMatch && italicMatch
+      ? (boldMatch.index! <= italicMatch.index! ? boldMatch : italicMatch)
+      : (boldMatch || italicMatch);
+
+    if (!match || match.index === undefined) {
+      parts.push(remaining);
+      break;
+    }
+
+    if (match.index > 0) {
+      parts.push(remaining.slice(0, match.index));
+    }
+
+    const isBold = match[0].startsWith('**');
+    if (isBold) {
+      parts.push(<strong key={key++}>{match[1]}</strong>);
+    } else {
+      parts.push(<em key={key++}>{match[1]}</em>);
+    }
+
+    remaining = remaining.slice(match.index + match[0].length);
+  }
+
+  return parts.length === 1 ? parts[0] : parts;
 }
 
 // =============================================================================

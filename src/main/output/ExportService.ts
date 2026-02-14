@@ -17,10 +17,21 @@
 import { BrowserWindow, app } from 'electron';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { tmpdir } from 'os';
 import type { Session, FeedbackItem, FeedbackCategory, FeedbackSeverity } from './MarkdownGenerator';
 import { markdownGenerator } from './MarkdownGenerator';
 import type { PostProcessResult } from '../pipeline/PostProcessor';
 import { generateHtmlDocument } from './templates/html-template';
+
+/**
+ * JSON export schema version. Bump when the schema changes:
+ * - Patch (1.0.x): additive fields, no breaking changes
+ * - Minor (1.x.0): new top-level sections, no removals
+ * - Major (x.0.0): breaking changes to existing fields
+ *
+ * Last changed: v1.0 (initial schema, 2024-01-01)
+ */
+const JSON_EXPORT_SCHEMA_VERSION = '1.0';
 
 // ============================================================================
 // Types
@@ -164,6 +175,7 @@ class ExportServiceImpl {
       projectName,
       includeImages,
       theme,
+      version: app.getVersion(),
     });
 
     // Create a hidden browser window for PDF rendering
@@ -178,9 +190,15 @@ class ExportServiceImpl {
       },
     });
 
+    // Write HTML to a temp file to avoid Chromium's ~2MB data: URL limit
+    // which breaks sessions with 5+ base64-embedded screenshots.
+    const tmpHtmlPath = path.join(tmpdir(), `markupr-pdf-export-${Date.now()}.html`);
+
     try {
-      // Load the HTML content
-      await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`);
+      await fs.writeFile(tmpHtmlPath, htmlContent, 'utf-8');
+
+      // Load from file instead of data: URL
+      await pdfWindow.loadFile(tmpHtmlPath);
 
       // Wait for content to fully render
       await new Promise((resolve) => setTimeout(resolve, 500));
@@ -215,8 +233,9 @@ class ExportServiceImpl {
         fileSize: stats.size,
       };
     } finally {
-      // Always close the window
+      // Always close the window and clean up temp file
       pdfWindow.destroy();
+      await fs.unlink(tmpHtmlPath).catch(() => {});
     }
   }
 
@@ -233,6 +252,7 @@ class ExportServiceImpl {
       projectName,
       includeImages,
       theme,
+      version: app.getVersion(),
     });
 
     // Ensure output directory exists
@@ -375,7 +395,7 @@ class ExportServiceImpl {
     const duration = session.endTime ? session.endTime - session.startTime : 0;
 
     return {
-      version: '1.0',
+      version: JSON_EXPORT_SCHEMA_VERSION,
       generator: `markupr v${app.getVersion()}`,
       exportedAt: new Date().toISOString(),
       session: {

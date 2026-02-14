@@ -212,6 +212,7 @@ export function registerCaptureHandlers(ctx: IpcContext): void {
       }
 
       recording.writeChain = recording.writeChain
+        .catch(() => {}) // Don't let previous failures block new writes
         .then(() => fs.appendFile(recording.tempPath, buffer))
         .then(() => {
           recording.bytesWritten += buffer.byteLength;

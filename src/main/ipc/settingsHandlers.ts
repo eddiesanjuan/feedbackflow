@@ -211,43 +211,53 @@ export function registerSettingsHandlers(ctx: IpcContext, actions: SessionAction
   });
 
   ipcMain.handle(IPC_CHANNELS.SETTINGS_IMPORT, async (): Promise<AppSettings | null> => {
-    const settingsManager = getSettingsManager();
-    if (!settingsManager) {
-      return null;
-    }
-
-    const mainWindow = getMainWindow();
-    const options: Electron.OpenDialogOptions = {
-      title: 'Import markupr Settings',
-      properties: ['openFile'],
-      filters: [{ name: 'JSON', extensions: ['json'] }],
-    };
-    const result = mainWindow
-      ? await dialog.showOpenDialog(mainWindow, options)
-      : await dialog.showOpenDialog(options);
-
-    if (result.canceled || result.filePaths.length === 0) {
-      return null;
-    }
-
-    const raw = await fs.readFile(result.filePaths[0], 'utf-8');
-    const parsed: unknown = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      throw new Error('Invalid settings file format.');
-    }
-
-    const entries = Object.entries(parsed as Record<string, unknown>);
-    const allowedKeys = new Set(Object.keys(DEFAULT_SETTINGS));
-    const sanitized: Partial<AppSettings> = {};
-
-    for (const [key, value] of entries) {
-      if (!allowedKeys.has(key)) {
-        continue;
+    try {
+      const settingsManager = getSettingsManager();
+      if (!settingsManager) {
+        return null;
       }
-      (sanitized as Record<string, unknown>)[key] = value;
-    }
 
-    return settingsManager.update(sanitized);
+      const mainWindow = getMainWindow();
+      const options: Electron.OpenDialogOptions = {
+        title: 'Import markupr Settings',
+        properties: ['openFile'],
+        filters: [{ name: 'JSON', extensions: ['json'] }],
+      };
+      const result = mainWindow
+        ? await dialog.showOpenDialog(mainWindow, options)
+        : await dialog.showOpenDialog(options);
+
+      if (result.canceled || result.filePaths.length === 0) {
+        return null;
+      }
+
+      const raw = await fs.readFile(result.filePaths[0], 'utf-8');
+      const parsed: unknown = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        console.warn('[Main] Invalid settings file format');
+        return null;
+      }
+
+      const entries = Object.entries(parsed as Record<string, unknown>);
+      const allowedKeys = new Set(Object.keys(DEFAULT_SETTINGS));
+      const sanitized: Partial<AppSettings> = {};
+
+      for (const [key, value] of entries) {
+        if (!allowedKeys.has(key)) {
+          continue;
+        }
+        // Skip __proto__ and constructor to prevent prototype pollution
+        if (key === '__proto__' || key === 'constructor') {
+          continue;
+        }
+        (sanitized as Record<string, unknown>)[key] = value;
+      }
+
+      return settingsManager.update(sanitized);
+    } catch (error) {
+      console.error('[Main] Failed to import settings:', error);
+      return null;
+    }
   });
 
   // Legacy settings handlers
@@ -255,18 +265,23 @@ export function registerSettingsHandlers(ctx: IpcContext, actions: SessionAction
     return getSettingsManager()?.getAll() ?? { ...DEFAULT_SETTINGS };
   });
 
-  ipcMain.handle(IPC_CHANNELS.SET_SETTINGS, (_, newSettings: Partial<AppSettings>) => {
-    const settings = getSettingsManager()?.update(newSettings) ?? {
+  ipcMain.handle(IPC_CHANNELS.SET_SETTINGS, (_, newSettings: unknown) => {
+    if (!newSettings || typeof newSettings !== 'object' || Array.isArray(newSettings)) {
+      return getSettingsManager()?.getAll() ?? { ...DEFAULT_SETTINGS };
+    }
+
+    const typedSettings = newSettings as Partial<AppSettings>;
+    const settings = getSettingsManager()?.update(typedSettings) ?? {
       ...DEFAULT_SETTINGS,
-      ...newSettings,
+      ...typedSettings,
     };
 
-    if (newSettings.hotkeys) {
-      const results = hotkeyManager.updateConfig(newSettings.hotkeys);
+    if (typedSettings.hotkeys) {
+      const results = hotkeyManager.updateConfig(typedSettings.hotkeys);
       console.log('[Main] Hotkeys updated:', results);
     }
 
-    if (newSettings.hasCompletedOnboarding) {
+    if (typedSettings.hasCompletedOnboarding) {
       setHasCompletedOnboarding(true);
     }
 
@@ -277,9 +292,14 @@ export function registerSettingsHandlers(ctx: IpcContext, actions: SessionAction
   // API Key Channels (Secure Storage)
   // -------------------------------------------------------------------------
 
+  const ALLOWED_API_SERVICES = new Set(['openai', 'anthropic']);
+
   ipcMain.handle(
     IPC_CHANNELS.SETTINGS_GET_API_KEY,
     async (_, service: string): Promise<string | null> => {
+      if (!ALLOWED_API_SERVICES.has(service)) {
+        return null;
+      }
       return getSettingsManager()?.getApiKey(service) ?? null;
     }
   );
@@ -287,6 +307,9 @@ export function registerSettingsHandlers(ctx: IpcContext, actions: SessionAction
   ipcMain.handle(
     IPC_CHANNELS.SETTINGS_SET_API_KEY,
     async (_, service: string, key: string): Promise<boolean> => {
+      if (!ALLOWED_API_SERVICES.has(service)) {
+        return false;
+      }
       const settingsManager = getSettingsManager();
       if (!settingsManager) {
         return false;
@@ -324,6 +347,9 @@ export function registerSettingsHandlers(ctx: IpcContext, actions: SessionAction
   ipcMain.handle(
     IPC_CHANNELS.SETTINGS_DELETE_API_KEY,
     async (_, service: string): Promise<boolean> => {
+      if (!ALLOWED_API_SERVICES.has(service)) {
+        return false;
+      }
       const settingsManager = getSettingsManager();
       if (!settingsManager) {
         return false;
@@ -337,6 +363,9 @@ export function registerSettingsHandlers(ctx: IpcContext, actions: SessionAction
   ipcMain.handle(
     IPC_CHANNELS.SETTINGS_HAS_API_KEY,
     async (_, service: string): Promise<boolean> => {
+      if (!ALLOWED_API_SERVICES.has(service)) {
+        return false;
+      }
       return getSettingsManager()?.hasApiKey(service) ?? false;
     }
   );
@@ -447,8 +476,11 @@ export function registerSettingsHandlers(ctx: IpcContext, actions: SessionAction
     return { success: true };
   });
 
-  ipcMain.handle(IPC_CHANNELS.CRASH_RECOVERY_GET_LOGS, (_, limit?: number) => {
-    return crashRecovery.getCrashLogs(limit);
+  ipcMain.handle(IPC_CHANNELS.CRASH_RECOVERY_GET_LOGS, (_, limit?: unknown) => {
+    const sanitizedLimit = typeof limit === 'number' && limit > 0 && limit <= 100
+      ? Math.floor(limit)
+      : undefined;
+    return crashRecovery.getCrashLogs(sanitizedLimit);
   });
 
   ipcMain.handle(IPC_CHANNELS.CRASH_RECOVERY_CLEAR_LOGS, () => {
@@ -458,13 +490,33 @@ export function registerSettingsHandlers(ctx: IpcContext, actions: SessionAction
 
   ipcMain.handle(
     IPC_CHANNELS.CRASH_RECOVERY_UPDATE_SETTINGS,
-    (_, settings: Partial<{
-      enableAutoSave: boolean;
-      autoSaveIntervalMs: number;
-      enableCrashReporting: boolean;
-      maxCrashLogs: number;
-    }>) => {
-      crashRecovery.updateSettings(settings);
+    (_, settings: unknown) => {
+      if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
+        return { success: false };
+      }
+
+      const input = settings as Record<string, unknown>;
+      const validated: Partial<{
+        enableAutoSave: boolean;
+        autoSaveIntervalMs: number;
+        enableCrashReporting: boolean;
+        maxCrashLogs: number;
+      }> = {};
+
+      if (typeof input.enableAutoSave === 'boolean') {
+        validated.enableAutoSave = input.enableAutoSave;
+      }
+      if (typeof input.autoSaveIntervalMs === 'number' && input.autoSaveIntervalMs >= 1000 && input.autoSaveIntervalMs <= 30000) {
+        validated.autoSaveIntervalMs = input.autoSaveIntervalMs;
+      }
+      if (typeof input.enableCrashReporting === 'boolean') {
+        validated.enableCrashReporting = input.enableCrashReporting;
+      }
+      if (typeof input.maxCrashLogs === 'number' && input.maxCrashLogs >= 0 && input.maxCrashLogs <= 100) {
+        validated.maxCrashLogs = input.maxCrashLogs;
+      }
+
+      crashRecovery.updateSettings(validated);
       return { success: true };
     }
   );

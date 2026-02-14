@@ -39,6 +39,9 @@ const MAX_PERIODIC_INTERVAL_SECONDS = 20;
 /** Hard cap on returned key moments */
 const MAX_KEY_MOMENTS = 20;
 
+/** Avoid capturing the very first frame of a recording (often corrupted or blank) */
+const FRAME_EDGE_MARGIN_SECONDS = 0.35;
+
 // ============================================================================
 // TranscriptAnalyzer Class
 // ============================================================================
@@ -59,10 +62,17 @@ export class TranscriptAnalyzer {
 
     const moments: KeyMoment[] = [];
 
-    // Always include session start
+    // Always include session start, offset by edge margin to avoid corrupted
+    // startup frames (video encoders may not have a clean frame at t=0).
     const firstSegment = segments[0];
+    const lastSegment = segments[segments.length - 1];
+    const sessionDuration = lastSegment.endTime - firstSegment.startTime;
+    const startOffset = sessionDuration > FRAME_EDGE_MARGIN_SECONDS
+      ? FRAME_EDGE_MARGIN_SECONDS
+      : 0;
+
     moments.push({
-      timestamp: firstSegment.startTime,
+      timestamp: firstSegment.startTime + startOffset,
       reason: 'Session start',
       confidence: 1.0,
     });
@@ -83,9 +93,9 @@ export class TranscriptAnalyzer {
       }
     }
 
-    // Always include session end
-    const lastSegment = segments[segments.length - 1];
-    if (lastSegment.endTime !== firstSegment.startTime) {
+    // Always include session end regardless of duration so that even very
+    // short sessions (<5s) produce at least 2 key moments.
+    if (lastSegment.endTime > firstSegment.startTime + startOffset) {
       moments.push({
         timestamp: lastSegment.endTime,
         reason: 'Session end',
@@ -96,10 +106,6 @@ export class TranscriptAnalyzer {
     // If we found fewer than 3 moments (just start/end), add periodic baseline captures.
     // When AI hints exist, prefer them over periodic filler captures.
     if (moments.length < 3 && aiHints.length === 0) {
-      const sessionStart = firstSegment.startTime;
-      const sessionEnd = lastSegment.endTime;
-      const sessionDuration = sessionEnd - sessionStart;
-
       if (sessionDuration > PERIODIC_INTERVAL_SECONDS) {
         // Calculate interval: target 15s but stretch up to 20s to avoid one extra capture
         const rawCount = Math.floor(sessionDuration / PERIODIC_INTERVAL_SECONDS);
@@ -109,8 +115,8 @@ export class TranscriptAnalyzer {
         );
 
         for (
-          let t = sessionStart + interval;
-          t < sessionEnd;
+          let t = firstSegment.startTime + interval;
+          t < lastSegment.endTime;
           t += interval
         ) {
           moments.push({

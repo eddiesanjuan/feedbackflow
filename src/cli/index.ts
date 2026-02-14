@@ -15,7 +15,14 @@
 import { existsSync } from 'fs';
 import { resolve } from 'path';
 import { Command } from 'commander';
-import { CLIPipeline } from './CLIPipeline';
+import {
+  CLIPipeline,
+  CLIPipelineError,
+  EXIT_SUCCESS,
+  EXIT_USER_ERROR,
+  EXIT_SYSTEM_ERROR,
+  EXIT_SIGINT,
+} from './CLIPipeline';
 
 // Read version from package.json at build time (injected by esbuild)
 declare const __MARKUPR_VERSION__: string;
@@ -54,6 +61,27 @@ function fail(message: string): void {
 }
 
 // ============================================================================
+// Signal handling
+// ============================================================================
+
+let activePipeline: CLIPipeline | null = null;
+
+function setupSignalHandlers(): void {
+  const handler = async () => {
+    console.log('\n  Interrupted — cleaning up...');
+    if (activePipeline) {
+      await activePipeline.abort();
+    }
+    process.exit(EXIT_SIGINT);
+  };
+
+  process.on('SIGINT', handler);
+  process.on('SIGTERM', handler);
+}
+
+setupSignalHandlers();
+
+// ============================================================================
 // CLI definition
 // ============================================================================
 
@@ -62,7 +90,8 @@ const program = new Command();
 program
   .name('markupr')
   .description('Analyze screen recordings and generate AI-ready Markdown reports')
-  .version(VERSION, '-v, --version');
+  .version(VERSION, '-v, --version')
+  .showHelpAfterError('(use --help for available options)');
 
 program
   .command('analyze')
@@ -71,7 +100,7 @@ program
   .option('--audio <file>', 'Separate audio file (if not embedded in video)')
   .option('--output <dir>', 'Output directory', './markupr-output')
   .option('--whisper-model <path>', 'Path to Whisper model file')
-  .option('--openai-key <key>', 'OpenAI API key for cloud transcription')
+  .option('--openai-key <key>', 'OpenAI API key for cloud transcription (prefer OPENAI_API_KEY env var)')
   .option('--no-frames', 'Skip frame extraction')
   .option('--verbose', 'Verbose output', false)
   .action(async (videoFile: string, options: {
@@ -90,10 +119,33 @@ program
     const audioPath = options.audio ? resolve(options.audio) : undefined;
     const whisperModelPath = options.whisperModel ? resolve(options.whisperModel) : undefined;
 
+    // Resolve OpenAI key: env var as primary, CLI flag as override (with warning)
+    let openaiKey: string | undefined;
+    if (options.openaiKey) {
+      console.warn('  WARNING: Passing API keys via CLI args is insecure (visible in ps, shell history).');
+      console.warn('  Use OPENAI_API_KEY env var instead.');
+      console.warn();
+      openaiKey = options.openaiKey;
+    } else if (process.env.OPENAI_API_KEY) {
+      openaiKey = process.env.OPENAI_API_KEY;
+    }
+
     // Validate video file exists
     if (!existsSync(videoPath)) {
       fail(`Video file not found: ${videoPath}`);
-      process.exit(1);
+      process.exit(EXIT_USER_ERROR);
+    }
+
+    // Validate audio file exists (fail-fast, before pipeline starts)
+    if (audioPath && !existsSync(audioPath)) {
+      fail(`Audio file not found: ${audioPath}`);
+      process.exit(EXIT_USER_ERROR);
+    }
+
+    // Validate whisper model exists if explicitly provided
+    if (whisperModelPath && !existsSync(whisperModelPath)) {
+      fail(`Whisper model not found: ${whisperModelPath}`);
+      process.exit(EXIT_USER_ERROR);
     }
 
     step(`Video:  ${videoPath}`);
@@ -110,18 +162,32 @@ program
         audioPath,
         outputDir,
         whisperModelPath,
-        openaiKey: options.openaiKey,
+        openaiKey,
         skipFrames: !options.frames,
         verbose: options.verbose,
       },
       options.verbose ? step : () => {},
+      step, // progress — always visible
     );
+
+    activePipeline = pipeline;
 
     try {
       step('Starting analysis pipeline...');
       console.log();
 
       const result = await pipeline.run();
+
+      // Check for empty results
+      if (result.transcriptSegments === 0 && result.extractedFrames === 0) {
+        console.log();
+        fail('Analysis produced no output (no transcript, no frames).');
+        console.log('  Possible causes:');
+        console.log('  - Video has no audio track (provide --audio <file>)');
+        console.log('  - Whisper model not installed (check --whisper-model)');
+        console.log('  - ffmpeg not installed (brew install ffmpeg)');
+        process.exit(EXIT_USER_ERROR);
+      }
 
       console.log();
       success('Analysis complete!');
@@ -130,7 +196,10 @@ program
       console.log(`  Extracted frames:    ${result.extractedFrames}`);
       console.log(`  Processing time:     ${result.durationSeconds.toFixed(1)}s`);
       console.log();
+      // Output path on its own line with a stable prefix for easy parsing by
+      // AI agents and shell scripts (e.g., `markupr analyze ... | grep '^OUTPUT:'`).
       console.log(`  Output: ${result.outputPath}`);
+      console.log(`OUTPUT:${result.outputPath}`);
       console.log();
     } catch (error) {
       console.log();
@@ -142,7 +211,13 @@ program
         console.log(error.stack);
       }
 
-      process.exit(1);
+      const exitCode =
+        error instanceof CLIPipelineError && error.severity === 'user'
+          ? EXIT_USER_ERROR
+          : EXIT_SYSTEM_ERROR;
+      process.exit(exitCode);
+    } finally {
+      activePipeline = null;
     }
   });
 
@@ -150,7 +225,7 @@ program
 if (process.argv.length <= 2) {
   banner();
   program.outputHelp();
-  process.exit(0);
+  process.exit(EXIT_SUCCESS);
 }
 
 program.parse();

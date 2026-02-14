@@ -17,7 +17,7 @@ import { basename, join } from 'path';
 // to be used in non-Electron environments (e.g. the CLI). The `app` reference
 // is lazily required inside getModelsDirectory() with a try/catch fallback.
 import { existsSync } from 'fs';
-import { readFile, unlink } from 'fs/promises';
+import { readFile, unlink, chmod } from 'fs/promises';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { tmpdir } from 'os';
@@ -126,7 +126,7 @@ export class WhisperService extends EventEmitter {
       const { app } = require('electron');
       return join(app.getPath('userData'), 'whisper-models');
     } catch {
-      const homeDir = process.env.HOME || process.env.USERPROFILE || '/tmp';
+      const homeDir = process.env.HOME || process.env.USERPROFILE || os.homedir();
       return join(homeDir, '.markupr', 'whisper-models');
     }
   }
@@ -337,12 +337,31 @@ export class WhisperService extends EventEmitter {
       throw new Error('Whisper module not loaded');
     }
 
-    const result = await this.whisperModule.whisper(samples, {
-      modelPath: this.config.modelPath,
-      language: this.config.language,
-      threads: this.config.threads,
-      translate: this.config.translateToEnglish,
+    // Timeout per 30-second chunk to prevent infinite hangs from corrupt models
+    const CHUNK_TIMEOUT_MS = 60_000;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(
+        () => reject(new Error('Whisper transcription timed out after 60s')),
+        CHUNK_TIMEOUT_MS
+      );
     });
+
+    let result: Array<{ text: string; start: number; end: number }>;
+    try {
+      result = await Promise.race([
+        this.whisperModule.whisper(samples, {
+          modelPath: this.config.modelPath,
+          language: this.config.language,
+          threads: this.config.threads,
+          translate: this.config.translateToEnglish,
+        }),
+        timeoutPromise,
+      ]);
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+    }
 
     if (!result || result.length === 0) {
       return [];
@@ -599,10 +618,15 @@ export class WhisperService extends EventEmitter {
   private async convertWithFfmpeg(audioPath: string): Promise<Float32Array> {
     const ffmpegAvailable = await this.isFfmpegAvailable();
     if (!ffmpegAvailable) {
+      const installHint = process.platform === 'darwin'
+        ? 'brew install ffmpeg'
+        : process.platform === 'win32'
+          ? 'winget install ffmpeg or download from https://ffmpeg.org'
+          : 'apt install ffmpeg (Debian/Ubuntu) or dnf install ffmpeg (Fedora)';
       throw new Error(
         'ffmpeg is not available on this system. ' +
         'ffmpeg is required to transcribe non-WAV audio files (webm, ogg, m4a). ' +
-        'Install ffmpeg via: brew install ffmpeg (macOS) or apt install ffmpeg (Linux).'
+        `Install ffmpeg via: ${installHint}.`
       );
     }
 
@@ -620,8 +644,11 @@ export class WhisperService extends EventEmitter {
         '-acodec', 'pcm_f32le',
         '-y',
         tempPath,
-      ]);
+      ], {
+        env: { PATH: process.env.PATH, HOME: process.env.HOME, LANG: process.env.LANG, TMPDIR: process.env.TMPDIR },
+      });
 
+      await chmod(tempPath, 0o600).catch(() => {});
       this.log('ffmpeg conversion complete, parsing WAV...');
       return await this.parseWavFile(tempPath);
     } catch (error) {

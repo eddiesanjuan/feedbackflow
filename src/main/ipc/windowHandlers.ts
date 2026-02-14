@@ -56,22 +56,30 @@ export function registerWindowHandlers(ctx: IpcContext): void {
   // Popover Control (Menu Bar Mode)
   // -------------------------------------------------------------------------
 
-  ipcMain.handle(IPC_CHANNELS.POPOVER_RESIZE, (_, width: number, height: number) => {
+  ipcMain.handle(IPC_CHANNELS.POPOVER_RESIZE, (_, width: unknown, height: unknown) => {
+    if (typeof width !== 'number' || typeof height !== 'number' ||
+        width < 100 || width > 2000 || height < 50 || height > 2000 ||
+        !Number.isFinite(width) || !Number.isFinite(height)) {
+      return { success: false, error: 'Invalid dimensions' };
+    }
     const popover = getPopover();
     if (popover) {
-      popover.resize(width, height);
+      popover.resize(Math.round(width), Math.round(height));
       return { success: true };
     }
     return { success: false, error: 'Popover not initialized' };
   });
 
-  ipcMain.handle(IPC_CHANNELS.POPOVER_RESIZE_TO_STATE, (_, state: string) => {
+  ipcMain.handle(IPC_CHANNELS.POPOVER_RESIZE_TO_STATE, (_, state: unknown) => {
+    if (typeof state !== 'string' || !Object.prototype.hasOwnProperty.call(POPOVER_SIZES, state)) {
+      return { success: false, error: 'Invalid popover state' };
+    }
     const popover = getPopover();
-    if (popover && state in POPOVER_SIZES) {
+    if (popover) {
       popover.resizeToState(state as keyof typeof POPOVER_SIZES);
       return { success: true };
     }
-    return { success: false, error: 'Popover not initialized or invalid state' };
+    return { success: false, error: 'Popover not initialized' };
   });
 
   ipcMain.handle(IPC_CHANNELS.POPOVER_SHOW, () => {
@@ -95,24 +103,34 @@ export function registerWindowHandlers(ctx: IpcContext): void {
 
   ipcMain.handle(
     IPC_CHANNELS.TASKBAR_SET_PROGRESS,
-    (_, progress: number) => {
-      getWindowsTaskbar()?.setProgress(progress);
+    (_, progress: unknown) => {
+      if (typeof progress !== 'number' || !Number.isFinite(progress)) {
+        return { success: false, error: 'Invalid progress value' };
+      }
+      getWindowsTaskbar()?.setProgress(Math.max(0, Math.min(1, progress)));
       return { success: true };
     }
   );
 
   ipcMain.handle(
     IPC_CHANNELS.TASKBAR_FLASH_FRAME,
-    (_, count?: number) => {
-      getWindowsTaskbar()?.flashFrame(count);
+    (_, count?: unknown) => {
+      const sanitizedCount = typeof count === 'number' && Number.isFinite(count) && count > 0
+        ? Math.min(Math.floor(count), 10)
+        : undefined;
+      getWindowsTaskbar()?.flashFrame(sanitizedCount);
       return { success: true };
     }
   );
 
   ipcMain.handle(
     IPC_CHANNELS.TASKBAR_SET_OVERLAY,
-    (_, state: 'recording' | 'processing' | 'none') => {
-      getWindowsTaskbar()?.setOverlayIcon(state);
+    (_, state: unknown) => {
+      const allowedStates = new Set(['recording', 'processing', 'none']);
+      if (typeof state !== 'string' || !allowedStates.has(state)) {
+        return { success: false, error: 'Invalid overlay state' };
+      }
+      getWindowsTaskbar()?.setOverlayIcon(state as 'recording' | 'processing' | 'none');
       return { success: true };
     }
   );
@@ -225,7 +243,12 @@ export function registerWindowHandlers(ctx: IpcContext): void {
     }));
   });
 
-  ipcMain.handle(IPC_CHANNELS.WHISPER_DOWNLOAD_MODEL, async (_, model: WhisperModel) => {
+  const ALLOWED_WHISPER_MODELS = new Set<string>(['tiny', 'base', 'small', 'medium', 'large']);
+
+  ipcMain.handle(IPC_CHANNELS.WHISPER_DOWNLOAD_MODEL, async (_, model: unknown) => {
+    if (typeof model !== 'string' || !ALLOWED_WHISPER_MODELS.has(model)) {
+      return { success: false, error: 'Invalid model name' };
+    }
     try {
       const unsubProgress = modelDownloadManager.onProgress((progress) => {
         getMainWindow()?.webContents.send(IPC_CHANNELS.WHISPER_DOWNLOAD_PROGRESS, {
@@ -258,7 +281,7 @@ export function registerWindowHandlers(ctx: IpcContext): void {
         unsubError();
       });
 
-      const result = await modelDownloadManager.downloadModel(model);
+      const result = await modelDownloadManager.downloadModel(model as WhisperModel);
 
       return { success: result.success };
     } catch (error) {
@@ -270,8 +293,11 @@ export function registerWindowHandlers(ctx: IpcContext): void {
     }
   });
 
-  ipcMain.handle(IPC_CHANNELS.WHISPER_CANCEL_DOWNLOAD, (_, model: WhisperModel) => {
-    modelDownloadManager.cancelDownload(model);
+  ipcMain.handle(IPC_CHANNELS.WHISPER_CANCEL_DOWNLOAD, (_, model: unknown) => {
+    if (typeof model !== 'string' || !ALLOWED_WHISPER_MODELS.has(model)) {
+      return { success: false, error: 'Invalid model name' };
+    }
+    modelDownloadManager.cancelDownload(model as WhisperModel);
     return { success: true };
   });
 }

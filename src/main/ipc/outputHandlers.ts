@@ -7,7 +7,7 @@
 
 import { ipcMain, shell } from 'electron';
 import * as fs from 'fs/promises';
-import { join, basename } from 'path';
+import { join, basename, resolve } from 'path';
 import { sessionController } from '../SessionController';
 import {
   fileManager,
@@ -126,7 +126,7 @@ async function exportSessionFolders(sessionIds: string[]): Promise<string> {
   const selected = sessions.filter((session) => sessionIds.includes(session.id));
 
   if (!selected.length) {
-    throw new Error('No sessions found to export.');
+    throw new Error('No matching sessions found. Make sure the selected sessions still exist in your session history.');
   }
 
   const exportRoot = join(fileManager.getOutputDirectory(), 'exports');
@@ -196,14 +196,23 @@ export function registerOutputHandlers(ctx: IpcContext): void {
     }
   });
 
-  ipcMain.handle(IPC_CHANNELS.OUTPUT_OPEN_FOLDER, async (_, sessionDir?: string) => {
+  ipcMain.handle(IPC_CHANNELS.OUTPUT_OPEN_FOLDER, async (_, sessionDir?: unknown) => {
     try {
-      const dir = sessionDir || fileManager.getOutputDirectory();
-      await shell.openPath(dir);
+      if (sessionDir !== undefined && typeof sessionDir !== 'string') {
+        return { success: false, error: 'Invalid directory path' };
+      }
+      const baseDir = fileManager.getOutputDirectory();
+      const dir = sessionDir || baseDir;
+      // Path containment: only allow opening paths within the output directory
+      const resolved = resolve(dir);
+      if (sessionDir && !resolved.startsWith(resolve(baseDir))) {
+        return { success: false, error: 'Invalid directory path' };
+      }
+      await shell.openPath(resolved);
       return { success: true };
     } catch (error) {
       console.error('[Main] Failed to open folder:', error);
-      return { success: false, error: (error as Error).message };
+      return { success: false, error: 'Failed to open folder' };
     }
   });
 
@@ -227,27 +236,51 @@ export function registerOutputHandlers(ctx: IpcContext): void {
 
   ipcMain.handle(IPC_CHANNELS.OUTPUT_DELETE_SESSION, async (_, sessionId: string) => {
     try {
+      if (typeof sessionId !== 'string' || sessionId.length === 0) {
+        return { success: false, error: 'Invalid session ID' };
+      }
       const session = await getSessionHistoryItem(sessionId);
       if (!session) {
         return { success: false, error: 'Session not found' };
+      }
+      // Path containment: only delete folders within the output directory
+      const baseDir = fileManager.getOutputDirectory();
+      if (!resolve(session.folder).startsWith(resolve(baseDir))) {
+        return { success: false, error: 'Invalid session path' };
       }
 
       await fs.rm(session.folder, { recursive: true, force: true });
       return { success: true };
     } catch (error) {
       console.error('[Main] Failed to delete session:', error);
-      return { success: false, error: (error as Error).message };
+      return { success: false, error: 'Failed to delete session' };
     }
   });
 
   ipcMain.handle(IPC_CHANNELS.OUTPUT_DELETE_SESSIONS, async (_, sessionIds: string[]) => {
+    if (!Array.isArray(sessionIds)) {
+      return { success: false, deleted: [], failed: [] };
+    }
+
     const deleted: string[] = [];
     const failed: string[] = [];
+    const baseDir = fileManager.getOutputDirectory();
 
     for (const sessionId of sessionIds) {
       try {
+        if (typeof sessionId !== 'string' || sessionId.length === 0) {
+          failed.push(String(sessionId));
+          continue;
+        }
+
         const session = await getSessionHistoryItem(sessionId);
         if (!session) {
+          failed.push(sessionId);
+          continue;
+        }
+
+        // Path containment: only delete folders within the output directory
+        if (!resolve(session.folder).startsWith(resolve(baseDir))) {
           failed.push(sessionId);
           continue;
         }
@@ -266,30 +299,40 @@ export function registerOutputHandlers(ctx: IpcContext): void {
     };
   });
 
+  const ALLOWED_EXPORT_FORMATS = new Set(['markdown', 'json', 'pdf']);
+
   ipcMain.handle(
     IPC_CHANNELS.OUTPUT_EXPORT_SESSION,
-    async (_, sessionId: string, format: 'markdown' | 'json' | 'pdf' = 'markdown') => {
+    async (_, sessionId: unknown, format: unknown = 'markdown') => {
       try {
-        console.log(`[Main] Exporting session ${sessionId} as ${format}`);
+        if (typeof sessionId !== 'string' || sessionId.length === 0) {
+          return { success: false, error: 'Invalid session ID' };
+        }
+        const safeFormat = typeof format === 'string' && ALLOWED_EXPORT_FORMATS.has(format) ? format : 'markdown';
+        console.log(`[Main] Exporting session ${sessionId} as ${safeFormat}`);
         const exportPath = await exportSessionFolders([sessionId]);
         return { success: true, path: exportPath };
       } catch (error) {
         console.error('[Main] Failed to export session:', error);
-        return { success: false, error: (error as Error).message };
+        return { success: false, error: 'Failed to export session' };
       }
     }
   );
 
   ipcMain.handle(
     IPC_CHANNELS.OUTPUT_EXPORT_SESSIONS,
-    async (_, sessionIds: string[], format: 'markdown' | 'json' | 'pdf' = 'markdown') => {
+    async (_, sessionIds: unknown, format: unknown = 'markdown') => {
       try {
-        console.log(`[Main] Exporting ${sessionIds.length} sessions as ${format}`);
-        const exportPath = await exportSessionFolders(sessionIds);
+        if (!Array.isArray(sessionIds) || sessionIds.some((id) => typeof id !== 'string')) {
+          return { success: false, error: 'Invalid session IDs' };
+        }
+        const safeFormat = typeof format === 'string' && ALLOWED_EXPORT_FORMATS.has(format) ? format : 'markdown';
+        console.log(`[Main] Exporting ${sessionIds.length} sessions as ${safeFormat}`);
+        const exportPath = await exportSessionFolders(sessionIds as string[]);
         return { success: true, path: exportPath };
       } catch (error) {
         console.error('[Main] Failed to export sessions:', error);
-        return { success: false, error: (error as Error).message };
+        return { success: false, error: 'Failed to export sessions' };
       }
     }
   );

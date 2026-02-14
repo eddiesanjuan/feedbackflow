@@ -292,14 +292,20 @@ class PermissionManager {
 
   /**
    * Show a helpful dialog when permission is denied
-   * Offers to open System Preferences directly
+   * Offers to open system settings directly
    */
   private async showPermissionDeniedDialog(type: PermissionType): Promise<boolean> {
     const config = PERMISSION_DESCRIPTIONS[type];
 
+    const settingsLabel = process.platform === 'darwin'
+      ? 'Open System Settings'
+      : process.platform === 'win32'
+        ? 'Open Windows Settings'
+        : 'Open Settings';
+
     const options: Electron.MessageBoxOptions = {
       type: 'warning',
-      buttons: ['Open System Settings', 'Later'],
+      buttons: [settingsLabel, 'Later'],
       defaultId: 0,
       cancelId: 1,
       title: `${config.title} Required`,
@@ -307,7 +313,7 @@ class PermissionManager {
       detail:
         `${config.description}\n\n` +
         'To enable this permission:\n' +
-        '1. Click "Open System Settings"\n' +
+        `1. Click "${settingsLabel}"\n` +
         '2. Find markupr in the list\n' +
         '3. Toggle it ON\n' +
         '4. You may need to restart markupr',
@@ -397,11 +403,17 @@ class PermissionManager {
    * Get user-friendly description of permission state
    */
   getPermissionStateDescription(type: PermissionType, state: string): string {
+    const settingsName = process.platform === 'darwin'
+      ? 'System Settings'
+      : process.platform === 'win32'
+        ? 'Windows Settings'
+        : 'system settings';
+
     switch (state) {
       case 'granted':
         return 'Enabled';
       case 'denied':
-        return 'Denied - click to enable in System Settings';
+        return `Denied - click to enable in ${settingsName}`;
       case 'not-determined':
         return 'Not set - click to enable';
       case 'restricted':

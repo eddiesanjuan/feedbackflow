@@ -58,6 +58,16 @@ const FRAME_EDGE_MARGIN_SECONDS = 0.35;
 /** Collapse nearly-identical timestamps after clamping */
 const TIMESTAMP_DEDUPE_WINDOW_SECONDS = 0.15;
 
+/** Minimal env for child processes - avoids leaking API keys to ffmpeg */
+const SAFE_CHILD_ENV = {
+  PATH: process.env.PATH,
+  HOME: process.env.HOME || process.env.USERPROFILE,
+  USERPROFILE: process.env.USERPROFILE,
+  LANG: process.env.LANG,
+  TMPDIR: process.env.TMPDIR || process.env.TEMP,
+  TEMP: process.env.TEMP,
+};
+
 // ============================================================================
 // FrameExtractor Class
 // ============================================================================
@@ -80,6 +90,7 @@ export class FrameExtractor {
     try {
       await execFile(this.ffmpegPath, ['-version'], {
         timeout: FFMPEG_CHECK_TIMEOUT_MS,
+        env: SAFE_CHILD_ENV,
       });
       this.ffmpegAvailable = true;
       this.log('ffmpeg is available');
@@ -138,7 +149,7 @@ export class FrameExtractor {
 
         const stats = await statFile(outputPath).catch(() => null);
         if (!stats || stats.size <= 0) {
-          throw new Error('ffmpeg did not produce a frame file');
+          throw new Error(`ffmpeg did not produce a frame file at timestamp ${timestamp.toFixed(1)}s. The video may be shorter than expected or the codec may not support seeking.`);
         }
 
         frames.push({
@@ -208,6 +219,7 @@ export class FrameExtractor {
 
     await execFile(this.ffmpegPath, args, {
       timeout: FFMPEG_ACCURATE_FRAME_TIMEOUT_MS,
+      env: SAFE_CHILD_ENV,
     });
   }
 
@@ -228,6 +240,7 @@ export class FrameExtractor {
 
     await execFile(this.ffmpegPath, args, {
       timeout: FFMPEG_FAST_FRAME_TIMEOUT_MS,
+      env: SAFE_CHILD_ENV,
     });
   }
 
@@ -270,7 +283,7 @@ export class FrameExtractor {
           '-of', 'default=noprint_wrappers=1:nokey=1',
           videoPath,
         ],
-        { timeout: FFMPEG_CHECK_TIMEOUT_MS }
+        { timeout: FFMPEG_CHECK_TIMEOUT_MS, env: SAFE_CHILD_ENV }
       );
       const parsed = Number.parseFloat(String(stdout).trim());
       if (Number.isFinite(parsed) && parsed > 0) {

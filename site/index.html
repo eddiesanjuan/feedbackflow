@@ -20,6 +20,24 @@
   <meta name="theme-color" content="#0A0A0B" media="(prefers-color-scheme: dark)">
   <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#0A0A0B">
+
+  <!-- Canonical URL -->
+  <link rel="canonical" href="https://markupr.dev/">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="markupR — Turn Screen Recordings into AI-Ready Markdown">
+  <meta property="og:description" content="Record your screen, narrate what's wrong, and get structured Markdown with screenshots your AI coding agent can act on immediately. Open source developer tool for macOS and Windows.">
+  <meta property="og:url" content="https://markupr.dev/">
+  <meta property="og:image" content="https://markupr.dev/og-image.png">
+  <meta property="og:site_name" content="markupR">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="markupR — Turn Screen Recordings into AI-Ready Markdown">
+  <meta name="twitter:description" content="Record your screen, narrate what's wrong, and get structured Markdown with screenshots your AI coding agent can act on immediately. Open source developer tool for macOS and Windows.">
+  <meta name="twitter:image" content="https://markupr.dev/og-image.png">
+
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>M</text></svg>">
   <style>
     /* ========================================
@@ -47,7 +65,7 @@
       --bg-tertiary: #1E1E20;
       --text-primary: #F5F5F5;
       --text-secondary: #A0A0A0;
-      --text-tertiary: #666666;
+      --text-tertiary: #808080;
       --border: rgba(255, 255, 255, 0.08);
       --border-strong: rgba(255, 255, 255, 0.16);
 
@@ -85,12 +103,12 @@
         --bg-tertiary: #F0F0F0;
         --text-primary: #0A0A0A;
         --text-secondary: #525252;
-        --text-tertiary: #8B8B8B;
+        --text-tertiary: #737373;
         --border: rgba(0, 0, 0, 0.08);
         --border-strong: rgba(0, 0, 0, 0.12);
 
-        --accent: #D97706;
-        --accent-hover: #B45309;
+        --accent: #B45309;
+        --accent-hover: #92400E;
 
         --shadow-sm: 2px 2px 0 var(--text-primary);
         --shadow-md: 4px 4px 0 var(--text-primary);
@@ -1464,6 +1482,9 @@
     .text-center { text-align: center; }
     .text-left { text-align: left; }
     .mt-0 { margin-top: 0; }
+    .hero__platforms-spacer { margin-bottom: 32px; }
+    .section-header__subtitle { max-width: 620px; margin-top: 14px; }
+    .section-header__body { margin-top: 16px; }
 
     /* ========================================
        PLATFORM-AWARE DOWNLOAD BUTTONS
@@ -1486,9 +1507,112 @@
     .hero__other-platforms:hover {
       color: var(--text-secondary);
     }
+
+    /* ========================================
+       SKIP LINK
+       ======================================== */
+    .skip-link {
+      position: absolute;
+      top: -100%;
+      left: 16px;
+      z-index: 9999;
+      padding: 12px 24px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 700;
+      border-radius: 4px;
+      font-size: 14px;
+      text-decoration: none;
+    }
+
+    .skip-link:focus {
+      top: 16px;
+      color: #fff;
+    }
+
+    /* ========================================
+       SCREEN READER ONLY
+       ======================================== */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    /* ========================================
+       FOCUS-VISIBLE (keyboard navigation)
+       ======================================== */
+    a:focus-visible,
+    button:focus-visible {
+      outline: 3px solid var(--accent);
+      outline-offset: 3px;
+      border-radius: 4px;
+    }
+
+    /* ========================================
+       DONATE MODAL — Force dark-mode colors
+       ======================================== */
+    .donate-modal__panel {
+      --text-primary: #F5F5F5;
+      --text-secondary: #A0A0A0;
+      --text-tertiary: #808080;
+      --accent: #F59E0B;
+      --accent-hover: #D97706;
+    }
+
+    /* ========================================
+       QUICKWALK — Pause animations offscreen
+       ======================================== */
+    .quickwalk:not(.in-view) .quickwalk__status-dot,
+    .quickwalk:not(.in-view) .quickwalk__node,
+    .quickwalk:not(.in-view) .quickwalk__pulse,
+    .quickwalk:not(.in-view) .quickwalk__line--title,
+    .quickwalk:not(.in-view) .quickwalk__image {
+      animation-play-state: paused;
+    }
   </style>
+
+  <!-- Noscript fallback: make reveal elements visible when JS is disabled -->
+  <noscript>
+    <style>
+      .reveal {
+        opacity: 1;
+        transform: none;
+      }
+    </style>
+  </noscript>
+
+  <!-- Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "markupR",
+    "description": "Record your screen, say what's wrong, and get structured Markdown your AI coding agent can act on immediately.",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "macOS, Windows",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "license": "https://opensource.org/licenses/MIT",
+    "url": "https://markupr.dev",
+    "downloadUrl": "https://github.com/eddiesanjuan/markupr/releases/latest"
+  }
+  </script>
 </head>
 <body>
+
+  <a href="#main-content" class="skip-link">Skip to content</a>
+
+  <main id="main-content">
 
   <!-- ==========================================
        HERO
@@ -1509,19 +1633,19 @@
     <div class="hero__ctas">
       <a href="https://github.com/eddiesanjuan/markupr/releases/download/v2.2.0/markupr-2.2.0-arm64.dmg" class="btn btn--primary download-btn" data-platform="mac-arm" target="_blank" rel="noopener noreferrer">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.16 19.5l.9-3.5h4.52l.9 3.5A10 10 0 0 0 12 2Z"/><path d="M12 2v7"/><path d="M8 9h8"/></svg>
-        Download for macOS (Apple Silicon)
+        Download for macOS (Apple Silicon)<span class="sr-only"> (opens in new tab)</span>
       </a>
       <a href="https://github.com/eddiesanjuan/markupr/releases/download/v2.2.0/markupr-2.2.0-x64.dmg" class="btn btn--primary download-btn" data-platform="mac-intel" target="_blank" rel="noopener noreferrer">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.16 19.5l.9-3.5h4.52l.9 3.5A10 10 0 0 0 12 2Z"/><path d="M12 2v7"/><path d="M8 9h8"/></svg>
-        Download for macOS (Intel)
+        Download for macOS (Intel)<span class="sr-only"> (opens in new tab)</span>
       </a>
       <a href="https://github.com/eddiesanjuan/markupr/releases/download/v2.2.0/markupr-Setup-2.2.0.exe" class="btn btn--primary download-btn" data-platform="windows" target="_blank" rel="noopener noreferrer">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Download for Windows
+        Download for Windows<span class="sr-only"> (opens in new tab)</span>
       </a>
       <a href="https://github.com/eddiesanjuan/markupr" class="btn btn--secondary" target="_blank" rel="noopener noreferrer">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
-        View on GitHub
+        View on GitHub<span class="sr-only"> (opens in new tab)</span>
       </a>
       <button type="button" class="btn btn--secondary" data-donate-open>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78Z"/></svg>
@@ -1529,8 +1653,8 @@
       </button>
     </div>
 
-    <p style="margin-bottom: 32px;">
-      <a href="https://github.com/eddiesanjuan/markupr/releases/latest" class="hero__other-platforms" target="_blank" rel="noopener noreferrer">Other platforms &amp; versions</a>
+    <p class="hero__platforms-spacer">
+      <a href="https://github.com/eddiesanjuan/markupr/releases/latest" class="hero__other-platforms" target="_blank" rel="noopener noreferrer">Other platforms &amp; versions<span class="sr-only"> (opens in new tab)</span></a>
     </p>
 
     <p class="caption hero__support-note">
@@ -1557,7 +1681,7 @@
       <div class="section-header reveal">
         <p class="overline">Quick visual walkthrough</p>
         <h2>See the full flow in a few seconds.</h2>
-        <p class="body-sm" style="max-width: 620px; margin-top: 14px;">
+        <p class="body-sm section-header__subtitle">
           You record and mark shots. After you stop, markupR aligns narration with frames and closes the loop -- your agent gets structured context to start fixing.
         </p>
       </div>
@@ -1849,7 +1973,7 @@ isn't updating on route change.
       <div class="section-header reveal">
         <p class="overline">Launch Modes</p>
         <h2>Same feedback loop. Two ways to run it.</h2>
-        <p class="body-lg" style="margin-top: 16px;">
+        <p class="body-lg section-header__body">
           Both modes close the same feedback loop: record what you see, say what's wrong, and hand your AI agent structured context to fix it. Premium hosts the API keys for you. BYOK gives you full control.
         </p>
       </div>
@@ -1870,12 +1994,14 @@ isn't updating on route change.
       </div>
 
       <div class="premium__cta reveal">
-        <a class="btn btn--primary" href="https://github.com/eddiesanjuan/markupr" target="_blank" rel="noopener noreferrer">Use BYOK Open Source</a>
+        <a class="btn btn--primary" href="https://github.com/eddiesanjuan/markupr" target="_blank" rel="noopener noreferrer">Use BYOK Open Source<span class="sr-only"> (opens in new tab)</span></a>
         <a class="btn btn--accent" href="mailto:premium@markupr.com?subject=markupr%20premium%20access">Get Premium Access</a>
       </div>
       <p class="caption premium__note reveal">Launch plan: both BYOK and premium are available on day one. Premium is convenience, not extra capability.</p>
     </div>
   </section>
+
+  </main>
 
   <!-- ==========================================
        FOOTER
@@ -1886,7 +2012,7 @@ isn't updating on route change.
     <nav class="footer__links" aria-label="Footer navigation">
       <a href="https://github.com/eddiesanjuan/markupr" class="footer__link" target="_blank" rel="noopener noreferrer">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
-        GitHub
+        GitHub<span class="sr-only"> (opens in new tab)</span>
       </a>
       <button type="button" class="footer__link footer__link--button" data-donate-open>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78Z"/></svg>
@@ -1895,8 +2021,8 @@ isn't updating on route change.
     </nav>
 
     <p class="footer__license">MIT License. Free as in freedom, free as in beer.</p>
-    <p class="footer__built">Built by <a href="https://github.com/eddiesanjuan">Eddie San Juan</a>.</p>
-    <p class="footer__support">Want faster shipping? <a href="https://ko-fi.com/eddiesanjuan" target="_blank" rel="noopener noreferrer">Support markupr on Ko-fi</a>.</p>
+    <p class="footer__built">Built by <a href="https://github.com/eddiesanjuan" target="_blank" rel="noopener noreferrer">Eddie San Juan<span class="sr-only"> (opens in new tab)</span></a>.</p>
+    <p class="footer__support">Want faster shipping? <a href="https://ko-fi.com/eddiesanjuan" target="_blank" rel="noopener noreferrer">Support markupr on Ko-fi<span class="sr-only"> (opens in new tab)</span></a>.</p>
   </footer>
 
   <div class="donate-modal" id="donateModal" aria-hidden="true">
@@ -1909,9 +2035,9 @@ isn't updating on route change.
         If markupr saves you time, you can drop a quick contribution here. Pick an amount and continue straight to Ko-fi checkout.
       </p>
       <div class="donate-amounts" role="radiogroup" aria-label="Donation amount">
-        <button type="button" class="donate-amount" data-amount="5" aria-pressed="false">$5</button>
-        <button type="button" class="donate-amount is-selected" data-amount="10" aria-pressed="true">$10</button>
-        <button type="button" class="donate-amount" data-amount="25" aria-pressed="false">$25</button>
+        <button type="button" role="radio" class="donate-amount" data-amount="5" aria-checked="false">$5</button>
+        <button type="button" role="radio" class="donate-amount is-selected" data-amount="10" aria-checked="true">$10</button>
+        <button type="button" role="radio" class="donate-amount" data-amount="25" aria-checked="false">$25</button>
       </div>
       <p class="donate-modal__meta">
         You will complete payment securely on Ko-fi.
@@ -1943,6 +2069,17 @@ isn't updating on route change.
       document.querySelectorAll('.reveal').forEach(function(el) {
         observer.observe(el);
       });
+
+      // Pause quickwalk animations when offscreen
+      var quickwalk = document.querySelector('.quickwalk');
+      if (quickwalk) {
+        var qwObserver = new IntersectionObserver(function(entries) {
+          entries.forEach(function(entry) {
+            quickwalk.classList.toggle('in-view', entry.isIntersecting);
+          });
+        }, { threshold: 0 });
+        qwObserver.observe(quickwalk);
+      }
     })();
 
     (function() {
@@ -1960,20 +2097,42 @@ isn't updating on route change.
         amountButtons.forEach(function(button) {
           var isSelected = button.getAttribute('data-amount') === amount;
           button.classList.toggle('is-selected', isSelected);
-          button.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+          button.setAttribute('aria-checked', isSelected ? 'true' : 'false');
         });
       }
 
+      var lastFocused = null;
+
+      function trapFocus(e) {
+        if (e.key !== 'Tab') return;
+        var focusable = modal.querySelectorAll('button, [href], [tabindex]:not([tabindex="-1"])');
+        var first = focusable[0];
+        var last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+
       function openModal() {
+        lastFocused = document.activeElement;
         modal.classList.add('is-open');
         modal.setAttribute('aria-hidden', 'false');
         document.body.classList.add('donate-modal-open');
+        var closeBtn = modal.querySelector('[data-donate-close]');
+        if (closeBtn) closeBtn.focus();
+        modal.addEventListener('keydown', trapFocus);
       }
 
       function closeModal() {
         modal.classList.remove('is-open');
         modal.setAttribute('aria-hidden', 'true');
         document.body.classList.remove('donate-modal-open');
+        modal.removeEventListener('keydown', trapFocus);
+        if (lastFocused) lastFocused.focus();
       }
 
       openButtons.forEach(function(button) {

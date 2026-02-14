@@ -7,7 +7,9 @@ This repo includes a one-command setup path for coding agents.
 From repo root:
 
 ```bash
-./setup markupr
+npm run setup:markupr
+# or directly:
+./scripts/setup-markupr.sh
 ```
 
 This command:
@@ -18,8 +20,8 @@ This command:
 ## Fast Variants
 
 ```bash
-./setup markupr --skip-install
-./setup markupr --skip-checks
+./scripts/setup-markupr.sh --skip-install
+./scripts/setup-markupr.sh --skip-checks
 ```
 
 ## First Run Test Loop
@@ -28,9 +30,8 @@ After setup:
 
 ```bash
 npm run dev
-# or
-bun run dev
-./scripts/one-click-clean-test.sh --skip-checks
+# In a separate terminal:
+npm test
 ```
 
 ## BYOK Requirements (Open Source Mode)

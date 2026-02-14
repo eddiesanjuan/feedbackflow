@@ -19,6 +19,7 @@
 
 <p align="center">
   <a href="#quick-start">Quick Start</a> |
+  <a href="#why-markupr">Why markupr?</a> |
   <a href="#features">Features</a> |
   <a href="#how-it-works">How It Works</a> |
   <a href="#installation">Installation</a> |
@@ -27,7 +28,8 @@
   <a href="#keyboard-shortcuts">Shortcuts</a> |
   <a href="#export-formats">Export</a> |
   <a href="#development">Development</a> |
-  <a href="#contributing">Contributing</a>
+  <a href="#contributing">Contributing</a> |
+  <a href="CHANGELOG.md">Changelog</a>
 </p>
 
 ---
@@ -35,8 +37,6 @@
 markupr is a menu bar app that intelligently captures developer feedback. Press a hotkey, talk through what you see, and markupr records your screen while transcribing your voice. When you stop, an intelligent post-processing pipeline correlates your transcript timestamps with the screen recording to extract the right frames at the right moments -- then stitches everything into a structured, AI-ready Markdown document.
 
 One hotkey to start. One hotkey to stop. A Markdown file with your words, contextually-placed screenshots, and intelligent structure -- ready to hand to your AI coding agent, paste into a GitHub issue, or drop in a Slack thread.
-
-If markupr saves you hours, consider supporting development on [Ko-fi](https://ko-fi.com/eddiesanjuan) so updates and fixes ship faster.
 
 ## Quick Start
 
@@ -64,6 +64,27 @@ Download from [markupr.com](https://markupr.com) or the [releases page](https://
 6. Paste the file path from your clipboard into your AI coding agent
 
 **No API key required!** markupr uses local Whisper transcription by default.
+
+If markupr saves you hours, consider [supporting development on Ko-fi](https://ko-fi.com/eddiesanjuan).
+
+## Why markupr?
+
+AI coding agents are transforming development, but they're only as good as the context you give them. Typing out bug reports with manual screenshots is slow and lossy -- you lose the flow of what you saw and the nuance of what you meant.
+
+markupr bridges this gap. Record your screen, narrate what you see, and markupr produces a structured Markdown document that AI agents can consume directly. The output isn't a raw transcript with random screenshots -- it's an intelligently structured document where every screenshot is placed at the exact moment you were describing it, every issue is categorized, and the format is optimized for LLM consumption.
+
+**The workflow:**
+1. You see a bug. Press `Cmd+Shift+F`.
+2. Talk through what you see: "This button is hidden on mobile, and the spacing is off here..."
+3. Press the hotkey again to stop.
+4. Paste the file path into Claude Code, Cursor, or any AI agent.
+5. The agent reads your structured feedback -- with screenshots -- and fixes the issues.
+
+**What makes it different:**
+- **Timestamp-correlated frames** -- screenshots are extracted from the exact video frame matching your narration, not taken at arbitrary intervals
+- **Local-first** -- Whisper runs on your machine, your data stays on your machine
+- **AI-native output** -- Markdown structured for LLM consumption, not human-only reading
+- **Zero-friction capture** -- one global hotkey from any app, no context switching
 
 ## Features
 
@@ -247,7 +268,6 @@ Process a screen recording into a structured Markdown document with extracted fr
 | `--audio <file>` | Separate audio file (if not embedded in video) | Auto-extracted from video |
 | `--output <dir>` | Output directory | `./markupr-output` |
 | `--whisper-model <path>` | Path to local Whisper model file | Auto-detected in `~/.markupr/whisper-models/` |
-| `--openai-key <key>` | OpenAI API key for cloud transcription | — |
 | `--no-frames` | Skip frame extraction | `false` |
 | `--verbose` | Show detailed progress output | `false` |
 
@@ -259,9 +279,6 @@ markupr analyze ./bug-demo.mov
 
 # Use a specific output directory
 markupr analyze ./recording.mov --output ./reports
-
-# Use OpenAI for transcription instead of local Whisper
-markupr analyze ./recording.mov --openai-key sk-...
 
 # Separate audio and video files
 markupr analyze ./screen.mov --audio ./voiceover.wav
@@ -453,7 +470,7 @@ markupr/
 │   │   └── hooks/             # React hooks (theme, animation)
 │   ├── preload/               # Electron preload (secure IPC bridge)
 │   └── shared/                # Shared types and constants
-├── tests/                     # Test suite (366 tests)
+├── tests/                     # Test suite
 ├── docs/                      # Documentation
 ├── site/                      # Landing page
 └── package.json

@@ -1,51 +1,36 @@
 # Security Policy
 
+## Supported Versions
+
+| Version | Supported          |
+| ------- | ------------------ |
+| 2.x     | Yes                |
+| < 2.0   | No                 |
+
 ## Reporting a Vulnerability
 
-**DO NOT create public GitHub issues for security vulnerabilities.**
+**Do not open a public issue for security vulnerabilities.**
 
-Email: **security@markupr.app**
+Please email security concerns directly to **eddie@efsanjuan.com** with:
 
-Alternatively, use GitHub's private vulnerability reporting feature.
-
-### What to Include
-
-- Description of the vulnerability
-- Steps to reproduce
-- Potential impact
-- Suggested fix (if any)
+- A description of the vulnerability
+- Steps to reproduce or a proof-of-concept
+- The affected version(s)
+- Any suggested remediation (optional)
 
 ### Response Timeline
 
-- **Acknowledgment**: Within 48 hours
-- **Initial Assessment**: Within 7 days
-- **Fix Target**: Within 30 days for critical issues
-- **Public Disclosure**: 90 days after report (coordinated disclosure)
+- **Acknowledgment:** Within 48 hours of your report.
+- **Fix target:** Within 7 days for confirmed vulnerabilities.
+- **Disclosure:** Coordinated with the reporter once a fix is released.
 
-### Scope
+### What Counts as a Security Issue
 
-In scope:
-- Remote code execution
-- Data exfiltration (audio, screenshots, transcriptions)
-- Privilege escalation
-- Authentication bypass
-- API key exposure
-- Clipboard injection attacks
+- Data leaks (session recordings, transcripts, or settings exposed unintentionally)
+- Code injection (XSS, command injection, or unsafe eval paths)
+- Permission escalation (bypassing macOS permission checks)
+- Credential exposure (API keys written to logs, unencrypted storage, or clipboard leaks)
 
-Out of scope:
-- Social engineering attacks
-- Physical access attacks
-- Issues in dependencies (report upstream)
+### Credit
 
-### Safe Harbor
-
-We will not take legal action against researchers who:
-- Act in good faith
-- Avoid privacy violations
-- Do not exploit vulnerabilities beyond proof-of-concept
-- Report vulnerabilities promptly
-- Allow 90 days before public disclosure
-
-### Recognition
-
-Responsible disclosures may be credited in release notes (opt-in).
+Security reporters will be credited in the CHANGELOG unless they prefer to remain anonymous. Let us know your preference when reporting.

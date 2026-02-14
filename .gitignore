@@ -45,6 +45,9 @@ certificate-base64.txt
 *.tmp
 *.temp
 
+# Internal audit artifacts
+.audit/
+
 # Claude Code ephemeral state
 .claude/runs/
 

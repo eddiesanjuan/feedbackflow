@@ -14,6 +14,7 @@
 import { Tray, Menu, nativeImage, app, NativeImage, shell } from 'electron';
 import { join } from 'path';
 import type { TrayState } from '../shared/types';
+import { formatHotkeyForDisplay } from '../shared/hotkeys';
 
 /**
  * Interface for TrayManager operations
@@ -29,15 +30,19 @@ export interface ITrayManager {
 }
 
 /**
- * Tooltip messages for each tray state
+ * Build tooltip messages for each tray state.
+ * Uses platform-aware hotkey display (Cmd on macOS, Ctrl on Windows/Linux).
  */
-const STATE_TOOLTIPS: Record<TrayState, string> = {
-  idle: 'markupr - Ready (Cmd+Shift+F)',
-  recording: 'markupr - Recording... (Cmd+Shift+F to stop)',
-  processing: 'markupr - Processing...',
-  complete: 'markupr - Feedback captured!',
-  error: 'markupr - Error (click for details)',
-};
+function buildStateTooltips(): Record<TrayState, string> {
+  const toggleKey = formatHotkeyForDisplay('toggleRecording');
+  return {
+    idle: `markupr - Ready (${toggleKey})`,
+    recording: `markupr - Recording... (${toggleKey} to stop)`,
+    processing: 'markupr - Processing...',
+    complete: 'markupr - Feedback captured!',
+    error: 'markupr - Error (click for details)',
+  };
+}
 
 const DONATE_URL = 'https://ko-fi.com/eddiesanjuan';
 
@@ -211,7 +216,7 @@ class TrayManagerImpl implements ITrayManager {
     const icon = this.loadIcon('idle');
     this.tray = new Tray(icon);
 
-    this.tray.setToolTip(STATE_TOOLTIPS.idle);
+    this.tray.setToolTip(buildStateTooltips().idle);
     this.updateContextMenu();
 
     if (process.platform === 'darwin') {
@@ -317,7 +322,7 @@ class TrayManagerImpl implements ITrayManager {
     this.tray.setImage(icon);
 
     // Set tooltip
-    this.tray.setToolTip(STATE_TOOLTIPS[state]);
+    this.tray.setToolTip(buildStateTooltips()[state]);
 
     // Start animation based on state
     if (state === 'processing') {

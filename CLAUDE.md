@@ -4,7 +4,7 @@
 
 markupr is a macOS menu bar app that intelligently captures developer feedback. It records your screen and voice simultaneously, then uses an intelligent post-processing pipeline to correlate transcript timestamps with the screen recording — extracting the right frames at the right moments and stitching everything into a structured, AI-ready Markdown document. The output is purpose-built for AI coding agents: every screenshot placed exactly where it belongs, every issue clearly documented.
 
-**Version:** 1.2.0
+**Version:** 2.3.0
 **License:** MIT (Open Source)
 
 ## Tech Stack
@@ -13,7 +13,7 @@ markupr is a macOS menu bar app that intelligently captures developer feedback. 
 - **Build:** electron-vite + Vite
 - **Transcription:** Local Whisper (default), OpenAI Whisper-1 API (optional cloud)
 - **AI Analysis:** Anthropic Claude API (BYOK or premium tier)
-- **Testing:** Vitest (356 tests)
+- **Testing:** Vitest
 - **Package:** electron-builder
 - **Styling:** Tailwind CSS
 
@@ -86,7 +86,7 @@ src/
 npm run dev          # Development mode with hot reload
 npm run build        # Build for production
 npm run build:desktop # Build desktop app only
-npm test             # Run all tests (356 tests)
+npm test             # Run all tests
 npm run test:unit    # Run unit tests only
 npm run test:watch   # Run tests in watch mode
 npm run lint         # Lint code
