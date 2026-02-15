@@ -345,6 +345,7 @@ export const IPC_CHANNELS = {
   UPDATE_CHECK: 'markupr:update:check',
   UPDATE_DOWNLOAD: 'markupr:update:download',
   UPDATE_INSTALL: 'markupr:update:install',
+  UPDATE_GET_STATUS: 'markupr:update:get-status',
 
   // ---------------------------------------------------------------------------
   // Update Channels (Main -> Renderer)
