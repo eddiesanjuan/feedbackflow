@@ -827,6 +827,20 @@ const markuprApi = {
     },
 
     /**
+     * Get current update state (version info, availability, etc.)
+     */
+    getStatus: (): Promise<{
+      status: string;
+      currentVersion: string;
+      availableVersion: string | null;
+      releaseNotes: string | null;
+      downloadProgress: number | null;
+      updaterAvailable: boolean;
+    }> => {
+      return ipcRenderer.invoke(IPC_CHANNELS.UPDATE_GET_STATUS);
+    },
+
+    /**
      * Subscribe to update status changes
      */
     onStatus: (callback: (status: UpdateStatusPayload) => void): Unsubscribe => {

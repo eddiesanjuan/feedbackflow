@@ -1609,14 +1609,12 @@ app.whenReady().then(async () => {
     onError: handleSessionError,
   });
 
-  // 12. Initialize auto-updater (only in production)
-  if (process.env.NODE_ENV !== 'development') {
-    autoUpdaterManager.setAutoCheckEnabled(settingsManager.get('checkForUpdates'));
-    autoUpdaterManager.initialize(mainWindow!);
-    console.log('[Main] Auto-updater initialized');
-  } else {
-    console.log('[Main] Auto-updater skipped (development mode)');
-  }
+  // 12. Initialize auto-updater
+  // Always initialize so IPC handlers are registered and Settings UI can show
+  // update status. The updater internally disables itself for dev/unpackaged builds.
+  autoUpdaterManager.setAutoCheckEnabled(settingsManager.get('checkForUpdates'));
+  autoUpdaterManager.initialize(mainWindow!);
+  console.log('[Main] Auto-updater initialized');
 
   // 13. Check permissions on startup (macOS only)
   // Delay slightly to ensure window is fully ready

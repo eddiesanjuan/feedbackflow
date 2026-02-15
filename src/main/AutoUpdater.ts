@@ -227,6 +227,18 @@ class AutoUpdaterManager {
     ipcMain.handle(IPC_CHANNELS.UPDATE_INSTALL, () => {
       return this.installUpdate();
     });
+
+    // Get current update state (used by Settings UI)
+    ipcMain.handle(IPC_CHANNELS.UPDATE_GET_STATUS, () => {
+      return {
+        status: this.state.status,
+        currentVersion: this.state.currentVersion,
+        availableVersion: this.state.availableVersion ?? null,
+        releaseNotes: this.state.releaseNotes ?? null,
+        downloadProgress: this.state.downloadProgress ?? null,
+        updaterAvailable: this.updaterAvailable,
+      };
+    });
   }
 
   /**
