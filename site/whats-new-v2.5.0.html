@@ -1,6 +1,6 @@
 <!--
-  markupR v2.5.0 Launch Announcement.
-  Same design system as index.html.
+  markupR v2.5.0 — What's New.
+  Same design system as launch.html.
   Neo-brutalist structure, minimalist soul.
   No frameworks, no tracking, no cookies, no external requests.
 -->
@@ -9,27 +9,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>markupR v2.5.0 — Templates, watch mode, and integrations</title>
-  <meta name="description" content="markupR v2.5.0 ships output templates, watch mode, GitHub Issues integration, Linear integration, and a GitHub Action for CI/CD visual feedback. Push structured feedback directly where your team works.">
-  <meta name="keywords" content="markupr, output templates, watch mode, GitHub Issues, Linear, GitHub Action, CI/CD, AI coding agents, Claude Code, Cursor, Windsurf, screen recording, developer tools, open source">
+  <title>markupR v2.5.0 — The feedback loop is closed</title>
+  <meta name="description" content="markupR v2.5.0 ships output templates, watch mode, GitHub Issues integration, Linear integration, and a GitHub Action. Record feedback. Structure it. Push it where it needs to go.">
+  <meta name="keywords" content="markupr, developer feedback, GitHub Issues, Linear, GitHub Action, output templates, watch mode, CI/CD, screen recording, markdown, open source">
   <meta name="author" content="Eddie San Juan">
   <meta name="robots" content="index, follow">
   <meta name="theme-color" content="#0A0A0B">
 
-  <link rel="canonical" href="https://markupr.com/launch">
+  <link rel="canonical" href="https://markupr.com/whats-new-v2.5.0">
 
   <!-- Open Graph -->
   <meta property="og:type" content="article">
-  <meta property="og:title" content="markupR v2.5.0 — Templates, watch mode, and integrations">
-  <meta property="og:description" content="Output templates, watch mode, GitHub Issues, Linear integration, and a GitHub Action for CI/CD visual feedback. Push structured feedback where your team works.">
-  <meta property="og:url" content="https://markupr.com/launch">
+  <meta property="og:title" content="markupR v2.5.0 — The feedback loop is closed">
+  <meta property="og:description" content="Record feedback. Structure it. Push to GitHub Issues and Linear automatically. Output templates, watch mode, and a GitHub Action.">
+  <meta property="og:url" content="https://markupr.com/whats-new-v2.5.0">
   <meta property="og:image" content="https://markupr.com/og-image.png">
   <meta property="og:site_name" content="markupR">
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="markupR v2.5.0 — Templates, watch mode, and integrations">
-  <meta name="twitter:description" content="Output templates, watch mode, GitHub Issues, Linear integration, and a GitHub Action for CI/CD visual feedback. Push structured feedback where your team works.">
+  <meta name="twitter:title" content="markupR v2.5.0 — The feedback loop is closed">
+  <meta name="twitter:description" content="Record feedback. Structure it. Push to GitHub Issues and Linear automatically. Output templates, watch mode, and a GitHub Action.">
   <meta name="twitter:image" content="https://markupr.com/og-image.png">
 
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>M</text></svg>">
@@ -461,6 +461,17 @@
     }
 
     .terminal__command { color: #93C5FD; }
+    .terminal__flag { color: #C4B5FD; }
+    .terminal__arg { color: #F9A8D4; }
+
+    .terminal__output {
+      color: #A0A0A0;
+      font-size: 13px;
+    }
+
+    .terminal__output--accent {
+      color: #86EFAC;
+    }
 
     .terminal__line { margin-bottom: 12px; }
     .terminal__line:last-child { margin-bottom: 0; }
@@ -573,42 +584,92 @@
     }
 
     /* ========================================
-       PROBLEM / SOLUTION
+       FLOW DIAGRAM
        ======================================== */
-    .problem-solution {
+    .flow {
       background: var(--bg-secondary);
     }
 
-    .ps__grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 48px;
+    .flow__steps {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
       max-width: var(--feature-max);
       margin: 0 auto;
+      flex-wrap: wrap;
     }
 
-    @media (max-width: 768px) {
-      .ps__grid {
-        grid-template-columns: 1fr;
-        gap: 64px;
+    .flow__step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 24px 20px;
+      flex: 1;
+      min-width: 140px;
+    }
+
+    .flow__icon {
+      font-size: 32px;
+      margin-bottom: 12px;
+      line-height: 1;
+    }
+
+    .flow__step-label {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .flow__step-desc {
+      font-size: 13px;
+      color: var(--text-tertiary);
+    }
+
+    .flow__arrow {
+      font-size: 24px;
+      color: var(--accent);
+      font-weight: 900;
+      padding: 0 4px;
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 640px) {
+      .flow__steps {
+        flex-direction: column;
+        gap: 0;
+      }
+      .flow__arrow {
+        transform: rotate(90deg);
+        padding: 4px 0;
       }
     }
 
-    .ps__block h3 {
-      margin-bottom: 16px;
-      font-size: clamp(20px, 3vw, 28px);
+    /* ========================================
+       FEATURES
+       ======================================== */
+    .features {
+      background: var(--bg-primary);
     }
 
-    .ps__block p {
-      font-size: 15px;
-      line-height: 1.65;
-      color: var(--text-secondary);
-      margin-bottom: 12px;
+    .feature {
+      max-width: var(--feature-max);
+      margin: 0 auto;
+      padding-bottom: 96px;
     }
 
-    .ps__block p:last-child { margin-bottom: 0; }
+    .feature:last-child {
+      padding-bottom: 0;
+    }
 
-    .ps__label {
+    .feature__header {
+      margin-bottom: 32px;
+    }
+
+    .feature__number {
       display: inline-block;
       font-family: var(--font-mono);
       font-size: 11px;
@@ -616,166 +677,145 @@
       letter-spacing: 0.08em;
       text-transform: uppercase;
       padding: 4px 10px;
-      border: 2px solid;
+      border: 2px solid var(--accent);
       border-radius: 4px;
+      color: var(--accent);
+      background: rgba(245, 158, 11, 0.08);
       margin-bottom: 16px;
     }
 
-    .ps__label--problem {
-      color: #ef4444;
-      border-color: rgba(239, 68, 68, 0.4);
-      background: rgba(239, 68, 68, 0.08);
+    .feature__header h3 {
+      font-size: clamp(24px, 3.5vw, 32px);
+      margin-bottom: 12px;
     }
 
-    .ps__label--solution {
-      color: #22c55e;
-      border-color: rgba(34, 197, 94, 0.4);
-      background: rgba(34, 197, 94, 0.08);
+    .feature__header p {
+      font-size: 16px;
+      line-height: 1.65;
+      color: var(--text-secondary);
+      max-width: 640px;
     }
 
-    /* ========================================
-       MCP TOOLS SECTION
-       ======================================== */
-    .mcp {
-      background: var(--bg-primary);
-    }
-
-    .mcp__content {
-      max-width: var(--feature-max);
-      margin: 0 auto;
+    .feature__content {
       display: grid;
       grid-template-columns: 1fr;
-      gap: 48px;
+      gap: 32px;
     }
 
     @media (min-width: 768px) {
-      .mcp__content {
+      .feature__content {
         grid-template-columns: 1fr 1fr;
-        gap: 48px;
+        gap: 32px;
         align-items: start;
       }
     }
 
-    .mcp__tools {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 16px;
+    .feature__detail {
+      font-size: 15px;
+      line-height: 1.65;
+      color: var(--text-secondary);
     }
 
-    .mcp__tool {
-      padding: 16px 20px;
+    .feature__detail p {
+      margin-bottom: 12px;
+    }
+
+    .feature__detail p:last-child {
+      margin-bottom: 0;
+    }
+
+    .feature__formats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    @media (max-width: 480px) {
+      .feature__formats {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .format-chip {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
       border: 2px solid var(--border-strong);
       border-radius: 4px;
       background: var(--bg-secondary);
       transition: border-color 150ms ease;
     }
 
-    .mcp__tool:hover { border-color: var(--accent); }
+    .format-chip:hover {
+      border-color: var(--accent);
+    }
 
-    .mcp__tool strong {
-      display: block;
+    .format-chip__icon {
       font-family: var(--font-mono);
-      font-size: 14px;
+      font-size: 11px;
       font-weight: 700;
-      color: var(--text-primary);
-      margin-bottom: 4px;
+      padding: 3px 8px;
+      border-radius: 3px;
+      background: var(--bg-tertiary);
+      color: var(--accent);
+      white-space: nowrap;
     }
 
-    .mcp__tool span {
+    .format-chip__label {
       font-size: 14px;
-      line-height: 1.5;
-      color: var(--text-secondary);
-    }
-
-    .mcp__note {
-      text-align: center;
-      max-width: 640px;
-      margin: 32px auto 0;
-    }
-
-    @media (min-width: 768px) {
-      .mcp__note { grid-column: 1 / -1; }
+      font-weight: 600;
+      color: var(--text-primary);
     }
 
     /* ========================================
-       THREE WAYS
+       STATS BAR
        ======================================== */
-    .ways {
+    .stats {
       background: var(--bg-secondary);
+      padding: 48px var(--side-pad);
     }
 
-    .ways__grid {
+    .stats__grid {
       display: grid;
-      grid-template-columns: 1fr;
+      grid-template-columns: repeat(4, 1fr);
       gap: 32px;
       max-width: var(--feature-max);
       margin: 0 auto;
+      text-align: center;
     }
 
-    @media (min-width: 768px) {
-      .ways__grid {
-        grid-template-columns: 1fr 1fr 1fr;
+    @media (max-width: 640px) {
+      .stats__grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 24px;
       }
     }
 
-    .ways__card h3 {
-      margin-bottom: 12px;
-      font-size: 18px;
-    }
-
-    .ways__card .ways__mono {
+    .stats__item strong {
       display: block;
       font-family: var(--font-mono);
-      font-size: 13px;
-      color: var(--accent);
-      margin-bottom: 12px;
-    }
-
-    .ways__card p {
-      font-size: 15px;
-      line-height: 1.65;
-      color: var(--text-secondary);
-    }
-
-    /* ========================================
-       TECH DETAILS
-       ======================================== */
-    .tech {
-      background: var(--bg-primary);
-    }
-
-    .tech__bullets {
-      list-style: none;
-      max-width: var(--content-max);
-      margin: 0 auto;
-    }
-
-    .tech__bullets li {
-      padding: 16px 0;
-      border-bottom: 2px solid var(--border);
-    }
-
-    .tech__bullets li:first-child { padding-top: 0; }
-
-    .tech__bullets strong {
+      font-size: clamp(28px, 4vw, 40px);
+      font-weight: 900;
       color: var(--text-primary);
-      font-weight: 700;
-      display: block;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
       margin-bottom: 4px;
-      font-size: 15px;
     }
 
-    .tech__bullets span {
-      font-size: 15px;
-      line-height: 1.6;
-      color: var(--text-secondary);
+    .stats__item span {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
     }
 
     /* ========================================
        GET STARTED
        ======================================== */
     .getstarted {
-      background: var(--bg-secondary);
+      background: var(--bg-primary);
     }
 
     .getstarted__options {
@@ -788,7 +828,7 @@
 
     @media (min-width: 768px) {
       .getstarted__options {
-        grid-template-columns: 1fr 1fr 1fr;
+        grid-template-columns: 1fr 1fr;
       }
     }
 
@@ -802,6 +842,23 @@
       line-height: 1.6;
       color: var(--text-secondary);
       margin-bottom: 16px;
+    }
+
+    /* ========================================
+       PREVIOUS RELEASES
+       ======================================== */
+    .previous {
+      text-align: center;
+      padding: 48px var(--side-pad) 0;
+    }
+
+    .previous p {
+      font-size: 15px;
+      color: var(--text-tertiary);
+    }
+
+    .previous a {
+      font-weight: 600;
     }
 
     /* ========================================
@@ -862,8 +919,6 @@
     /* ========================================
        UTILITIES
        ======================================== */
-    .text-center { text-align: center; }
-
     .sr-only {
       position: absolute;
       width: 1px;
@@ -924,19 +979,19 @@
   <!-- ==========================================
        HERO
        ========================================== -->
-  <section class="hero" aria-label="Launch announcement hero">
+  <section class="hero" aria-label="v2.5.0 announcement hero">
     <div class="wordmark hero__wordmark" aria-label="markupR">
       markup<span class="wordmark-r">R</span>
     </div>
 
-    <p class="overline hero__date">February 14, 2026</p>
+    <p class="overline hero__date">February 2026</p>
 
     <h1 class="display hero__headline">
-      Templates. Watch mode. Integrations.
+      The feedback loop is closed.
     </h1>
 
     <p class="body-lg hero__subtext">
-      markupr v2.5.0 ships output templates, watch mode, and direct integrations with GitHub Issues, Linear, and CI/CD via a GitHub Action. Your feedback now flows directly where your team works.
+      markupr v2.5.0 doesn't just capture feedback anymore. It structures it into any format and pushes it directly to GitHub Issues and Linear. Record. Structure. Push.
     </p>
 
     <div class="hero__ctas">
@@ -952,34 +1007,35 @@
   <hr class="divider" aria-hidden="true">
 
   <!-- ==========================================
-       THE PROBLEM / THE SOLUTION
+       THE FLOW
        ========================================== -->
-  <section class="problem-solution" aria-label="The problem and the solution">
+  <section class="flow" aria-label="The feedback flow">
     <div class="container--wide">
-      <div class="ps__grid">
-        <div class="ps__block reveal">
-          <span class="ps__label ps__label--problem">The problem</span>
-          <h3>Feedback stays trapped in local files.</h3>
-          <p>
-            markupr captures great structured feedback. But what happens after? You copy the markdown, paste it into a GitHub issue, manually format it, tag teammates. For CI/CD? You're on your own.
-          </p>
-          <p>
-            Every team has different tools -- GitHub Issues, Linear, Slack. Feedback that lives only in local files doesn't reach the people who need to act on it.
-          </p>
-        </div>
+      <div class="section-header reveal">
+        <p class="overline">What changed</p>
+        <h2>From capture to delivery.</h2>
+        <p class="body-sm section-header__subtitle">
+          v2.4.0 gave your AI agent eyes and ears. v2.5.0 gives it hands. Feedback now flows from screen to issue tracker without you touching a thing.
+        </p>
+      </div>
 
-        <div class="ps__block reveal reveal-delay-1">
-          <span class="ps__label ps__label--solution">The solution</span>
-          <h3>Push feedback where your team works.</h3>
-          <p>
-            v2.5.0 adds output templates so you control the shape of every report. Watch mode monitors a directory and processes recordings as they appear. GitHub Issues and Linear integrations push feedback directly into your issue tracker.
-          </p>
-          <p>
-            The new GitHub Action brings markupr into CI/CD -- add visual feedback to every pull request automatically. Record what's wrong, and the structured report lands right on the PR.
-          </p>
-          <p>
-            860 tests. Same MIT license. Same pipeline, now connected to everything.
-          </p>
+      <div class="flow__steps reveal reveal-delay-1">
+        <div class="flow__step">
+          <div class="flow__icon" aria-hidden="true">&#9679;</div>
+          <span class="flow__step-label">Record</span>
+          <span class="flow__step-desc">Screen + voice</span>
+        </div>
+        <span class="flow__arrow" aria-hidden="true">&rarr;</span>
+        <div class="flow__step">
+          <div class="flow__icon" aria-hidden="true">&#9638;</div>
+          <span class="flow__step-label">Structure</span>
+          <span class="flow__step-desc">Templates + AI</span>
+        </div>
+        <span class="flow__arrow" aria-hidden="true">&rarr;</span>
+        <div class="flow__step">
+          <div class="flow__icon" aria-hidden="true">&#9654;</div>
+          <span class="flow__step-label">Push</span>
+          <span class="flow__step-desc">GitHub / Linear</span>
         </div>
       </div>
     </div>
@@ -988,147 +1044,258 @@
   <hr class="divider" aria-hidden="true">
 
   <!-- ==========================================
-       WHAT'S NEW — MCP SERVER
+       FEATURES
        ========================================== -->
-  <section class="mcp" aria-label="What's new in v2.5.0">
+  <section class="features" aria-label="New features in v2.5.0">
     <div class="container--wide">
       <div class="section-header reveal">
-        <p class="overline">What's new in v2.5.0</p>
-        <h2>Five features that connect your feedback loop.</h2>
-        <p class="body-sm section-header__subtitle">
-          Output templates, watch mode, GitHub Issues, Linear, and a GitHub Action. Record once, push everywhere.
-        </p>
+        <p class="overline">5 new features</p>
+        <h2>Everything that shipped.</h2>
       </div>
 
-      <div class="mcp__content">
-        <!-- GitHub Action YAML snippet -->
-        <div class="code-block reveal">
-          <div class="code-block__header">
-            <span class="code-block__dot code-block__dot--red"></span>
-            <span class="code-block__dot code-block__dot--yellow"></span>
-            <span class="code-block__dot code-block__dot--green"></span>
-            <span class="code-block__title">.github/workflows/feedback.yml</span>
+      <!-- Feature 1: Output Templates -->
+      <div class="feature reveal">
+        <div class="feature__header">
+          <span class="feature__number">01</span>
+          <h3>Output templates.</h3>
+          <p>Five built-in formats. Same recording, different output for different destinations. Markdown for AI agents. JSON for automation. GitHub Issue format for your tracker. Linear format for your team. Jira format for enterprise.</p>
+        </div>
+
+        <div class="feature__content">
+          <div class="terminal">
+            <div class="terminal__header">
+              <span class="terminal__dot terminal__dot--red"></span>
+              <span class="terminal__dot terminal__dot--yellow"></span>
+              <span class="terminal__dot terminal__dot--green"></span>
+              <span class="terminal__title">terminal</span>
+            </div>
+            <div class="terminal__body">
+              <div class="terminal__line">
+                <span class="terminal__prompt">$</span> <span class="terminal__command">npx markupr analyze</span> <span class="terminal__flag">--template</span> <span class="terminal__arg">github-issue</span> <span class="terminal__command">./recording.mov</span>
+              </div>
+              <div class="terminal__line" style="margin-top: 16px;">
+                <span class="terminal__output terminal__output--accent">&#10003;</span> <span class="terminal__output">Transcribed 2m 34s of audio</span>
+              </div>
+              <div class="terminal__line">
+                <span class="terminal__output terminal__output--accent">&#10003;</span> <span class="terminal__output">Extracted 4 key moments</span>
+              </div>
+              <div class="terminal__line">
+                <span class="terminal__output terminal__output--accent">&#10003;</span> <span class="terminal__output">Output: ./feedback-github-issue.md</span>
+              </div>
+            </div>
           </div>
-          <pre><code><span class="syn-kw">name:</span> Visual Feedback
+
+          <div class="feature__formats">
+            <div class="format-chip">
+              <span class="format-chip__icon">.md</span>
+              <span class="format-chip__label">Markdown</span>
+            </div>
+            <div class="format-chip">
+              <span class="format-chip__icon">.json</span>
+              <span class="format-chip__label">JSON</span>
+            </div>
+            <div class="format-chip">
+              <span class="format-chip__icon">GH</span>
+              <span class="format-chip__label">GitHub Issue</span>
+            </div>
+            <div class="format-chip">
+              <span class="format-chip__icon">LIN</span>
+              <span class="format-chip__label">Linear</span>
+            </div>
+            <div class="format-chip">
+              <span class="format-chip__icon">JIRA</span>
+              <span class="format-chip__label">Jira</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feature 2: Watch Mode -->
+      <div class="feature reveal">
+        <div class="feature__header">
+          <span class="feature__number">02</span>
+          <h3>Watch mode.</h3>
+          <p>Point markupr at a directory. Every new recording that appears gets processed automatically. Drop a file, get structured output. No commands to run. No buttons to click.</p>
+        </div>
+
+        <div class="feature__content">
+          <div class="terminal">
+            <div class="terminal__header">
+              <span class="terminal__dot terminal__dot--red"></span>
+              <span class="terminal__dot terminal__dot--yellow"></span>
+              <span class="terminal__dot terminal__dot--green"></span>
+              <span class="terminal__title">terminal</span>
+            </div>
+            <div class="terminal__body">
+              <div class="terminal__line">
+                <span class="terminal__prompt">$</span> <span class="terminal__command">npx markupr watch</span> <span class="terminal__arg">./recordings</span>
+              </div>
+              <div class="terminal__line" style="margin-top: 16px;">
+                <span class="terminal__output">Watching ./recordings for new files...</span>
+              </div>
+              <div class="terminal__line" style="margin-top: 20px;">
+                <span class="terminal__output terminal__output--accent">&#9656;</span> <span class="terminal__output">New file: bug-report.mov</span>
+              </div>
+              <div class="terminal__line">
+                <span class="terminal__output">&nbsp;&nbsp;Transcribing...</span>
+              </div>
+              <div class="terminal__line">
+                <span class="terminal__output">&nbsp;&nbsp;Extracting frames...</span>
+              </div>
+              <div class="terminal__line">
+                <span class="terminal__output terminal__output--accent">&#10003;</span> <span class="terminal__output">Output: ./recordings/bug-report.md</span>
+              </div>
+              <div class="terminal__line" style="margin-top: 16px;">
+                <span class="terminal__output">Waiting for next file...</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="feature__detail">
+            <p>Combine with <strong style="color: var(--text-primary);">--template</strong> to control the output format. Combine with <strong style="color: var(--text-primary);">--push</strong> to automatically create issues from every recording.</p>
+            <p>Leave it running. Record whenever you find something. Every recording becomes a structured, actionable document.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feature 3: GitHub Issues -->
+      <div class="feature reveal">
+        <div class="feature__header">
+          <span class="feature__number">03</span>
+          <h3>Push to GitHub Issues.</h3>
+          <p>One command. Your feedback becomes a GitHub issue with a structured title, body, labels, and screenshots -- uploaded and embedded. No copy-paste. No browser tabs.</p>
+        </div>
+
+        <div class="feature__content">
+          <div class="terminal">
+            <div class="terminal__header">
+              <span class="terminal__dot terminal__dot--red"></span>
+              <span class="terminal__dot terminal__dot--yellow"></span>
+              <span class="terminal__dot terminal__dot--green"></span>
+              <span class="terminal__title">terminal</span>
+            </div>
+            <div class="terminal__body">
+              <div class="terminal__line">
+                <span class="terminal__prompt">$</span> <span class="terminal__command">npx markupr push github</span> <span class="terminal__flag">--repo</span> <span class="terminal__arg">acme/app</span> <span class="terminal__command">./feedback.md</span>
+              </div>
+              <div class="terminal__line" style="margin-top: 16px;">
+                <span class="terminal__output terminal__output--accent">&#10003;</span> <span class="terminal__output">Uploaded 4 screenshots</span>
+              </div>
+              <div class="terminal__line">
+                <span class="terminal__output terminal__output--accent">&#10003;</span> <span class="terminal__output">Created issue #247: "Login button hidden on mobile viewport"</span>
+              </div>
+              <div class="terminal__line">
+                <span class="terminal__output">&nbsp;&nbsp;https://github.com/acme/app/issues/247</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="feature__detail">
+            <p>Uses <strong style="color: var(--text-primary);">gh</strong> CLI for authentication -- if you can push code, you can push issues. Screenshots are uploaded to GitHub and embedded in the issue body. Labels are applied automatically based on feedback type.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feature 4: Linear -->
+      <div class="feature reveal">
+        <div class="feature__header">
+          <span class="feature__number">04</span>
+          <h3>Push to Linear.</h3>
+          <p>Same idea, different tracker. Feedback becomes a Linear issue with priority, labels, and structured description. Assigned to the right team automatically.</p>
+        </div>
+
+        <div class="feature__content">
+          <div class="terminal">
+            <div class="terminal__header">
+              <span class="terminal__dot terminal__dot--red"></span>
+              <span class="terminal__dot terminal__dot--yellow"></span>
+              <span class="terminal__dot terminal__dot--green"></span>
+              <span class="terminal__title">terminal</span>
+            </div>
+            <div class="terminal__body">
+              <div class="terminal__line">
+                <span class="terminal__prompt">$</span> <span class="terminal__command">npx markupr push linear</span> <span class="terminal__flag">--team</span> <span class="terminal__arg">ENG</span> <span class="terminal__command">./feedback.md</span>
+              </div>
+              <div class="terminal__line" style="margin-top: 16px;">
+                <span class="terminal__output terminal__output--accent">&#10003;</span> <span class="terminal__output">Created ENG-412: "Layout shift after spinner dismiss"</span>
+              </div>
+              <div class="terminal__line">
+                <span class="terminal__output">&nbsp;&nbsp;Priority: High | Label: Bug</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="feature__detail">
+            <p>Requires a Linear API key (stored securely in your OS keychain). Priority and labels are inferred from the feedback content -- urgent language gets flagged as high priority.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feature 5: GitHub Action -->
+      <div class="feature reveal">
+        <div class="feature__header">
+          <span class="feature__number">05</span>
+          <h3>GitHub Action.</h3>
+          <p>Visual feedback in CI/CD. Run markupr on recordings checked into your repo or captured during E2E tests. The structured report posts as a PR comment automatically.</p>
+        </div>
+
+        <div class="feature__content">
+          <div class="code-block">
+            <div class="code-block__header">
+              <span class="code-block__dot code-block__dot--red"></span>
+              <span class="code-block__dot code-block__dot--yellow"></span>
+              <span class="code-block__dot code-block__dot--green"></span>
+              <span class="code-block__title">.github/workflows/feedback.yml</span>
+            </div>
+            <pre><code><span class="syn-kw">name:</span> Visual Feedback
 <span class="syn-kw">on:</span> [pull_request]
+
 <span class="syn-kw">jobs:</span>
   <span class="syn-fn">feedback:</span>
     <span class="syn-kw">runs-on:</span> ubuntu-latest
     <span class="syn-kw">steps:</span>
+      - <span class="syn-kw">uses:</span> actions/checkout@v4
       - <span class="syn-kw">uses:</span> <span class="syn-str">eddiesanjuan/markupr-action@v1</span>
         <span class="syn-kw">with:</span>
-          <span class="syn-fn">video:</span> <span class="syn-str">./recordings/review.mov</span>
-          <span class="syn-fn">template:</span> <span class="syn-str">github-issue</span></code></pre>
-        </div>
+          <span class="syn-fn">recording:</span> <span class="syn-str">'./test-recordings/*.mov'</span>
+          <span class="syn-fn">template:</span> <span class="syn-str">'github-issue'</span></code></pre>
+          </div>
 
-        <!-- Features grid -->
-        <div class="mcp__tools reveal reveal-delay-1">
-          <div class="mcp__tool">
-            <strong>Output Templates</strong>
-            <span>Control the shape of every report. Use built-in templates or create your own for GitHub Issues, Linear, Slack, or plain markdown.</span>
-          </div>
-          <div class="mcp__tool">
-            <strong>Watch Mode</strong>
-            <span>Monitor a directory for new recordings. markupr processes them as they appear -- no manual intervention required.</span>
-          </div>
-          <div class="mcp__tool">
-            <strong>GitHub Issues Integration</strong>
-            <span>Push structured feedback directly to GitHub Issues. Screenshots, transcript, and timestamps -- all formatted and ready to assign.</span>
-          </div>
-          <div class="mcp__tool">
-            <strong>Linear Integration</strong>
-            <span>Create Linear issues from feedback sessions. Structured reports land in your sprint backlog with full visual context.</span>
-          </div>
-          <div class="mcp__tool">
-            <strong>GitHub Action</strong>
-            <span>Add visual feedback to every PR. The action runs markupr in CI/CD and posts structured reports as PR comments.</span>
+          <div class="feature__detail">
+            <p>Runs the full markupr pipeline inside GitHub Actions. Processes any recordings captured during your CI run and posts the structured feedback directly as a PR comment.</p>
+            <p>Pairs with E2E test frameworks that capture screen recordings on failure. Your test fails, markupr processes the recording, and the visual context lands on the PR.</p>
           </div>
         </div>
       </div>
 
-      <p class="caption mcp__note reveal reveal-delay-2">All integrations work with the same pipeline: Record &rarr; Transcribe &rarr; Structure &rarr; Push. 860 tests across the full suite.</p>
     </div>
   </section>
 
   <hr class="divider" aria-hidden="true">
 
   <!-- ==========================================
-       THREE WAYS TO USE IT
+       STATS BAR
        ========================================== -->
-  <section class="ways" aria-label="Four ways to use markupr">
-    <div class="container--wide">
-      <div class="section-header reveal">
-        <p class="overline">Four interfaces, one pipeline</p>
-        <h2>Use it however you work.</h2>
+  <div class="stats reveal" aria-label="Project stats">
+    <div class="stats__grid">
+      <div class="stats__item">
+        <strong>860</strong>
+        <span>Tests</span>
       </div>
-
-      <div class="ways__grid" style="grid-template-columns: 1fr 1fr;">
-        <div class="card ways__card reveal reveal-delay-1">
-          <h3>Desktop App</h3>
-          <span class="ways__mono">Menu bar &rarr; &#8984;&#8679;F</span>
-          <p>Lives in your macOS menu bar. Hit the hotkey, narrate what you see, stop, paste. Full GUI with session history and annotation tools.</p>
-        </div>
-
-        <div class="card ways__card reveal reveal-delay-2">
-          <h3>CLI</h3>
-          <span class="ways__mono">npx markupr analyze ./recording.mov</span>
-          <p>Same pipeline, no desktop app required. Watch mode monitors directories. Point it at a video or let it process recordings as they appear.</p>
-        </div>
-
-        <div class="card ways__card reveal reveal-delay-3">
-          <h3>MCP Server</h3>
-          <span class="ways__mono">npx markupr-mcp</span>
-          <p>Your AI agent triggers captures mid-conversation. No copy-paste, no context switching. The agent asks to see your screen, markupr delivers the report.</p>
-        </div>
-
-        <div class="card ways__card reveal reveal-delay-4">
-          <h3>GitHub Action</h3>
-          <span class="ways__mono">eddiesanjuan/markupr-action@v1</span>
-          <p>Add visual feedback to every PR in CI/CD. The action processes recordings and posts structured reports as PR comments automatically.</p>
-        </div>
+      <div class="stats__item">
+        <strong>MIT</strong>
+        <span>License</span>
+      </div>
+      <div class="stats__item">
+        <strong>5</strong>
+        <span>Templates</span>
+      </div>
+      <div class="stats__item">
+        <strong>0</strong>
+        <span>Tracking</span>
       </div>
     </div>
-  </section>
-
-  <hr class="divider" aria-hidden="true">
-
-  <!-- ==========================================
-       TECHNICAL DETAILS
-       ========================================== -->
-  <section class="tech" aria-label="Technical details">
-    <div class="container--wide">
-      <div class="section-header reveal">
-        <p class="overline">Under the hood</p>
-        <h2>The pipeline.</h2>
-        <p class="body-sm section-header__subtitle">
-          Every interface -- desktop, CLI, MCP, GitHub Action -- runs the same pipeline. Record &rarr; Transcribe &rarr; Structure &rarr; Push.
-        </p>
-      </div>
-
-      <ul class="tech__bullets reveal">
-        <li>
-          <strong>Output templates</strong>
-          <span>Customizable templates shape the output for your destination: GitHub Issues, Linear tickets, Slack messages, or plain markdown. Create your own or use built-in presets.</span>
-        </li>
-        <li>
-          <strong>Watch mode</strong>
-          <span>Point markupr at a directory and it processes recordings as they appear. Pairs with screen recording tools for hands-free feedback capture.</span>
-        </li>
-        <li>
-          <strong>GitHub Issues + Linear</strong>
-          <span>Push structured feedback directly into your issue tracker. Screenshots, transcript, and timestamps land formatted and ready to assign.</span>
-        </li>
-        <li>
-          <strong>GitHub Action for CI/CD</strong>
-          <span>Add visual feedback to every pull request. The action runs markupr in your workflow and posts structured reports as PR comments.</span>
-        </li>
-        <li>
-          <strong>860 tests, MIT licensed</strong>
-          <span>No telemetry. No tracking. No analytics. Open source with comprehensive test coverage across the full pipeline.</span>
-        </li>
-      </ul>
-    </div>
-  </section>
+  </div>
 
   <hr class="divider" aria-hidden="true">
 
@@ -1139,47 +1306,53 @@
     <div class="container--wide">
       <div class="section-header reveal">
         <p class="overline">Get started</p>
-        <h2>Pick your interface.</h2>
+        <h2>Try it now.</h2>
       </div>
 
-      <div class="getstarted__options" style="grid-template-columns: 1fr 1fr;">
+      <div class="getstarted__options">
         <div class="card getstarted__option reveal reveal-delay-1">
-          <h3>Desktop App</h3>
-          <p>Download the macOS or Windows app. Lives in your menu bar. No setup required.</p>
-          <a href="/" class="btn btn--primary">Download</a>
-        </div>
-
-        <div class="card getstarted__option reveal reveal-delay-2">
-          <h3>CLI + Watch Mode</h3>
-          <p>Process recordings from your terminal, or watch a directory for new files.</p>
+          <h3>Analyze a recording</h3>
+          <p>Point it at any screen recording. Get structured Markdown with screenshots at the right moments.</p>
           <div class="terminal" style="box-shadow: none; border-width: 2px;">
             <div class="terminal__body" style="padding: 16px;">
               <div class="terminal__line">
-                <span class="terminal__prompt">$</span> <span class="terminal__command">npx markupr watch ./recordings</span>
+                <span class="terminal__prompt">$</span> <span class="terminal__command">npx markupr analyze ./recording.mov</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card getstarted__option reveal reveal-delay-2">
+          <h3>Push to GitHub</h3>
+          <p>Turn any feedback document into a GitHub issue with one command.</p>
+          <div class="terminal" style="box-shadow: none; border-width: 2px;">
+            <div class="terminal__body" style="padding: 16px;">
+              <div class="terminal__line">
+                <span class="terminal__prompt">$</span> <span class="terminal__command">npx markupr push github</span> <span class="terminal__flag">--repo</span> <span class="terminal__arg">you/app</span>
               </div>
             </div>
           </div>
         </div>
 
         <div class="card getstarted__option reveal reveal-delay-3">
-          <h3>MCP Server</h3>
-          <p>Add to your AI agent's config. Copy the JSON below.</p>
+          <h3>Add the GitHub Action</h3>
+          <p>Visual feedback on every PR. Copy the YAML above into your workflows.</p>
           <div class="terminal" style="box-shadow: none; border-width: 2px;">
-            <div class="terminal__body" style="padding: 16px; font-size: 12px; line-height: 1.6;">
+            <div class="terminal__body" style="padding: 16px; font-size: 12px;">
               <div class="terminal__line">
-                <span class="terminal__prompt">$</span> <span class="terminal__command">npx markupr-mcp</span>
+                <span class="terminal__command">uses: eddiesanjuan/markupr-action@v1</span>
               </div>
             </div>
           </div>
         </div>
 
         <div class="card getstarted__option reveal reveal-delay-4">
-          <h3>GitHub Action</h3>
-          <p>Add to your CI/CD workflow. Visual feedback on every PR.</p>
+          <h3>Watch a directory</h3>
+          <p>Auto-process every new recording. Leave it running, record whenever.</p>
           <div class="terminal" style="box-shadow: none; border-width: 2px;">
-            <div class="terminal__body" style="padding: 16px; font-size: 12px; line-height: 1.6;">
+            <div class="terminal__body" style="padding: 16px;">
               <div class="terminal__line">
-                <span class="terminal__prompt">uses:</span> <span class="terminal__command">eddiesanjuan/markupr-action@v1</span>
+                <span class="terminal__prompt">$</span> <span class="terminal__command">npx markupr watch</span> <span class="terminal__arg">./recordings</span>
               </div>
             </div>
           </div>
@@ -1187,6 +1360,11 @@
       </div>
     </div>
   </section>
+
+  <!-- Previous release link -->
+  <div class="previous reveal">
+    <p>Previous: <a href="/launch">What's new in v2.4.0</a> -- MCP server, CLI, and the pipeline that started it all.</p>
+  </div>
 
   </main>
 
@@ -1203,6 +1381,9 @@
       <a href="https://github.com/eddiesanjuan/markupr" class="footer__link" target="_blank" rel="noopener noreferrer">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
         GitHub<span class="sr-only"> (opens in new tab)</span>
+      </a>
+      <a href="https://www.npmjs.com/package/markupr" class="footer__link" target="_blank" rel="noopener noreferrer">
+        npm<span class="sr-only"> (opens in new tab)</span>
       </a>
     </nav>
 
