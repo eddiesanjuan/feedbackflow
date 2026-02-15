@@ -3,6 +3,8 @@
  *
  * Usage:
  *   markupr analyze <video-file> [options]
+ *   markupr doctor
+ *   markupr init
  *
  * Processes a video recording through the markupr pipeline:
  *   1. Extract audio from video (or use a separate audio file)
@@ -24,6 +26,8 @@ import {
   EXIT_SIGINT,
 } from './CLIPipeline';
 import { WatchMode } from './WatchMode';
+import { runDoctorChecks } from './doctor';
+import { runInit, CONFIG_FILENAME } from './init';
 import { templateRegistry } from '../main/output/templates/index';
 
 // Read version from package.json at build time (injected by esbuild)
@@ -41,6 +45,7 @@ const SYMBOLS = {
   bullet: '\u2022',   // bullet
   ellipsis: '\u2026', // ellipsis
   line: '\u2500',     // horizontal line
+  warn: '\u26A0',     // warning sign
 } as const;
 
 function banner(): void {
@@ -62,6 +67,10 @@ function fail(message: string): void {
   console.log(`  ${SYMBOLS.cross} ${message}`);
 }
 
+function warn(message: string): void {
+  console.log(`  ${SYMBOLS.warn} ${message}`);
+}
+
 // ============================================================================
 // Signal handling
 // ============================================================================
@@ -70,7 +79,7 @@ let activePipeline: CLIPipeline | null = null;
 
 function setupSignalHandlers(): void {
   const handler = async () => {
-    console.log('\n  Interrupted — cleaning up...');
+    console.log('\n  Interrupted \u2014 cleaning up...');
     if (activePipeline) {
       await activePipeline.abort();
     }
@@ -116,14 +125,10 @@ program
     verbose: boolean;
   }) => {
     banner();
-
-    // Resolve paths
     const videoPath = resolve(videoFile);
     const outputDir = resolve(options.output);
     const audioPath = options.audio ? resolve(options.audio) : undefined;
     const whisperModelPath = options.whisperModel ? resolve(options.whisperModel) : undefined;
-
-    // Resolve OpenAI key: env var as primary, CLI flag as override (with warning)
     let openaiKey: string | undefined;
     if (options.openaiKey) {
       console.warn('  WARNING: Passing API keys via CLI args is insecure (visible in ps, shell history).');
@@ -133,43 +138,31 @@ program
     } else if (process.env.OPENAI_API_KEY) {
       openaiKey = process.env.OPENAI_API_KEY;
     }
-
-    // Validate video file exists
     if (!existsSync(videoPath)) {
       fail(`Video file not found: ${videoPath}`);
       process.exit(EXIT_USER_ERROR);
     }
-
-    // Validate audio file exists (fail-fast, before pipeline starts)
     if (audioPath && !existsSync(audioPath)) {
       fail(`Audio file not found: ${audioPath}`);
       process.exit(EXIT_USER_ERROR);
     }
-
-    // Validate whisper model exists if explicitly provided
     if (whisperModelPath && !existsSync(whisperModelPath)) {
       fail(`Whisper model not found: ${whisperModelPath}`);
       process.exit(EXIT_USER_ERROR);
     }
-
     step(`Video:  ${videoPath}`);
     if (audioPath) {
       step(`Audio:  ${audioPath}`);
     }
     step(`Output: ${outputDir}`);
     console.log();
-
-    // Validate template
     if (!templateRegistry.has(options.template)) {
       fail(`Unknown template "${options.template}". Available: ${templateRegistry.list().join(', ')}`);
       process.exit(EXIT_USER_ERROR);
     }
-
     if (options.template !== 'markdown') {
       step(`Template: ${options.template}`);
     }
-
-    // Run pipeline
     const pipeline = new CLIPipeline(
       {
         videoPath,
@@ -182,18 +175,13 @@ program
         verbose: options.verbose,
       },
       options.verbose ? step : () => {},
-      step, // progress — always visible
+      step,
     );
-
     activePipeline = pipeline;
-
     try {
       step('Starting analysis pipeline...');
       console.log();
-
       const result = await pipeline.run();
-
-      // Check for empty results
       if (result.transcriptSegments === 0 && result.extractedFrames === 0) {
         console.log();
         fail('Analysis produced no output (no transcript, no frames).');
@@ -203,7 +191,6 @@ program
         console.log('  - ffmpeg not installed (brew install ffmpeg)');
         process.exit(EXIT_USER_ERROR);
       }
-
       console.log();
       success('Analysis complete!');
       console.log();
@@ -211,8 +198,6 @@ program
       console.log(`  Extracted frames:    ${result.extractedFrames}`);
       console.log(`  Processing time:     ${result.durationSeconds.toFixed(1)}s`);
       console.log();
-      // Output path on its own line with a stable prefix for easy parsing by
-      // AI agents and shell scripts (e.g., `markupr analyze ... | grep '^OUTPUT:'`).
       console.log(`  Output: ${result.outputPath}`);
       console.log(`OUTPUT:${result.outputPath}`);
       console.log();
@@ -220,12 +205,10 @@ program
       console.log();
       const message = error instanceof Error ? error.message : String(error);
       fail(`Analysis failed: ${message}`);
-
       if (options.verbose && error instanceof Error && error.stack) {
         console.log();
         console.log(error.stack);
       }
-
       const exitCode =
         error instanceof CLIPipelineError && error.severity === 'user'
           ? EXIT_USER_ERROR
@@ -257,10 +240,7 @@ program
     verbose: boolean;
   }) => {
     banner();
-
     const watchDir = resolve(directory);
-
-    // Resolve OpenAI key
     let openaiKey: string | undefined;
     if (options.openaiKey) {
       console.warn('  WARNING: Passing API keys via CLI args is insecure (visible in ps, shell history).');
@@ -270,12 +250,10 @@ program
     } else if (process.env.OPENAI_API_KEY) {
       openaiKey = process.env.OPENAI_API_KEY;
     }
-
     if (!existsSync(watchDir)) {
       fail(`Directory not found: ${watchDir}`);
       process.exit(EXIT_USER_ERROR);
     }
-
     const watchMode = new WatchMode(
       {
         watchDir,
@@ -299,23 +277,19 @@ program
           step(`Output: ${outputPath}`);
         },
         onProcessingError: (filePath, error) => {
-          fail(`Failed: ${filePath} — ${error.message}`);
+          fail(`Failed: ${filePath} \u2014 ${error.message}`);
         },
       }
     );
-
-    // Graceful shutdown
     const shutdown = () => {
       console.log('\n  Stopping watcher...');
       watchMode.stop();
     };
     process.on('SIGINT', shutdown);
     process.on('SIGTERM', shutdown);
-
     step(`Watching for recordings in: ${watchDir}`);
     step('Press Ctrl+C to stop');
     console.log();
-
     try {
       await watchMode.start();
       success('Watch mode stopped.');
@@ -324,6 +298,87 @@ program
       fail(`Watch mode error: ${message}`);
       process.exit(EXIT_SYSTEM_ERROR);
     }
+  });
+
+// ============================================================================
+// doctor command
+// ============================================================================
+
+program
+  .command('doctor')
+  .description('Check your environment for markupr dependencies and configuration')
+  .action(async () => {
+    banner();
+    step('Checking environment...');
+    console.log();
+    const result = await runDoctorChecks();
+    for (const check of result.checks) {
+      if (check.status === 'pass') {
+        success(`${check.name}: ${check.message}`);
+      } else if (check.status === 'warn') {
+        warn(`${check.name}: ${check.message}`);
+      } else {
+        fail(`${check.name}: ${check.message}`);
+      }
+      if (check.hint) {
+        for (const line of check.hint.split('\n')) {
+          console.log(`      ${line}`);
+        }
+      }
+    }
+    console.log();
+    console.log(`  ${SYMBOLS.line.repeat(40)}`);
+    console.log(`  ${result.passed} passed, ${result.warned} warnings, ${result.failed} failed`);
+    console.log();
+    if (result.failed > 0) {
+      fail('Some required checks failed. Fix them to use markupr.');
+      process.exit(EXIT_USER_ERROR);
+    } else if (result.warned > 0) {
+      success('markupr is ready (some optional features are not configured).');
+    } else {
+      success('markupr is fully configured and ready to go!');
+    }
+    console.log();
+  });
+
+// ============================================================================
+// init command
+// ============================================================================
+
+program
+  .command('init')
+  .description('Create a .markupr.json config file in the current project')
+  .option('--output <dir>', 'Output directory for feedback sessions', './markupr-output')
+  .option('--no-gitignore', 'Skip updating .gitignore')
+  .option('--force', 'Overwrite existing config file', false)
+  .action(async (options: {
+    output: string;
+    gitignore: boolean;
+    force: boolean;
+  }) => {
+    banner();
+    const result = await runInit({
+      directory: process.cwd(),
+      outputDir: options.output,
+      skipGitignore: !options.gitignore,
+      force: options.force,
+    });
+    if (result.alreadyExists) {
+      warn(`${CONFIG_FILENAME} already exists at ${result.configPath}`);
+      console.log('      Use --force to overwrite.');
+      console.log();
+      process.exit(EXIT_USER_ERROR);
+    }
+    success(`Created ${result.configPath}`);
+    if (result.gitignoreUpdated) {
+      success('Updated .gitignore with markupr output directory');
+    }
+    console.log();
+    step('Next steps:');
+    console.log('    1. Run `markupr doctor` to verify your environment');
+    console.log('    2. Record a session with the markupr desktop app or screen recorder');
+    console.log('    3. Run `markupr analyze <video-file>` to generate a feedback report');
+    console.log();
   });
 
 // ============================================================================
@@ -353,34 +408,25 @@ pushCmd
     dryRun: boolean;
   }) => {
     banner();
-
     const reportPath = resolve(report);
-
     if (!existsSync(reportPath)) {
       fail(`Report file not found: ${reportPath}`);
       process.exit(EXIT_USER_ERROR);
     }
-
-    // Warn about insecure token passing
     if (options.token) {
       console.warn('  WARNING: Passing tokens via CLI args is insecure (visible in ps, shell history).');
       console.warn('  Use LINEAR_API_KEY env var instead.');
       console.warn();
     }
-
-    // Resolve token: CLI flag overrides env var
     const apiToken = options.token || process.env.LINEAR_API_KEY;
     if (!apiToken) {
       fail('No Linear API token found.');
       console.log('  Provide via --token flag or LINEAR_API_KEY env var.');
       process.exit(EXIT_USER_ERROR);
     }
-
-    // Lazy import to keep startup fast
     const { LinearIssueCreator } = await import(
       '../integrations/linear/LinearIssueCreator'
     );
-
     try {
       step(`Report: ${reportPath}`);
       step(`Team:   ${options.team}`);
@@ -391,7 +437,6 @@ pushCmd
         step('Mode:   DRY RUN');
       }
       console.log();
-
       step('Parsing feedback report...');
       const creator = new LinearIssueCreator(apiToken);
       const result = await creator.pushReport(reportPath, {
@@ -400,11 +445,9 @@ pushCmd
         projectName: options.project,
         dryRun: options.dryRun,
       });
-
       console.log();
-
       if (options.dryRun) {
-        success(`Dry run complete — ${result.created} issue(s) would be created:`);
+        success(`Dry run complete \u2014 ${result.created} issue(s) would be created:`);
         console.log();
         for (const issue of result.issues) {
           if (issue.success) {
@@ -420,7 +463,6 @@ pushCmd
           }
         }
       }
-
       if (result.failed > 0) {
         console.log();
         fail(`${result.failed} error(s):`);
@@ -430,7 +472,6 @@ pushCmd
           }
         }
       }
-
       console.log();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -458,30 +499,22 @@ pushCmd
     dryRun: boolean;
   }) => {
     banner();
-
     const reportPath = resolve(report);
-
     if (!existsSync(reportPath)) {
       fail(`Report file not found: ${reportPath}`);
       process.exit(EXIT_USER_ERROR);
     }
-
-    // Warn about insecure token passing
     if (options.token) {
       console.warn('  WARNING: Passing tokens via CLI args is insecure (visible in ps, shell history).');
       console.warn('  Use GITHUB_TOKEN env var or `gh auth login` instead.');
       console.warn();
     }
-
-    // Lazy import to keep startup fast
     const { resolveAuth, parseRepoString, pushToGitHub } = await import(
       '../integrations/github/GitHubIssueCreator'
     );
-
     try {
       const parsedRepo = parseRepoString(options.repo);
       const auth = await resolveAuth(options.token);
-
       step(`Report: ${reportPath}`);
       step(`Repo:   ${parsedRepo.owner}/${parsedRepo.repo}`);
       step(`Auth:   ${auth.source}`);
@@ -489,7 +522,6 @@ pushCmd
         step('Mode:   DRY RUN');
       }
       console.log();
-
       step('Parsing feedback report and creating issues...');
       const result = await pushToGitHub({
         repo: parsedRepo,
@@ -498,11 +530,9 @@ pushCmd
         dryRun: options.dryRun,
         items: options.items,
       });
-
       console.log();
-
       if (options.dryRun) {
-        success(`Dry run complete — ${result.created.length} issue(s) would be created:`);
+        success(`Dry run complete \u2014 ${result.created.length} issue(s) would be created:`);
         console.log();
         for (const issue of result.created) {
           step(`  ${issue.title}`);
@@ -515,12 +545,10 @@ pushCmd
           step(`  ${issue.url}`);
         }
       }
-
       if (result.labelsCreated.length > 0) {
         console.log();
         step(`Labels created: ${result.labelsCreated.join(', ')}`);
       }
-
       if (result.errors.length > 0) {
         console.log();
         fail(`${result.errors.length} error(s):`);
@@ -528,7 +556,6 @@ pushCmd
           fail(`  ${err.itemId}: ${err.error}`);
         }
       }
-
       console.log();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
