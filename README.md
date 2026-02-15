@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="src/renderer/assets/logo.svg" alt="markupr" width="80" height="80">
+  <img src="src/renderer/assets/logo.svg" alt="markupR" width="80" height="80">
 </p>
 
 <h1 align="center">markupr</h1>
