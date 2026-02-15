@@ -77,7 +77,7 @@ const svg = `
   <!-- Version badge -->
   <rect x="880" y="${height - 60}" width="80" height="28" rx="4" fill="rgba(245,158,11,0.15)" stroke="${accent}" stroke-width="2"/>
   <text x="920" y="${height - 40}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif" font-size="14" font-weight="700" fill="${accent}">
-    v2.4.0
+    v2.5.0
   </text>
 
   <!-- MIT badge -->

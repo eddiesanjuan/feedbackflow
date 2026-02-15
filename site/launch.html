@@ -1,5 +1,5 @@
 <!--
-  markupR v2.4.0 Launch Announcement.
+  markupR v2.5.0 Launch Announcement.
   Same design system as index.html.
   Neo-brutalist structure, minimalist soul.
   No frameworks, no tracking, no cookies, no external requests.
@@ -9,9 +9,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>markupR v2.4.0 — Your AI agent can see your screen now</title>
-  <meta name="description" content="markupR v2.4.0 introduces an MCP server that gives AI coding agents like Claude Code, Cursor, and Windsurf direct screen capture and voice recording access. Three lines of config. Six tools. Zero install.">
-  <meta name="keywords" content="markupr, MCP server, model context protocol, AI coding agents, Claude Code, Cursor, Windsurf, screen recording, voice narration, markdown, developer tools, open source">
+  <title>markupR v2.5.0 — Templates, watch mode, and integrations</title>
+  <meta name="description" content="markupR v2.5.0 ships output templates, watch mode, GitHub Issues integration, Linear integration, and a GitHub Action for CI/CD visual feedback. Push structured feedback directly where your team works.">
+  <meta name="keywords" content="markupr, output templates, watch mode, GitHub Issues, Linear, GitHub Action, CI/CD, AI coding agents, Claude Code, Cursor, Windsurf, screen recording, developer tools, open source">
   <meta name="author" content="Eddie San Juan">
   <meta name="robots" content="index, follow">
   <meta name="theme-color" content="#0A0A0B">
@@ -20,16 +20,16 @@
 
   <!-- Open Graph -->
   <meta property="og:type" content="article">
-  <meta property="og:title" content="markupR v2.4.0 — Your AI agent can see your screen now">
-  <meta property="og:description" content="MCP server integration gives AI coding agents direct screen capture and voice recording. Three lines of config. Six tools. Zero install.">
+  <meta property="og:title" content="markupR v2.5.0 — Templates, watch mode, and integrations">
+  <meta property="og:description" content="Output templates, watch mode, GitHub Issues, Linear integration, and a GitHub Action for CI/CD visual feedback. Push structured feedback where your team works.">
   <meta property="og:url" content="https://markupr.com/launch">
   <meta property="og:image" content="https://markupr.com/og-image.png">
   <meta property="og:site_name" content="markupR">
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="markupR v2.4.0 — Your AI agent can see your screen now">
-  <meta name="twitter:description" content="MCP server integration gives AI coding agents direct screen capture and voice recording. Three lines of config. Six tools. Zero install.">
+  <meta name="twitter:title" content="markupR v2.5.0 — Templates, watch mode, and integrations">
+  <meta name="twitter:description" content="Output templates, watch mode, GitHub Issues, Linear integration, and a GitHub Action for CI/CD visual feedback. Push structured feedback where your team works.">
   <meta name="twitter:image" content="https://markupr.com/og-image.png">
 
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>M</text></svg>">
@@ -916,7 +916,7 @@
   <!-- Top nav -->
   <nav class="topnav" aria-label="Page navigation">
     <a href="/" class="topnav__back">&larr; markupr.com</a>
-    <span class="topnav__version">v2.4.0</span>
+    <span class="topnav__version">v2.5.0</span>
   </nav>
 
   <main id="main-content">
@@ -932,11 +932,11 @@
     <p class="overline hero__date">February 14, 2026</p>
 
     <h1 class="display hero__headline">
-      Your AI agent can see your screen now.
+      Templates. Watch mode. Integrations.
     </h1>
 
     <p class="body-lg hero__subtext">
-      markupr v2.4.0 ships an MCP server that gives AI coding agents direct access to screen capture and voice recording. Three lines of config. Six tools. Zero install.
+      markupr v2.5.0 ships output templates, watch mode, and direct integrations with GitHub Issues, Linear, and CI/CD via a GitHub Action. Your feedback now flows directly where your team works.
     </p>
 
     <div class="hero__ctas">
@@ -959,29 +959,26 @@
       <div class="ps__grid">
         <div class="ps__block reveal">
           <span class="ps__label ps__label--problem">The problem</span>
-          <h3>AI agents are blind.</h3>
+          <h3>Feedback stays trapped in local files.</h3>
           <p>
-            Your AI coding agent can read your codebase, run your tests, and write new features. But it can't see your screen.
+            markupr captures great structured feedback. But what happens after? You copy the markdown, paste it into a GitHub issue, manually format it, tag teammates. For CI/CD? You're on your own.
           </p>
           <p>
-            When you find a visual bug, you have to describe it in text: "the button is too small on mobile," "there's a layout shift after the spinner," "the nav highlight is wrong." You lose nuance. You lose context. You lose time.
-          </p>
-          <p>
-            Copy-pasting screenshots helps, but they're disconnected from your narration. The agent gets a wall of images with no timeline, no structure, no indication of what you were looking at when.
+            Every team has different tools -- GitHub Issues, Linear, Slack. Feedback that lives only in local files doesn't reach the people who need to act on it.
           </p>
         </div>
 
         <div class="ps__block reveal reveal-delay-1">
           <span class="ps__label ps__label--solution">The solution</span>
-          <h3>Give it eyes and ears.</h3>
+          <h3>Push feedback where your team works.</h3>
           <p>
-            markupr records your screen while you talk. When you stop, it runs a pipeline: transcribes your voice with Whisper, detects key moments, extracts the exact frames that match what you were describing, and stitches everything into structured Markdown.
+            v2.5.0 adds output templates so you control the shape of every report. Watch mode monitors a directory and processes recordings as they appear. GitHub Issues and Linear integrations push feedback directly into your issue tracker.
           </p>
           <p>
-            The output is purpose-built for AI coding agents. Every screenshot placed exactly where it belongs. Every issue clearly documented. Your agent gets the same context you had when you found the bug.
+            The new GitHub Action brings markupr into CI/CD -- add visual feedback to every pull request automatically. Record what's wrong, and the structured report lands right on the PR.
           </p>
           <p>
-            With v2.4.0, your agent doesn't even need you to paste anything. It can trigger recordings itself, mid-conversation.
+            860 tests. Same MIT license. Same pipeline, now connected to everything.
           </p>
         </div>
       </div>
@@ -993,61 +990,63 @@
   <!-- ==========================================
        WHAT'S NEW — MCP SERVER
        ========================================== -->
-  <section class="mcp" aria-label="What's new in v2.4.0">
+  <section class="mcp" aria-label="What's new in v2.5.0">
     <div class="container--wide">
       <div class="section-header reveal">
-        <p class="overline">What's new in v2.4.0</p>
-        <h2>MCP server with six tools.</h2>
+        <p class="overline">What's new in v2.5.0</p>
+        <h2>Five features that connect your feedback loop.</h2>
         <p class="body-sm section-header__subtitle">
-          Add markupr as an MCP server and your AI coding agent can capture screenshots, record your screen with voice, and receive structured reports -- all mid-conversation. Three lines of config.
+          Output templates, watch mode, GitHub Issues, Linear, and a GitHub Action. Record once, push everywhere.
         </p>
       </div>
 
       <div class="mcp__content">
-        <!-- Config snippet -->
+        <!-- GitHub Action YAML snippet -->
         <div class="code-block reveal">
           <div class="code-block__header">
             <span class="code-block__dot code-block__dot--red"></span>
             <span class="code-block__dot code-block__dot--yellow"></span>
             <span class="code-block__dot code-block__dot--green"></span>
-            <span class="code-block__title">claude_desktop_config.json</span>
+            <span class="code-block__title">.github/workflows/feedback.yml</span>
           </div>
-          <pre><code>{
-  <span class="syn-fn">"mcpServers"</span>: {
-    <span class="syn-fn">"markupr"</span>: {
-      <span class="syn-fn">"command"</span>: <span class="syn-str">"npx"</span>,
-      <span class="syn-fn">"args"</span>: [<span class="syn-str">"-y"</span>, <span class="syn-str">"markupr-mcp"</span>]
-    }
-  }
-}</code></pre>
+          <pre><code><span class="syn-kw">name:</span> Visual Feedback
+<span class="syn-kw">on:</span> [pull_request]
+<span class="syn-kw">jobs:</span>
+  <span class="syn-fn">feedback:</span>
+    <span class="syn-kw">runs-on:</span> ubuntu-latest
+    <span class="syn-kw">steps:</span>
+      - <span class="syn-kw">uses:</span> <span class="syn-str">eddiesanjuan/markupr-action@v1</span>
+        <span class="syn-kw">with:</span>
+          <span class="syn-fn">video:</span> <span class="syn-str">./recordings/review.mov</span>
+          <span class="syn-fn">template:</span> <span class="syn-str">github-issue</span></code></pre>
         </div>
 
-        <!-- Tools grid -->
+        <!-- Features grid -->
         <div class="mcp__tools reveal reveal-delay-1">
           <div class="mcp__tool">
-            <strong>capture_screenshot</strong>
-            <span>Grab the current screen instantly. Your agent sees exactly what you see, right now.</span>
+            <strong>Output Templates</strong>
+            <span>Control the shape of every report. Use built-in templates or create your own for GitHub Issues, Linear, Slack, or plain markdown.</span>
           </div>
           <div class="mcp__tool">
-            <strong>capture_with_voice</strong>
-            <span>Record screen + microphone for a set duration. Get a structured report back with transcript and frames.</span>
+            <strong>Watch Mode</strong>
+            <span>Monitor a directory for new recordings. markupr processes them as they appear -- no manual intervention required.</span>
           </div>
           <div class="mcp__tool">
-            <strong>start_recording / stop_recording</strong>
-            <span>Begin an interactive session. Narrate while you work, stop when done. The full pipeline runs and returns your report.</span>
+            <strong>GitHub Issues Integration</strong>
+            <span>Push structured feedback directly to GitHub Issues. Screenshots, transcript, and timestamps -- all formatted and ready to assign.</span>
           </div>
           <div class="mcp__tool">
-            <strong>analyze_video</strong>
-            <span>Process any .mov or .mp4 into structured Markdown with extracted frames and timestamps.</span>
+            <strong>Linear Integration</strong>
+            <span>Create Linear issues from feedback sessions. Structured reports land in your sprint backlog with full visual context.</span>
           </div>
           <div class="mcp__tool">
-            <strong>analyze_screenshot</strong>
-            <span>Feed a screenshot to the analysis pipeline. Get structured observations your agent can act on.</span>
+            <strong>GitHub Action</strong>
+            <span>Add visual feedback to every PR. The action runs markupr in CI/CD and posts structured reports as PR comments.</span>
           </div>
         </div>
       </div>
 
-      <p class="caption mcp__note reveal reveal-delay-2">Works with Claude Code, Cursor, Windsurf, and any MCP-compatible client. Zero install -- npx handles everything.</p>
+      <p class="caption mcp__note reveal reveal-delay-2">All integrations work with the same pipeline: Record &rarr; Transcribe &rarr; Structure &rarr; Push. 860 tests across the full suite.</p>
     </div>
   </section>
 
@@ -1056,30 +1055,36 @@
   <!-- ==========================================
        THREE WAYS TO USE IT
        ========================================== -->
-  <section class="ways" aria-label="Three ways to use markupr">
+  <section class="ways" aria-label="Four ways to use markupr">
     <div class="container--wide">
       <div class="section-header reveal">
-        <p class="overline">Three interfaces, one pipeline</p>
+        <p class="overline">Four interfaces, one pipeline</p>
         <h2>Use it however you work.</h2>
       </div>
 
-      <div class="ways__grid">
+      <div class="ways__grid" style="grid-template-columns: 1fr 1fr;">
         <div class="card ways__card reveal reveal-delay-1">
           <h3>Desktop App</h3>
           <span class="ways__mono">Menu bar &rarr; &#8984;&#8679;F</span>
-          <p>Lives in your macOS menu bar. Hit the hotkey, narrate what you see, stop, paste. The full GUI experience with session history, annotation tools, and review screen.</p>
+          <p>Lives in your macOS menu bar. Hit the hotkey, narrate what you see, stop, paste. Full GUI with session history and annotation tools.</p>
         </div>
 
         <div class="card ways__card reveal reveal-delay-2">
           <h3>CLI</h3>
           <span class="ways__mono">npx markupr analyze ./recording.mov</span>
-          <p>Same pipeline, no desktop app required. Process screen recordings from CI/CD, scripts, or automation. Point it at a video file and get structured Markdown.</p>
+          <p>Same pipeline, no desktop app required. Watch mode monitors directories. Point it at a video or let it process recordings as they appear.</p>
         </div>
 
         <div class="card ways__card reveal reveal-delay-3">
           <h3>MCP Server</h3>
           <span class="ways__mono">npx markupr-mcp</span>
           <p>Your AI agent triggers captures mid-conversation. No copy-paste, no context switching. The agent asks to see your screen, markupr delivers the report.</p>
+        </div>
+
+        <div class="card ways__card reveal reveal-delay-4">
+          <h3>GitHub Action</h3>
+          <span class="ways__mono">eddiesanjuan/markupr-action@v1</span>
+          <p>Add visual feedback to every PR in CI/CD. The action processes recordings and posts structured reports as PR comments automatically.</p>
         </div>
       </div>
     </div>
@@ -1096,30 +1101,30 @@
         <p class="overline">Under the hood</p>
         <h2>The pipeline.</h2>
         <p class="body-sm section-header__subtitle">
-          Every interface -- desktop, CLI, MCP -- runs the same pipeline.
+          Every interface -- desktop, CLI, MCP, GitHub Action -- runs the same pipeline. Record &rarr; Transcribe &rarr; Structure &rarr; Push.
         </p>
       </div>
 
       <ul class="tech__bullets reveal">
         <li>
-          <strong>Whisper transcription</strong>
-          <span>Local Whisper runs on-device by default. OpenAI Whisper-1 API available as BYOK option for faster, higher-quality transcription.</span>
+          <strong>Output templates</strong>
+          <span>Customizable templates shape the output for your destination: GitHub Issues, Linear tickets, Slack messages, or plain markdown. Create your own or use built-in presets.</span>
         </li>
         <li>
-          <strong>Key-moment detection</strong>
-          <span>Transcript analysis identifies the moments that matter -- when you describe a bug, point at a UI element, or call out a specific behavior.</span>
+          <strong>Watch mode</strong>
+          <span>Point markupr at a directory and it processes recordings as they appear. Pairs with screen recording tools for hands-free feedback capture.</span>
         </li>
         <li>
-          <strong>ffmpeg frame extraction</strong>
-          <span>Pulls the exact video frames that match your key moments. Not periodic screenshots -- precision-timed frames correlated with what you were saying.</span>
+          <strong>GitHub Issues + Linear</strong>
+          <span>Push structured feedback directly into your issue tracker. Screenshots, transcript, and timestamps land formatted and ready to assign.</span>
         </li>
         <li>
-          <strong>Structured Markdown generation</strong>
-          <span>Sections, headings, timestamps, and screenshots assembled into a document your AI agent already understands. Feed to Claude Code, Cursor, or paste into GitHub and Slack.</span>
+          <strong>GitHub Action for CI/CD</strong>
+          <span>Add visual feedback to every pull request. The action runs markupr in your workflow and posts structured reports as PR comments.</span>
         </li>
         <li>
-          <strong>Open source, MIT licensed</strong>
-          <span>No telemetry. No tracking. No analytics. Read the code, fork it, break it, fix it. All processing happens on your machine.</span>
+          <strong>860 tests, MIT licensed</strong>
+          <span>No telemetry. No tracking. No analytics. Open source with comprehensive test coverage across the full pipeline.</span>
         </li>
       </ul>
     </div>
@@ -1137,7 +1142,7 @@
         <h2>Pick your interface.</h2>
       </div>
 
-      <div class="getstarted__options">
+      <div class="getstarted__options" style="grid-template-columns: 1fr 1fr;">
         <div class="card getstarted__option reveal reveal-delay-1">
           <h3>Desktop App</h3>
           <p>Download the macOS or Windows app. Lives in your menu bar. No setup required.</p>
@@ -1145,12 +1150,12 @@
         </div>
 
         <div class="card getstarted__option reveal reveal-delay-2">
-          <h3>CLI</h3>
-          <p>Process recordings from your terminal. No install -- npx handles it.</p>
+          <h3>CLI + Watch Mode</h3>
+          <p>Process recordings from your terminal, or watch a directory for new files.</p>
           <div class="terminal" style="box-shadow: none; border-width: 2px;">
             <div class="terminal__body" style="padding: 16px;">
               <div class="terminal__line">
-                <span class="terminal__prompt">$</span> <span class="terminal__command">npx markupr analyze ./recording.mov</span>
+                <span class="terminal__prompt">$</span> <span class="terminal__command">npx markupr watch ./recordings</span>
               </div>
             </div>
           </div>
@@ -1163,6 +1168,18 @@
             <div class="terminal__body" style="padding: 16px; font-size: 12px; line-height: 1.6;">
               <div class="terminal__line">
                 <span class="terminal__prompt">$</span> <span class="terminal__command">npx markupr-mcp</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card getstarted__option reveal reveal-delay-4">
+          <h3>GitHub Action</h3>
+          <p>Add to your CI/CD workflow. Visual feedback on every PR.</p>
+          <div class="terminal" style="box-shadow: none; border-width: 2px;">
+            <div class="terminal__body" style="padding: 16px; font-size: 12px; line-height: 1.6;">
+              <div class="terminal__line">
+                <span class="terminal__prompt">uses:</span> <span class="terminal__command">eddiesanjuan/markupr-action@v1</span>
               </div>
             </div>
           </div>
