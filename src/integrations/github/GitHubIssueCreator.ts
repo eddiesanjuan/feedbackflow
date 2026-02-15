@@ -402,7 +402,6 @@ export async function pushToGitHub(options: PushToGitHubOptions): Promise<PushTo
   if (dryRun) {
     // Dry run: show what would be created
     for (const item of items) {
-      const labels = getLabelsForItem(item);
       result.created.push({
         number: 0,
         url: '',

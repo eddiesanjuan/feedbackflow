@@ -1,4 +1,21 @@
 import { describe, expect, it, vi } from 'vitest';
+
+// Mock dependencies that pull in electron-store
+vi.mock('../../src/main/settings', () => ({
+  getSettingsManager: vi.fn().mockReturnValue({
+    get: vi.fn().mockReturnValue({}),
+    set: vi.fn(),
+  }),
+}));
+
+vi.mock('../../src/main/transcription/ModelDownloadManager', () => ({
+  modelDownloadManager: {
+    hasAnyModel: vi.fn().mockReturnValue(false),
+    getDefaultModel: vi.fn().mockReturnValue(null),
+    getModelPath: vi.fn().mockReturnValue(null),
+  },
+}));
+
 import { TierManager } from '../../src/main/transcription/TierManager';
 import type { TierStatus } from '../../src/main/transcription/types';
 

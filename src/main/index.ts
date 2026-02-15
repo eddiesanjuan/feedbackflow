@@ -35,7 +35,7 @@ import { fileURLToPath } from 'url';
 // Hide dock icon on macOS for pure menu bar experience
 // IMPORTANT: Must be called before app.whenReady()
 if (process.platform === 'darwin') {
-  app.dock.hide();
+  app.dock?.hide();
 }
 
 // Ensure runtime app identity uses the shipped product name.

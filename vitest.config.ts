@@ -37,10 +37,6 @@ export default defineConfig({
     reporters: ['default'],
     // Pool settings for better isolation
     pool: 'forks',
-    poolOptions: {
-      forks: {
-        singleFork: true,
-      },
-    },
+    isolate: true,
   },
 });
